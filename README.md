@@ -16,16 +16,27 @@ ELM327-style adapter.
   OBD-II vehicle supports them — so you can verify the whole stack works
   against your car before touching anything Alfa-specific.
 
-**Wired and ready, but needs work before it's real:**
+**DPF monitoring — wired to real Alfa PIDs:**
 
-- **DPF monitoring.** The plumbing is all there — `DPFMonitor` polls, fires
-  local notifications, plays an alert through the car speakers via the right
-  `AVAudioSession` config. What's missing is the **actual Alfa Mode 22 PID
-  map**. The values in `Sources/Models.swift` are placeholders and will
-  return `NO DATA`. Real PIDs need to come from decompiling the original
-  APK's `classes.dex` (e.g. with `jadx`) or from AlfaOBD / MultiECUScan
-  community references. Until they're filled in, the DPF panel stays
-  dashed-out.
+`DPFMonitor` now polls community-verified Mode 22 PIDs confirmed working on
+Alfa Romeo Giulia 2.2D and typical FCA diesels (same ECU family used by
+Fiat / Alfa / Chrysler). Live signals:
+
+- **2218E4** — DPF clogging %, `(A·256+B) · 0.01526`
+- **2218DE** — Exhaust temp °C, `(A·256+B) · 0.02 − 40`
+- **22380B** — Regen progress %, `(A·256+B) · 0.01526` (0 = idle)
+- **223807** — Distance since last regen km, `A·256+B`
+- **2218A4** — Total regen count, `A·256+B`
+
+Sources: [alfaowner.com PID list](https://www.alfaowner.com/threads/list-of-pids.305552/),
+[Giulietta DPF PIDs](https://torque-bhp.com/community/main-forum/alfa-romeo-giulietta-dpf-pids/),
+[Kapron-AP DPF diagnostics](https://www.kapron-ap.com/dpf/dpf-diagnostics-fiat-en.html).
+
+If a tile stays dashed on your car, your ECU variant uses different PIDs —
+the values live in `Sources/Models.swift` and are easy to swap.
+
+**Not yet:**
+
 - **CarPlay scene.** The code compiles against the Driving Task template
   set, but Apple has to approve the `com.apple.developer.carplay-driving-task`
   entitlement via request form before it'll sign. Until then, use the phone
@@ -67,10 +78,9 @@ alive, so it'll behave correctly mounted on a dash cradle.
 
 ## Known issues / open work
 
-- **Placeholder Mode 22 PIDs** — primary blocker for DPF functionality.
+- **PIDs are generic FCA, not model-specific.** Works on Giulia 2.2D and
+  most JTDm diesels; older Giulietta / MiTo / 159 may need adjustments.
 - **Reconnect backoff** is a flat 2 s with no jitter or cap.
-- **`readScaled` in `DPFMonitor`** assumes big-endian unsigned values. Real
-  Alfa signals will need per-PID decoders once the PID map is known.
 - **No unit tests yet.** `ELM327.parseMode22Response`, `Mode01.parseMode01`,
   and `DPFMonitor.emitEvents` are all pure and very testable — adding an
   XCTest target is the next obvious step.

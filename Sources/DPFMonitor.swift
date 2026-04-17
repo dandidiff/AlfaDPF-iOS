@@ -2,8 +2,8 @@ import Foundation
 
 /// Polls regen-relevant PIDs on a cadence, maintains the latest `DPFState`,
 /// and emits `RegenEvent`s on state-transition edges. Owns the only place in
-/// the app where raw bytes turn into physical units; scaling factors live
-/// here alongside the state machine that depends on them.
+/// the app where raw bytes turn into physical units; scaling factors live on
+/// `DPFPID` alongside the state machine that depends on them.
 actor DPFMonitor {
     private let elm: ELM327
     private let alerts: AlertService
@@ -16,11 +16,16 @@ actor DPFMonitor {
     /// "plug in mid-regen and get a spurious started alert" bug.
     private var needsBaseline = true
 
-    /// Number of consecutive polls where the regen-status read failed. After
-    /// a few, we drop the state to unknown so we don't keep firing
+    /// Number of consecutive polls where the regen-progress read failed.
+    /// After a few, we drop the state to unknown so we don't keep firing
     /// transitions off stale truth.
-    private var consecutiveStatusFailures = 0
-    private static let statusFailureThreshold = 3
+    private var consecutiveProgressFailures = 0
+    private static let progressFailureThreshold = 3
+
+    /// Percentage of `regenProgressPercent` above which we consider the ECU
+    /// to be actively regenerating. A small epsilon avoids flapping around
+    /// sensor noise when the cycle is idle.
+    private static let regenActiveThresholdPercent = 0.5
 
     init(elm: ELM327, alerts: AlertService) {
         self.elm = elm
@@ -48,31 +53,26 @@ actor DPFMonitor {
         var next = DPFState()
         next.timestamp = Date()
 
-        next.sootMassGrams = try? await readScaled(.sootMass, scale: 1.0 / 100.0)
-        next.ashMassGrams = try? await readScaled(.ashMass, scale: 1.0 / 100.0)
-        next.distanceSinceLastRegenKm = try? await readScaled(.distSinceRegen, scale: 1.0)
-        next.timeSinceLastRegenMin = try? await readScaled(.timeSinceRegen, scale: 1.0)
-        next.exhaustTempC = try? await readScaled(.exhaustTemp, scale: 0.1, offset: -40)
+        next.cloggingPercent          = try? await read(.cloggingPercent)
+        next.exhaustTempC             = try? await read(.exhaustTempC)
+        next.totalRegenCount          = try? await read(.totalRegenCount)
+        next.distanceSinceLastRegenKm = try? await read(.distanceSinceRegenKm)
 
-        // Regen status is the load-bearing signal. Track failures explicitly.
+        // Regen progress is the load-bearing signal for the notification
+        // edge detector. Track failures explicitly.
         do {
-            let bytes = try await elm.readMode22(pid: DPFPID.regenStatusBits.rawValue)
-            if let bits = bytes.first {
-                next.regenActive = (bits & 0b0000_0001) != 0
-                next.regenRequested = (bits & 0b0000_0010) != 0
-                consecutiveStatusFailures = 0
-            }
+            let pct = try await read(.regenProgressPercent)
+            next.regenProgressPercent = pct
+            next.regenActive = pct > Self.regenActiveThresholdPercent
+            consecutiveProgressFailures = 0
         } catch {
-            consecutiveStatusFailures += 1
-            if consecutiveStatusFailures >= Self.statusFailureThreshold {
-                // Don't carry stale regen state forward — mark unknown so the
-                // edge detector can't fire phantom transitions.
+            consecutiveProgressFailures += 1
+            if consecutiveProgressFailures >= Self.progressFailureThreshold {
+                next.regenProgressPercent = nil
                 next.regenActive = nil
-                next.regenRequested = nil
             } else {
-                // Short blips: keep the previous values so the UI doesn't flicker.
+                next.regenProgressPercent = latest.regenProgressPercent
                 next.regenActive = latest.regenActive
-                next.regenRequested = latest.regenRequested
             }
         }
 
@@ -84,15 +84,9 @@ actor DPFMonitor {
         latest = next
     }
 
-    private func readScaled(_ pid: DPFPID, scale: Double, offset: Double = 0) async throws -> Double {
+    private func read(_ pid: DPFPID) async throws -> Double {
         let bytes = try await elm.readMode22(pid: pid.rawValue)
-        // Default decode: big-endian UInt (1..4 bytes) * scale + offset.
-        // Real signals need per-PID decoders — flag for review.
-        guard !bytes.isEmpty, bytes.count <= 4 else {
-            throw OBDError.protocolError("unexpected byte count for \(pid)")
-        }
-        let raw = bytes.reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
-        return Double(raw) * scale + offset
+        return try pid.decode(bytes: bytes)
     }
 
     // MARK: - Event detection
@@ -105,7 +99,7 @@ actor DPFMonitor {
 
         if !wasActive && nowActive {
             regenStartedAt = current.timestamp
-            Task { await alerts.notifyRegenStarted(sootMass: current.sootMassGrams) }
+            Task { await alerts.notifyRegenStarted(cloggingPercent: current.cloggingPercent) }
         } else if wasActive && !nowActive, let started = regenStartedAt {
             let duration = current.timestamp.timeIntervalSince(started)
             regenStartedAt = nil

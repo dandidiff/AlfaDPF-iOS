@@ -20,10 +20,10 @@ actor AlertService {
         _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
     }
 
-    func notifyRegenStarted(sootMass: Double?) async {
+    func notifyRegenStarted(cloggingPercent: Double?) async {
         let body: String
-        if let sootMass {
-            body = String(format: "Regeneration started — soot %.1f g.", sootMass)
+        if let cloggingPercent {
+            body = String(format: "Regeneration started — DPF at %.0f%%.", cloggingPercent)
         } else {
             body = "Regeneration started."
         }

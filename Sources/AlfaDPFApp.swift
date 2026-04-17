@@ -103,20 +103,27 @@ private struct DPFSection: View {
     var body: some View {
         SectionHeader("DPF status")
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            Tile(title: "Soot",         value: dpf.sootMassGrams.map { String(format: "%.1f g", $0) })
+            Tile(title: "Clogging",     value: dpf.cloggingPercent.map { String(format: "%.0f%%", $0) })
             Tile(title: "Since regen",  value: dpf.distanceSinceLastRegenKm.map { "\(Int($0)) km" })
             Tile(title: "Exhaust",      value: dpf.exhaustTempC.map { "\(Int($0))°C" })
-            Tile(title: "Regen",        value: dpf.regenActive.map { $0 ? "ACTIVE" : "idle" })
+            Tile(title: "Regen",        value: regenDisplay(dpf))
+            Tile(title: "Progress",     value: dpf.regenProgressPercent.map { String(format: "%.1f%%", $0) })
+            Tile(title: "Total regens", value: dpf.totalRegenCount.map { "\(Int($0))" })
         }
         if let lastEvent {
             Text(lastEvent).font(.footnote).foregroundStyle(.secondary)
         }
     }
+
+    private func regenDisplay(_ s: DPFState) -> String? {
+        guard let active = s.regenActive else { return nil }
+        return active ? "ACTIVE" : "idle"
+    }
 }
 
 private struct Footer: View {
     var body: some View {
-        Text("DPF values require Alfa/FCA Mode 22 PIDs. Until those are configured in Models.swift, only live Mode 01 data will populate.")
+        Text("DPF PIDs are community-verified on Alfa Romeo Giulia 2.2D and typical FCA diesels. If a tile stays dashed, your ECU variant may use different PIDs — check the alfaowner forum.")
             .font(.caption)
             .foregroundStyle(.secondary)
             .padding(.top, 8)
