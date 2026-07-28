@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		A10000010000000000000001 /* AlfaDPFApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000001 /* AlfaDPFApp.swift */; };
 		A10000010000000000000002 /* AlertService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000002 /* AlertService.swift */; };
-		A10000010000000000000003 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000003 /* CarPlaySceneDelegate.swift */; };
 		A10000010000000000000004 /* DPFMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000004 /* DPFMonitor.swift */; };
 		A10000010000000000000005 /* ELM327.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000005 /* ELM327.swift */; };
 		A10000010000000000000006 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000006 /* Models.swift */; };
@@ -17,12 +16,44 @@
 		A10000010000000000000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000011000000000000000B /* Assets.xcassets */; };
 		A10000010000000000000009 /* Mode01.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000011000000000000000C /* Mode01.swift */; };
 		A1000001000000000000000A /* MonitorSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000011000000000000000D /* MonitorSession.swift */; };
+		A1000001000000000000000B /* OBDTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000011000000000000000E /* OBDTransport.swift */; };
+		A1000001000000000000000C /* BLEConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000011000000000000000F /* BLEConnection.swift */; };
+		A1000001000000000000000D /* OBDLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000010 /* OBDLog.swift */; };
+		A1000001000000000000000E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000011 /* PrivacyInfo.xcprivacy */; };
+		B10000010000000000000001 /* DPFActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000001 /* DPFActivityAttributes.swift */; };
+		B10000010000000000000002 /* DPFLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000002 /* DPFLiveActivityController.swift */; };
+		B10000010000000000000003 /* DPFWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000003 /* DPFWidgetBundle.swift */; };
+		B10000010000000000000004 /* DPFActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000001 /* DPFActivityAttributes.swift */; };
+		B10000010000000000000005 /* DPFWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B10000110000000000000005 /* DPFWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B10000B10000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10000810000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B10000410000000000000001;
+			remoteInfo = DPFWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B10000C10000000000000001 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B10000010000000000000005 /* DPFWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A10000110000000000000001 /* AlfaDPFApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlfaDPFApp.swift; sourceTree = "<group>"; };
 		A10000110000000000000002 /* AlertService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertService.swift; sourceTree = "<group>"; };
-		A10000110000000000000003 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		A10000110000000000000004 /* DPFMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DPFMonitor.swift; sourceTree = "<group>"; };
 		A10000110000000000000005 /* ELM327.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ELM327.swift; sourceTree = "<group>"; };
 		A10000110000000000000006 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -33,10 +64,26 @@
 		A1000011000000000000000B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000011000000000000000C /* Mode01.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mode01.swift; sourceTree = "<group>"; };
 		A1000011000000000000000D /* MonitorSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitorSession.swift; sourceTree = "<group>"; };
+		A1000011000000000000000E /* OBDTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OBDTransport.swift; sourceTree = "<group>"; };
+		A1000011000000000000000F /* BLEConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEConnection.swift; sourceTree = "<group>"; };
+		A10000110000000000000010 /* OBDLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OBDLog.swift; sourceTree = "<group>"; };
+		A10000110000000000000011 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B10000110000000000000001 /* DPFActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DPFActivityAttributes.swift; sourceTree = "<group>"; };
+		B10000110000000000000002 /* DPFLiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DPFLiveActivityController.swift; sourceTree = "<group>"; };
+		B10000110000000000000003 /* DPFWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DPFWidgetBundle.swift; sourceTree = "<group>"; };
+		B10000110000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000110000000000000005 /* DPFWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DPFWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A10000210000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B10000210000000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -51,6 +98,7 @@
 			children = (
 				A10000310000000000000002 /* Sources */,
 				A10000310000000000000003 /* App */,
+				B10000310000000000000001 /* DPFWidget */,
 				A10000310000000000000004 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -60,13 +108,17 @@
 			children = (
 				A10000110000000000000001 /* AlfaDPFApp.swift */,
 				A10000110000000000000002 /* AlertService.swift */,
-				A10000110000000000000003 /* CarPlaySceneDelegate.swift */,
 				A10000110000000000000004 /* DPFMonitor.swift */,
 				A10000110000000000000005 /* ELM327.swift */,
 				A10000110000000000000006 /* Models.swift */,
 				A10000110000000000000007 /* OBDConnection.swift */,
 				A1000011000000000000000C /* Mode01.swift */,
 				A1000011000000000000000D /* MonitorSession.swift */,
+				A1000011000000000000000E /* OBDTransport.swift */,
+				A1000011000000000000000F /* BLEConnection.swift */,
+				A10000110000000000000010 /* OBDLog.swift */,
+				B10000110000000000000001 /* DPFActivityAttributes.swift */,
+				B10000110000000000000002 /* DPFLiveActivityController.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -76,6 +128,7 @@
 			children = (
 				A10000110000000000000008 /* Info.plist */,
 				A10000110000000000000009 /* AlfaDPF.entitlements */,
+				A10000110000000000000011 /* PrivacyInfo.xcprivacy */,
 				A1000011000000000000000B /* Assets.xcassets */,
 			);
 			path = App;
@@ -85,8 +138,18 @@
 			isa = PBXGroup;
 			children = (
 				A1000011000000000000000A /* AlfaDPF.app */,
+				B10000110000000000000005 /* DPFWidget.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B10000310000000000000001 /* DPFWidget */ = {
+			isa = PBXGroup;
+			children = (
+				B10000110000000000000003 /* DPFWidgetBundle.swift */,
+				B10000110000000000000004 /* Info.plist */,
+			);
+			path = DPFWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -99,15 +162,34 @@
 				A10000610000000000000001 /* Sources */,
 				A10000210000000000000001 /* Frameworks */,
 				A10000710000000000000001 /* Resources */,
+				B10000C10000000000000001 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B10000A10000000000000001 /* PBXTargetDependency */,
 			);
 			name = AlfaDPF;
 			productName = AlfaDPF;
 			productReference = A1000011000000000000000A /* AlfaDPF.app */;
 			productType = "com.apple.product-type.application";
+		};
+		B10000410000000000000001 /* DPFWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B10000510000000000000001 /* Build configuration list for PBXNativeTarget "DPFWidget" */;
+			buildPhases = (
+				B10000610000000000000001 /* Sources */,
+				B10000210000000000000001 /* Frameworks */,
+				B10000710000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DPFWidget;
+			productName = DPFWidget;
+			productReference = B10000110000000000000005 /* DPFWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -117,11 +199,14 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1600;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					A10000410000000000000001 = {
 						CreatedOnToolsVersion = 16.0;
 						ProvisioningStyle = Automatic;
+					};
+					B10000410000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
 					};
 				};
 			};
@@ -139,6 +224,7 @@
 			projectRoot = "";
 			targets = (
 				A10000410000000000000001 /* AlfaDPF */,
+				B10000410000000000000001 /* DPFWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -149,6 +235,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000010000000000000008 /* Assets.xcassets in Resources */,
+				A1000001000000000000000E /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B10000710000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -161,17 +255,38 @@
 			files = (
 				A10000010000000000000001 /* AlfaDPFApp.swift in Sources */,
 				A10000010000000000000002 /* AlertService.swift in Sources */,
-				A10000010000000000000003 /* CarPlaySceneDelegate.swift in Sources */,
 				A10000010000000000000004 /* DPFMonitor.swift in Sources */,
 				A10000010000000000000005 /* ELM327.swift in Sources */,
 				A10000010000000000000006 /* Models.swift in Sources */,
 				A10000010000000000000007 /* OBDConnection.swift in Sources */,
 				A10000010000000000000009 /* Mode01.swift in Sources */,
 				A1000001000000000000000A /* MonitorSession.swift in Sources */,
+				A1000001000000000000000B /* OBDTransport.swift in Sources */,
+				A1000001000000000000000C /* BLEConnection.swift in Sources */,
+				A1000001000000000000000D /* OBDLog.swift in Sources */,
+				B10000010000000000000001 /* DPFActivityAttributes.swift in Sources */,
+				B10000010000000000000002 /* DPFLiveActivityController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B10000610000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000010000000000000003 /* DPFWidgetBundle.swift in Sources */,
+				B10000010000000000000004 /* DPFActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B10000A10000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B10000410000000000000001 /* DPFWidget */;
+			targetProxy = B10000B10000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A10000910000000000000001 /* Debug */ = {
@@ -180,9 +295,30 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 37BFAY885U;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -195,6 +331,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -206,10 +343,30 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 37BFAY885U;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -221,6 +378,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -231,9 +389,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				CODE_SIGN_ENTITLEMENTS = App/AlfaDPF.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				CURRENT_PROJECT_VERSION = 3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
@@ -241,8 +399,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.AlfaDPF;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tamburi.AlfaDPF;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -256,18 +414,74 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				CODE_SIGN_ENTITLEMENTS = App/AlfaDPF.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.AlfaDPF;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tamburi.AlfaDPF;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		B10000910000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 37BFAY885U;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DPFWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tamburi.AlfaDPF.DPFWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		B10000910000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 37BFAY885U;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DPFWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tamburi.AlfaDPF.DPFWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -292,6 +506,15 @@
 			buildConfigurations = (
 				A10000910000000000000001 /* Debug */,
 				A10000910000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B10000510000000000000001 /* Build configuration list for PBXNativeTarget "DPFWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B10000910000000000000001 /* Debug */,
+				B10000910000000000000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

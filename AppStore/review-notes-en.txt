@@ -1,0 +1,23 @@
+DPF Monitor does not require an account or login.
+
+The production connection requires:
+- a compatible ELM327 adapter using Bluetooth Low Energy or Wi-Fi;
+- a supported Alfa Romeo/FCA diesel vehicle;
+- ignition on and the vehicle safely parked.
+
+The complete UI can be reviewed without external hardware:
+1. Launch the app.
+2. Tap the test-tube icon in the top bar.
+3. Tap “Esegui ciclo completo (8 secondi)”.
+4. The app cycles through clean filter, high load, regeneration start, regeneration at 52%, and regeneration completion.
+5. If prompted, allow notifications to review the local start/end alerts and Live Activity.
+
+The waveform icon opens a local diagnostic log. The info icon opens the safety notice, privacy policy, and support links.
+
+The app does not collect data, use analytics or advertising, create user accounts, or send vehicle data to a server. Bluetooth and local-network access are used only to communicate directly with the selected adapter.
+
+Safety: configure and use the app only while the vehicle is stationary. The app is informational and does not replace professional diagnostics or vehicle maintenance.
+
+The app is independently developed and is not affiliated with, sponsored, or endorsed by Alfa Romeo, Stellantis, or any compatible vehicle manufacturer.
+
+Contact: tamburiukeddy+alfadpf@gmail.com

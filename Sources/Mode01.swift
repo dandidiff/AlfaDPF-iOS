@@ -5,7 +5,7 @@ import Foundation
 /// real signal on day one — even before the Alfa-specific Mode 22 PIDs for
 /// DPF monitoring are mapped.
 struct Mode01Reader {
-    let connection: OBDConnection
+    let connection: any OBDTransport
 
     struct Live: Equatable {
         var rpm: Double?            // revolutions per minute
@@ -36,41 +36,10 @@ struct Mode01Reader {
     // MARK: - Frame parsing
 
     /// Parses a Mode 01 response, returning the data bytes after the
-    /// `41 <pid>` header. Tolerates CAN headers when `ATH1` is active.
+    /// `41 <pid>` marker. Tolerates CAN headers when `ATH1` is active.
     static func parseMode01(_ text: String, expectedPID: UInt8) throws -> [UInt8] {
-        let lines = text
-            .split(whereSeparator: { $0 == "\n" || $0 == "\r" })
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        guard let line = lines.first(where: { !$0.hasPrefix("NO DATA") && !$0.hasPrefix("?") }) else {
-            throw OBDError.protocolError("no data: \(text)")
-        }
-        let compact = line.filter { !$0.isWhitespace }
-        guard compact.count.isMultiple(of: 2) else {
-            throw OBDError.protocolError("odd-length hex: \(line)")
-        }
-        var bytes: [UInt8] = []
-        bytes.reserveCapacity(compact.count / 2)
-        var i = compact.startIndex
-        while i < compact.endIndex {
-            let next = compact.index(i, offsetBy: 2)
-            guard let b = UInt8(compact[i..<next], radix: 16) else {
-                throw OBDError.protocolError("invalid hex: \(line)")
-            }
-            bytes.append(b)
-            i = next
-        }
-        guard bytes.count >= 2 else {
-            throw OBDError.protocolError("mode01 frame too short: \(line)")
-        }
-
-        // Find the `41 <pid>` marker. With ATH1 we have a CAN header + length
-        // byte in front; without it, `41` is near the start. Scanning is
-        // simpler than hard-coding offsets and handles both modes.
-        for idx in 0..<(bytes.count - 1) where bytes[idx] == 0x41 && bytes[idx + 1] == expectedPID {
-            return Array(bytes.dropFirst(idx + 2))
-        }
-        throw OBDError.protocolError("no 41 \(String(format: "%02X", expectedPID)) marker: \(line)")
+        // 41 = 0x01 + 0x40 (positive reply), followed by the echoed PID.
+        try ELM327.extractPayload(after: String(format: "41%02X", expectedPID), in: text)
     }
 
     // MARK: - Decoders (SAE J1979)

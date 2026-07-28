@@ -31,3 +31,6 @@ Carthage/Build/
 *.mobileprovision
 *.p12
 *.cer
+
+# Privacy/support site is versioned and deployed from its own repository
+SupportSite/

@@ -1,98 +1,117 @@
-# AlfaDPF-iOS
+# AlfaDPF iOS
 
-Port target of the Android app `it.gmg.android.alfadpf`. Phone + CarPlay
-companion for live DPF monitoring on Alfa Romeo / FCA diesels via a Wi-Fi
-ELM327-style adapter.
+Monitor DPF per Alfa Romeo / FCA diesel via adattatore ELM327 Bluetooth LE o
+Wi-Fi. La versione corrente è volutamente concentrata sui dati del filtro e
+sulla rilevazione affidabile della rigenerazione.
 
-## What actually works today vs later
+Il nome pubblico della versione App Store è **DPF Monitor**. Informativa privacy
+e supporto sono pubblicati su
+[dpf-monitor-support.etamburi.chatgpt.site](https://dpf-monitor-support.etamburi.chatgpt.site);
+i metadati di pubblicazione sono raccolti nella cartella `AppStore`.
 
-**Works on day one, on any OBD-II car:**
+## Cosa buildare
 
-- Connects to a Wi-Fi ELM327 at `192.168.0.10:35000` (the default for most
-  cheap dongles — change `OBDConnection.Endpoint.defaultELM` if yours differs).
-- Runs the ELM init sequence.
-- Polls standard **Mode 01** PIDs and shows live RPM, speed, coolant temp,
-  intake temp, and engine load. These are defined by SAE J1979 and every
-  OBD-II vehicle supports them — so you can verify the whole stack works
-  against your car before touching anything Alfa-specific.
+Aprire **`AlfaDPF.xcodeproj`**, selezionare lo scheme **AlfaDPF**, scegliere
+l'iPhone e premere Run. Il target `DPFWidget` è una dipendenza dello scheme:
+Xcode lo compila e lo incorpora automaticamente, non va avviato separatamente.
 
-**DPF monitoring — wired to real Alfa PIDs:**
+Con un Personal Team gratuito l'app e la Live Activity si possono installare
+sul proprio iPhone. La firma di una vera app-template CarPlay richiede invece
+un entitlement approvato da Apple; per questo il vecchio target CarPlay è stato
+rimosso dalla build finale.
 
-`DPFMonitor` now polls community-verified Mode 22 PIDs confirmed working on
-Alfa Romeo Giulia 2.2D and typical FCA diesels (same ECU family used by
-Fiat / Alfa / Chrysler). Live signals:
+## Schermata auto e Live Activity
 
-- **2218E4** — DPF clogging %, `(A·256+B) · 0.01526`
-- **2218DE** — Exhaust temp °C, `(A·256+B) · 0.02 − 40`
-- **22380B** — Regen progress %, `(A·256+B) · 0.01526` (0 = idle)
-- **223807** — Distance since last regen km, `A·256+B`
-- **2218A4** — Total regen count, `A·256+B`
+Quando arrivano i primi dati DPF, l'app avvia una Live Activity con:
 
-Sources: [alfaowner.com PID list](https://www.alfaowner.com/threads/list-of-pids.305552/),
-[Giulietta DPF PIDs](https://torque-bhp.com/community/main-forum/alfa-romeo-giulietta-dpf-pids/),
-[Kapron-AP DPF diagnostics](https://www.kapron-ap.com/dpf/dpf-diagnostics-fiat-en.html).
+- carico DPF;
+- stato e avanzamento rigenerazione; durante una rigenerazione la scheda
+  diventa arancione e mostra esplicitamente **RIGENERAZIONE ATTIVA** anche se
+  il PID di avanzamento non è disponibile;
+- temperatura di scarico;
+- presentazione compatta per Dynamic Island e CarPlay.
 
-If a tile stays dashed on your car, your ECU variant uses different PIDs —
-the values live in `Sources/Models.swift` and are easy to swap.
+Le Live Activity possono apparire automaticamente su CarPlay senza
+l'entitlement di una app CarPlay completa. Riferimenti Apple:
+[CarPlay](https://developer.apple.com/carplay/),
+[ActivityKit](https://developer.apple.com/documentation/activitykit),
+[Live Activities](https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities).
 
-**Not yet:**
+## Test senza automobile
 
-- **CarPlay scene.** The code compiles against the Driving Task template
-  set, but Apple has to approve the `com.apple.developer.carplay-driving-task`
-  entitlement via request form before it'll sign. Until then, use the phone
-  app (mounted in the car works fine).
+Nell'app toccare l'icona con le due provette, quindi:
 
-## Running it on your car today
+1. accettare le notifiche alla prima richiesta;
+2. toccare **Esegui ciclo completo (8 secondi)**;
+3. controllare il passaggio pulito → carico elevato → inizio rigenerazione →
+   rigenerazione al 52% → fine;
+4. verificare banner e suono sia all'inizio sia alla fine;
+5. controllare contemporaneamente Live Activity e Dynamic Island.
 
-1. Open `AlfaDPF.xcodeproj` in Xcode.
-2. In the `AlfaDPF` target → Signing & Capabilities, set your Apple team
-   (personal team is fine) and change the bundle ID from
-   `com.example.AlfaDPF` to something unique to you.
-3. Plug in your iPhone, pick it as the destination, hit Run.
-4. On the phone, trust the developer cert under Settings → General → VPN &
-   Device Management.
-5. Power the OBD dongle (turn on the car's ignition, don't need the engine
-   running yet). Join its Wi-Fi network on the iPhone.
-6. Launch the app, tap **Connect to OBD**. First run asks for Local Network
-   + Notifications permission — approve both.
-7. Once status goes green, RPM / speed / coolant / intake / load should
-   populate within a second or two. The DPF panel will stay dashed until
-   real PIDs are wired.
+Per la prova reale lasciare attiva la sessione Bluetooth, bloccare il telefono
+e verificare anche CarPlay. Gli avvisi usano una categoria abilitata per
+CarPlay; in **Impostazioni → Notifiche → AlfaDPF** devono essere consentiti
+Schermata di blocco e Suoni. Con un Personal Team le notifiche urgenti non sono
+firmabili, quindi anche la modalità Full immersion Guida deve consentire gli
+avvisi di AlfaDPF.
 
-The app keeps the screen awake while connected and asks iOS to keep Wi-Fi
-alive, so it'll behave correctly mounted on a dash cradle.
+Ogni scenario può anche essere selezionato singolarmente. Per provare soltanto
+il canale di notifica usare **Prova solo banner e suono**. Il simulatore usa lo
+stesso `RegenActivityTracker`, lo stesso `AlertService` e la stessa Live
+Activity della connessione reale: non è un mock soltanto grafico.
 
-## Module map
+Per QA automatica di una build Debug sono disponibili due variabili di lancio:
 
-| File | Role |
+```text
+ALFADPF_AUTORUN_TEST=1
+ALFADPF_SCENARIO=regenInProgress
+```
+
+## Perché i dati motore non vengono più letti
+
+La sessione principale non invia più i PID generici Mode 01. Sul setup reale,
+alternare Mode 01 e i PID Alfa Mode 22 poteva cambiare header/contesto ECU e
+far sparire a turno i dati motore o quelli DPF. Poiché il prodotto serve alla
+rigenerazione, la connessione finale preserva esclusivamente il polling DPF già
+validato. Il parser Mode 01 resta nel repository e nei test, ma non interviene
+nella sessione in auto.
+
+## PID DPF
+
+- `2218E4` — saturazione %, `(A·256+B) · 0.01526`
+- `2218DE` — temperatura scarico °C, `(A·256+B) · 0.02 − 40`
+- `22380B` — avanzamento rigenerazione %, `(A·256+B) · (100/65535)`
+- `223807` — distanza dall'ultima rigenerazione km, valore a 3 byte `· 0.1`
+- `2218A4` — numero totale rigenerazioni
+
+`DPFMonitor` prova gli indirizzi ECU FCA conosciuti, memorizza separatamente
+l'header funzionante per ogni PID e mantiene il rilevamento attivo attraverso
+brevi campioni mancanti. Se `22380B` resta a zero o non risponde, una seconda
+strategia riconosce la rigenerazione solo dopo aver osservato insieme scarico
+caldo e calo sostenuto dell'intasamento; il raffreddamento confermato chiude il
+ciclo.
+
+## Test automatici
+
+Il runner standalone copre parser CAN 11/29 bit, formule, tracker di
+rigenerazione, scenari simulati, BLE, timeout, riconnessione e atomicità dei
+comandi ELM:
+
+```sh
+swiftc Sources/Models.swift Sources/OBDLog.swift Sources/OBDTransport.swift \
+  Sources/OBDConnection.swift Sources/BLEConnection.swift Sources/ELM327.swift \
+  Sources/Mode01.swift Tests/main.swift -o /tmp/alfadpf_tests
+/tmp/alfadpf_tests
+```
+
+## File principali
+
+| File | Ruolo |
 |---|---|
-| [AlfaDPFApp.swift](Sources/AlfaDPFApp.swift) | App entry + SwiftUI phone UI |
-| [MonitorSession.swift](Sources/MonitorSession.swift) | Phone-side coordinator: connect, ELM init, poll, lifecycle |
-| [CarPlaySceneDelegate.swift](Sources/CarPlaySceneDelegate.swift) | CarPlay lifecycle (gated behind Apple entitlement) |
-| [OBDConnection.swift](Sources/OBDConnection.swift) | `NWConnection` TCP client w/ reconnect + read timeout |
-| [ELM327.swift](Sources/ELM327.swift) | AT init, Mode 22 request framing, response parsing |
-| [Mode01.swift](Sources/Mode01.swift) | Standard J1979 PID reader + decoders |
-| [DPFMonitor.swift](Sources/DPFMonitor.swift) | Regen state machine + notifications |
-| [AlertService.swift](Sources/AlertService.swift) | Local notifications + ducked audio alert |
-| [Models.swift](Sources/Models.swift) | `DPFState`, `RegenEvent`, **placeholder PIDs** |
-
-## Known issues / open work
-
-- **PIDs are generic FCA, not model-specific.** Works on Giulia 2.2D and
-  most JTDm diesels; older Giulietta / MiTo / 159 may need adjustments.
-- **Reconnect backoff** is a flat 2 s with no jitter or cap.
-- **No unit tests yet.** `ELM327.parseMode22Response`, `Mode01.parseMode01`,
-  and `DPFMonitor.emitEvents` are all pure and very testable — adding an
-  XCTest target is the next obvious step.
-- **Strict concurrency is off** (`SWIFT_STRICT_CONCURRENCY` unset, Swift 5
-  mode). Worth turning to `targeted` once the project is humming. Would
-  have caught earlier bugs at compile time.
-- **CarPlay entitlement** is not wired into `CODE_SIGN_ENTITLEMENTS` so the
-  default build signs with a personal team. Wire `App/AlfaDPF.entitlements`
-  in once Apple approves the request.
-
-## Not in this sketch
-
-- DTC database port from `dtc.db` / `dtcsae.db` (straight SQLite copy).
-- IAP / StoreKit migration from Play Billing.
-- Settings persistence, connection profile editor, history graphs.
+| `Sources/AlfaDPFApp.swift` | UI DPF, diagnostica e laboratorio test |
+| `Sources/MonitorSession.swift` | connessione, polling DPF, simulazioni |
+| `Sources/DPFMonitor.swift` | PID Mode 22 e transizioni rigenerazione |
+| `Sources/AlertService.swift` | notifiche locali con suono |
+| `Sources/DPFLiveActivityController.swift` | avvio e aggiornamento Live Activity |
+| `DPFWidget/DPFWidgetBundle.swift` | Lock Screen, Dynamic Island e CarPlay |
+| `Sources/Models.swift` | stato DPF, tracker, scenari e formule PID |

@@ -1,154 +1,1219 @@
 import SwiftUI
+import UIKit
+import UserNotifications
+
+/// iOS normally hides local notifications while the app is open. Presenting
+/// them explicitly is essential here: a regeneration must still create a
+/// visible banner and an audible system alert while the dashboard is visible.
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list, .sound])
+    }
+}
 
 @main
 struct AlfaDPFApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var session = MonitorSession()
 
     var body: some Scene {
         WindowGroup {
             PhoneRootView(session: session)
+                .preferredColorScheme(.dark)
         }
     }
 }
 
+// MARK: - Visual language
+
+private enum Brand {
+    static let red = Color(red: 0.93, green: 0.11, blue: 0.16)
+    static let redBright = Color(red: 1.00, green: 0.27, blue: 0.31)
+    static let burgundy = Color(red: 0.28, green: 0.015, blue: 0.035)
+    static let ink = Color(red: 0.025, green: 0.025, blue: 0.035)
+    static let panel = Color(red: 0.10, green: 0.10, blue: 0.13)
+    static let textDim = Color.white.opacity(0.55)
+    static let hairline = Color.white.opacity(0.12)
+}
+
+private enum AppLinks {
+    static let privacy = URL(string: "https://dpf-monitor-support.etamburi.chatgpt.site/privacy")!
+    static let support = URL(string: "https://dpf-monitor-support.etamburi.chatgpt.site/support")!
+    static let email = URL(string: "mailto:tamburiukeddy+alfadpf@gmail.com")!
+}
+
+private extension View {
+    /// A restrained Liquid Glass-inspired surface that remains compatible
+    /// with the iOS 17 deployment target. On newer iOS versions the system
+    /// material automatically adopts the current glass rendering language.
+    func glassPanel(cornerRadius: CGFloat = 26) -> some View {
+        background(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .background(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(Color.white.opacity(0.025))
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.22), Color.white.opacity(0.035)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.8
+                )
+        )
+        .shadow(color: .black.opacity(0.24), radius: 22, y: 12)
+    }
+}
+
+// MARK: - Root
+
 struct PhoneRootView: View {
+    @Bindable var session: MonitorSession
+    @State private var showDiagnostics = false
+    @State private var showTestLab = false
+    @State private var showAbout = false
+    @State private var showNotificationSetup = false
+    @State private var preparedLaunch = false
+    @State private var appliedDebugLaunchScenario = false
+
+    var body: some View {
+        ZStack {
+            DashboardBackground()
+
+            ScrollView {
+                VStack(spacing: 18) {
+                    HeaderBar(
+                        status: session.status,
+                        onDiagnostics: { showDiagnostics = true },
+                        onTestLab: { showTestLab = true },
+                        onAbout: { showAbout = true }
+                    )
+
+                    if session.alertAuthorization.needsSettingsAttention {
+                        NotificationGuidanceCard(state: session.alertAuthorization)
+                    }
+
+                    if session.isShowingCachedTelemetry {
+                        CachedStateStrip(updatedAt: session.dpf.timestamp)
+                    }
+
+                    HeroGauge(
+                        dpf: session.dpf,
+                        isCached: session.isShowingCachedTelemetry
+                    )
+
+                    DPFDetailGrid(
+                        dpf: session.dpf,
+                        isCached: session.isShowingCachedTelemetry
+                    )
+
+                    if let event = session.lastRegenEvent {
+                        EventStrip(text: event, simulated: session.status == .simulating)
+                    }
+
+                    ConnectionPanel(session: session)
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 10)
+                .padding(.bottom, 30)
+            }
+            .scrollIndicators(.hidden)
+        }
+        .sheet(isPresented: $showDiagnostics) {
+            DiagnosticsView(
+                dpf: session.dpf,
+                onTestNotification: session.testNotification
+            )
+        }
+        .sheet(isPresented: $showTestLab) {
+            TestLabView(session: session)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showAbout) {
+            AboutSafetyView()
+        }
+        .fullScreenCover(isPresented: $showNotificationSetup) {
+            NotificationSetupView(session: session) {
+                showNotificationSetup = false
+                session.startAutomaticallyIfNeeded()
+            }
+            .interactiveDismissDisabled()
+        }
+        .task {
+            guard !preparedLaunch else { return }
+            preparedLaunch = true
+            if await session.prepareNotificationAuthorizationAtLaunch() {
+                showNotificationSetup = true
+            } else {
+                session.startAutomaticallyIfNeeded()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            Task { await session.refreshNotificationAuthorization() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            session.persistCurrentState()
+        }
+        .onOpenURL { url in
+            guard url.scheme == "alfadpf",
+                  url.host == nil || url.host == "connect"
+            else { return }
+            session.startAutomaticallyIfNeeded()
+        }
+        .onAppear(perform: applyDebugLaunchScenarioIfNeeded)
+    }
+
+    private func applyDebugLaunchScenarioIfNeeded() {
+#if DEBUG
+        guard !appliedDebugLaunchScenario else { return }
+        appliedDebugLaunchScenario = true
+        let environment = ProcessInfo.processInfo.environment
+        if environment["ALFADPF_AUTORUN_TEST"] == "1" {
+            session.runSimulationSequence()
+        } else if let raw = environment["ALFADPF_SCENARIO"],
+                  let scenario = DPFSimulationScenario(rawValue: raw) {
+            session.applySimulation(scenario)
+        }
+        switch environment["ALFADPF_SCREEN"] {
+        case "testLab":
+            showTestLab = true
+        case "about":
+            showAbout = true
+        default:
+            break
+        }
+#endif
+    }
+}
+
+private struct NotificationSetupView: View {
+    @Bindable var session: MonitorSession
+    let onComplete: () -> Void
+
+    @Environment(\.openURL) private var openURL
+    @State private var isRequesting = false
+    @State private var showSettingsStep = false
+
+    var body: some View {
+        ZStack {
+            DashboardBackground()
+
+            VStack(spacing: 24) {
+                Spacer()
+
+                Image(systemName: showSettingsStep ? "gear.badge" : "bell.and.waves.left.and.right.fill")
+                    .font(.system(size: 54, weight: .semibold))
+                    .foregroundStyle(showSettingsStep ? .orange : Brand.redBright)
+                    .frame(width: 112, height: 112)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(Circle().stroke(Color.white.opacity(0.18)))
+
+                VStack(spacing: 12) {
+                    Text(showSettingsStep ? "Completa gli avvisi" : "Non perdere una rigenerazione")
+                        .font(.system(size: 29, weight: .bold, design: .rounded))
+                        .multilineTextAlignment(.center)
+
+                    Text(explanation)
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.72))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 13) {
+                    setupRow(
+                        symbol: "bell.fill",
+                        title: "Nel messaggio di iOS tocca “Consenti”",
+                        enabled: session.alertAuthorization.authorization == .authorized
+                    )
+                    setupRow(
+                        symbol: "exclamationmark.bubble.fill",
+                        title: "Mantieni attive le “Notifiche urgenti”",
+                        enabled: session.alertAuthorization.timeSensitiveEnabled
+                    )
+                    setupRow(
+                        symbol: "car.fill",
+                        title: "Per la voce di Siri attiva “Annuncia notifiche”",
+                        enabled: session.alertAuthorization.siriAnnouncementsEnabled
+                    )
+                    Text("In Full immersion › Alla guida abilita anche “Consenti notifiche urgenti”. iOS non permette all’app di verificarlo o attivarlo.")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(.orange.opacity(0.82))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(18)
+                .glassPanel(cornerRadius: 22)
+
+                Spacer()
+
+                if showSettingsStep {
+                    Button {
+                        openNotificationSettings()
+                    } label: {
+                        Label("Apri Impostazioni", systemImage: "gear")
+                            .font(.system(size: 17, weight: .semibold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+
+                    Button("Continua nell’app", action: onComplete)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.72))
+                } else {
+                    Button {
+                        isRequesting = true
+                        Task {
+                            await session.requestNotificationAuthorization()
+                            isRequesting = false
+                            if session.alertAuthorization.canSendTimeSensitiveAlerts {
+                                onComplete()
+                            } else {
+                                showSettingsStep = true
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            if isRequesting {
+                                ProgressView().tint(.white)
+                            } else {
+                                Image(systemName: "bell.badge.fill")
+                            }
+                            Text("Attiva gli avvisi")
+                        }
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Brand.red)
+                    .disabled(isRequesting)
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 32)
+        }
+    }
+
+    private var explanation: String {
+        if showSettingsStep {
+            return "iOS non permette a DPF Monitor di cambiare queste preferenze al posto tuo. Controlla anche Full immersion › Alla guida."
+        }
+        return "Gli avvisi di rigenerazione sono informazioni sensibili al tempo. Ti guidiamo una volta sola; poi l’app tenterà automaticamente la connessione all’OBD."
+    }
+
+    private func setupRow(symbol: String, title: String, enabled: Bool) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: enabled ? "checkmark.circle.fill" : symbol)
+                .foregroundStyle(enabled ? .green : .white.opacity(0.72))
+                .frame(width: 24)
+            Text(title)
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.82))
+        }
+    }
+
+    private func openNotificationSettings() {
+        guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
+        openURL(url)
+    }
+}
+
+private struct NotificationGuidanceCard: View {
+    let state: AlertAuthorizationState
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        Button {
+            guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
+            openURL(url)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "bell.badge.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.orange)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    Text(detail)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+            .foregroundStyle(.white)
+            .padding(15)
+            .glassPanel(cornerRadius: 20)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var title: String {
+        if state.authorization == .denied { return "Notifiche disattivate" }
+        if !state.alertEnabled || !state.lockScreenEnabled || !state.soundEnabled {
+            return "Completa gli avvisi di iOS"
+        }
+        if !state.timeSensitiveEnabled { return "Attiva le notifiche urgenti" }
+        return "Attiva la lettura con Siri"
+    }
+
+    private var detail: String {
+        if state.authorization == .denied {
+            return "Apri Impostazioni e consenti gli avvisi di rigenerazione."
+        }
+        if !state.alertEnabled || !state.lockScreenEnabled || !state.soundEnabled {
+            return "Abilita avvisi, schermo bloccato e suoni per DPF Monitor."
+        }
+        if !state.timeSensitiveEnabled {
+            return "Abilita anche “Consenti notifiche urgenti” nella Full immersion Alla guida."
+        }
+        return "Abilita “Annuncia notifiche” per DPF Monitor; l’app non può forzare la lettura."
+    }
+}
+
+private struct CachedStateStrip: View {
+    let updatedAt: Date
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "clock.arrow.circlepath")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("ULTIMO STATO SALVATO")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .tracking(1.4)
+                Text(updatedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+            }
+            Spacer()
+            Text("NON LIVE")
+                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .tracking(1)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 6)
+                .background(Color.white.opacity(0.09), in: Capsule())
+        }
+        .foregroundStyle(.white.opacity(0.58))
+        .padding(14)
+        .glassPanel(cornerRadius: 18)
+    }
+}
+
+private struct DashboardBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Brand.burgundy.opacity(0.92), Brand.ink, .black],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Circle()
+                .fill(Brand.red.opacity(0.22))
+                .frame(width: 330, height: 330)
+                .blur(radius: 80)
+                .offset(x: -170, y: -330)
+            Circle()
+                .fill(Color.orange.opacity(0.10))
+                .frame(width: 280, height: 280)
+                .blur(radius: 100)
+                .offset(x: 190, y: 330)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+// MARK: - Header
+
+private struct HeaderBar: View {
+    let status: MonitorSession.Status
+    let onDiagnostics: () -> Void
+    let onTestLab: () -> Void
+    let onAbout: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("DPF")
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .tracking(3.6)
+                    .foregroundStyle(Brand.redBright)
+                Text("Monitor")
+                    .font(.system(size: 29, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+
+            Spacer(minLength: 8)
+
+            RoundGlassButton(symbol: "waveform.badge.magnifyingglass", action: onDiagnostics)
+                .accessibilityLabel("Diagnostica OBD")
+            RoundGlassButton(symbol: "testtube.2", action: onTestLab)
+                .accessibilityLabel("Laboratorio test")
+            RoundGlassButton(symbol: "info.circle", action: onAbout)
+                .accessibilityLabel("Informazioni, sicurezza e privacy")
+            StatusBadge(status: status)
+        }
+    }
+}
+
+private struct RoundGlassButton: View {
+    let symbol: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.82))
+                .frame(width: 38, height: 38)
+                .background(.thinMaterial, in: Circle())
+                .overlay(Circle().stroke(Brand.hairline, lineWidth: 0.7))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct StatusBadge: View {
+    let status: MonitorSession.Status
+    @State private var pulse = false
+
+    var body: some View {
+        let info = display
+        HStack(spacing: 7) {
+            ZStack {
+                Circle()
+                    .fill(info.color.opacity(0.38))
+                    .frame(width: 14, height: 14)
+                    .scaleEffect(pulse ? 1.7 : 1)
+                    .opacity(pulse ? 0 : 1)
+                Circle().fill(info.color).frame(width: 7, height: 7)
+            }
+            Text(info.label)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .lineLimit(1)
+        }
+        .foregroundStyle(.white.opacity(0.9))
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .background(.thinMaterial, in: Capsule())
+        .overlay(Capsule().stroke(Brand.hairline, lineWidth: 0.7))
+        .onAppear(perform: syncPulse)
+        .onChange(of: status) { syncPulse() }
+    }
+
+    private var display: (label: String, color: Color) {
+        switch status {
+        case .idle:       return ("Pronto", .gray)
+        case .connecting: return ("Connessione", .orange)
+        case .running:    return ("Live", .green)
+        case .simulating: return ("Test", .cyan)
+        case .failed:     return ("Errore", .red)
+        }
+    }
+
+    private func syncPulse() {
+        let shouldPulse = status == .running || status == .simulating
+        if shouldPulse {
+            pulse = false
+            withAnimation(.easeOut(duration: 1.25).repeatForever(autoreverses: false)) {
+                pulse = true
+            }
+        } else {
+            withAnimation(.linear(duration: 0.1)) { pulse = false }
+        }
+    }
+}
+
+// MARK: - Main DPF gauge
+
+private struct HeroGauge: View {
+    let dpf: DPFState
+    let isCached: Bool
+
+    private var load: Double { dpf.cloggingPercent ?? 0 }
+    private var hasData: Bool { dpf.cloggingPercent != nil }
+
+    private var tint: Color {
+        guard hasData else { return .gray }
+        if isCached { return .gray }
+        return dpf.regenActive == true ? .orange : .cyan
+    }
+
+    private var loadLabel: String {
+        guard hasData else { return "Dati non disponibili" }
+        return dpf.regenActive == true ? "Rigenerazione attiva" : "Indice calcolato ECU"
+    }
+
+    private var guidance: String {
+        guard hasData else { return "Connetti l'adattatore oppure usa il laboratorio test." }
+        if isCached { return "Valore dell’ultima connessione, non in tempo reale." }
+        if dpf.regenActive == true { return "Continua a guidare e non spegnere il motore." }
+        if dpf.cloggingSourceVerified == false {
+            return "Risposta da un indirizzo ECU non ancora convalidato per questo modello."
+        }
+        return "Indice proprietario FCA: non predice da solo l’avvio e può differire da altre app."
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 18) {
+                gauge
+                    .frame(width: 172, height: 172)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("CARICO CALCOLATO ECU")
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .tracking(2.3)
+                        .foregroundStyle(Brand.textDim)
+
+                    Text(loadLabel)
+                        .font(.system(size: 25, weight: .bold, design: .rounded))
+                        .foregroundStyle(tint)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(guidance)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.60))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Divider().overlay(Color.white.opacity(0.09))
+            RegenStatusRow(dpf: dpf, isCached: isCached)
+        }
+        .padding(20)
+        .glassPanel(cornerRadius: 30)
+        .saturation(isCached ? 0 : 1)
+        .opacity(isCached ? 0.64 : 1)
+    }
+
+    private var gauge: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.07), lineWidth: 18)
+
+            // Solid tint fixes the visible AngularGradient seam and the
+            // accidental two-tone red ring seen at high load.
+            Circle()
+                .trim(from: 0, to: CGFloat(min(max(load, 0), 100) / 100))
+                .stroke(
+                    tint,
+                    style: StrokeStyle(lineWidth: 18, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .shadow(color: tint.opacity(0.38), radius: 10)
+                .animation(.smooth(duration: 0.65), value: load)
+
+            VStack(spacing: -2) {
+                HStack(alignment: .lastTextBaseline, spacing: 2) {
+                    Text(hasData ? String(format: "%.0f", load) : "—")
+                        .font(.system(size: 54, weight: .bold, design: .rounded).monospacedDigit())
+                    if hasData {
+                        Text("%")
+                            .font(.system(size: 21, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Brand.textDim)
+                    }
+                }
+                Text("INDICE ECU")
+                    .font(.system(size: 8, weight: .heavy, design: .rounded))
+                    .tracking(1.5)
+                    .foregroundStyle(Brand.textDim)
+            }
+            .foregroundStyle(.white)
+        }
+    }
+}
+
+private struct RegenStatusRow: View {
+    let dpf: DPFState
+    let isCached: Bool
+
+    var body: some View {
+        let active = dpf.regenActive == true
+        HStack(spacing: 12) {
+            Image(systemName: active ? "flame.fill" : "flame")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(active ? .orange : Brand.textDim)
+                .frame(width: 38, height: 38)
+                .background((active ? Color.orange : Color.white).opacity(0.10), in: Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(regenTitle)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(active ? .orange : .white.opacity(0.82))
+                Text(isCached
+                     ? "Ultimo stato salvato, non in tempo reale"
+                     : "Stima da PID dedicato e segnali termici ECU")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(Brand.textDim)
+            }
+
+            Spacer()
+
+            if let progress = dpf.regenProgressPercent, active {
+                Text(String(format: "%.0f%%", progress))
+                    .font(.system(size: 20, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private var regenTitle: String {
+        switch dpf.regenActive {
+        case true:  return "Rigenerazione attiva"
+        case false: return "Rigenerazione non attiva"
+        case nil:   return "Stato rigenerazione sconosciuto"
+        }
+    }
+}
+
+// MARK: - Details
+
+private struct DPFDetailGrid: View {
+    let dpf: DPFState
+    let isCached: Bool
+    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            SectionLabel(text: "DETTAGLI DPF", icon: "aqi.medium")
+            LazyVGrid(columns: columns, spacing: 12) {
+                MetricCard(
+                    icon: "road.lanes",
+                    title: "DALL'ULTIMA REGEN",
+                    value: dpf.distanceSinceLastRegenKm.map { String(format: "%.0f", $0) },
+                    unit: "km",
+                    accent: isCached ? .gray : .cyan
+                )
+                MetricCard(
+                    icon: "thermometer.high",
+                    title: "SCARICO",
+                    value: dpf.exhaustTempC.map { String(format: "%.0f", $0) },
+                    unit: "°C",
+                    accent: isCached ? .gray : .orange
+                )
+                MetricCard(
+                    icon: "arrow.triangle.2.circlepath",
+                    title: "AVANZAMENTO",
+                    value: dpf.regenProgressPercent.map { String(format: "%.1f", $0) },
+                    unit: "%",
+                    accent: isCached ? .gray : (dpf.regenActive == true ? .orange : .gray)
+                )
+                MetricCard(
+                    icon: "number.square",
+                    title: "RAW PID 2218E4",
+                    value: dpf.cloggingRaw.map { String($0) },
+                    unit: "ECU",
+                    accent: isCached ? .gray : .cyan
+                )
+            }
+        }
+        .saturation(isCached ? 0 : 1)
+        .opacity(isCached ? 0.64 : 1)
+    }
+}
+
+private struct SectionLabel: View {
+    let text: String
+    let icon: String
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: icon)
+            Text(text).tracking(2)
+        }
+        .font(.system(size: 10, weight: .bold, design: .rounded))
+        .foregroundStyle(Brand.textDim)
+        .padding(.leading, 3)
+    }
+}
+
+private struct MetricCard: View {
+    let icon: String
+    let title: String
+    let value: String?
+    let unit: String
+    let accent: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(spacing: 7) {
+                Image(systemName: icon)
+                    .foregroundStyle(accent)
+                Text(title)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .font(.system(size: 10, weight: .bold, design: .rounded))
+            .foregroundStyle(Brand.textDim)
+
+            HStack(alignment: .lastTextBaseline, spacing: 5) {
+                Text(value ?? "—")
+                    .font(.system(size: 27, weight: .semibold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                if value != nil {
+                    Text(unit)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(Brand.textDim)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .glassPanel(cornerRadius: 22)
+    }
+}
+
+private struct EventStrip: View {
+    let text: String
+    let simulated: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: simulated ? "testtube.2" : "bell.badge.fill")
+                .foregroundStyle(simulated ? .cyan : .orange)
+            Text(text)
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.75))
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .glassPanel(cornerRadius: 18)
+    }
+}
+
+// MARK: - Connection
+
+private struct ConnectionPanel: View {
+    @Bindable var session: MonitorSession
+
+    private var locked: Bool {
+        switch session.status {
+        case .idle, .failed: return false
+        case .connecting, .running, .simulating: return true
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                SectionLabel(text: "CONNESSIONE", icon: "cable.connector")
+                Spacer()
+                if session.status == .simulating {
+                    Text("OBD disattivato durante il test")
+                        .font(.system(size: 9, weight: .medium, design: .rounded))
+                        .foregroundStyle(.cyan.opacity(0.75))
+                }
+            }
+
+            Picker("Trasporto", selection: $session.transportKind) {
+                ForEach(TransportKind.allCases) { kind in
+                    Text(kind.label).tag(kind)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(locked)
+            .opacity(locked ? 0.55 : 1)
+
+            Label("Configura la connessione da fermo. Non usare iPhone durante la guida.", systemImage: "steeringwheel")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(.orange.opacity(0.86))
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(action: toggle) {
+                HStack(spacing: 10) {
+                    if session.status == .connecting {
+                        ProgressView().tint(.white)
+                    } else {
+                        Image(systemName: buttonSymbol)
+                    }
+                    Text(buttonTitle)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(buttonGradient, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.20), lineWidth: 0.8)
+                )
+                .shadow(color: Brand.red.opacity(isStopped ? 0.35 : 0.05), radius: 15, y: 7)
+            }
+            .buttonStyle(.plain)
+
+            if case .failed(let message) = session.status {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.red.opacity(0.85))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(16)
+        .glassPanel(cornerRadius: 24)
+    }
+
+    private var isStopped: Bool {
+        session.status == .idle || {
+            if case .failed = session.status { return true }
+            return false
+        }()
+    }
+
+    private var buttonTitle: String {
+        switch session.status {
+        case .idle:       return "Connetti all'OBD"
+        case .connecting: return "Annulla connessione"
+        case .running:    return "Disconnetti"
+        case .simulating: return "Termina simulazione"
+        case .failed:     return "Riprova connessione"
+        }
+    }
+
+    private var buttonSymbol: String {
+        switch session.status {
+        case .idle, .failed: return "bolt.fill"
+        case .connecting:    return "xmark"
+        case .running:       return "bolt.slash.fill"
+        case .simulating:    return "stop.fill"
+        }
+    }
+
+    private var buttonGradient: LinearGradient {
+        let colors: [Color]
+        switch session.status {
+        case .idle, .failed: colors = [Brand.redBright, Brand.red, Brand.burgundy]
+        case .simulating:    colors = [.cyan.opacity(0.8), .blue.opacity(0.6)]
+        default:             colors = [Color.white.opacity(0.22), Color.white.opacity(0.10)]
+        }
+        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    private func toggle() {
+        switch session.status {
+        case .running, .connecting, .simulating:
+            session.stop()
+        case .idle, .failed:
+            session.start()
+        }
+    }
+}
+
+// MARK: - Safety, privacy and support
+
+private struct AboutSafetyView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private var versionText: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+        return "Versione \(version) (\(build))"
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Prima la sicurezza", systemImage: "exclamationmark.triangle.fill")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(.orange)
+                        Text("Configura l’adattatore e consulta i dati soltanto a veicolo fermo. Non interagire con iPhone durante la guida e rispetta sempre il codice della strada.")
+                            .font(.system(size: 14, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.76))
+                    }
+                    .padding(18)
+                    .glassPanel(cornerRadius: 22)
+
+                    informationSection(
+                        title: "Uso informativo",
+                        symbol: "wrench.and.screwdriver",
+                        text: "Le letture dipendono dall’adattatore e dalla centralina del veicolo. DPF Monitor non sostituisce strumenti professionali, manutenzione, diagnosi o indicazioni del costruttore."
+                    )
+
+                    informationSection(
+                        title: "Avvisi durante la guida",
+                        symbol: "bell.and.waves.left.and.right",
+                        text: "Gli avvisi richiedono che iOS mantenga attiva la lettura OBD. Con iPhone bloccato il sistema può sospendere il polling; inoltre Full immersion e Siri decidono se mostrare o leggere una notifica. L’app non può garantire un avviso in ogni condizione."
+                    )
+
+                    informationSection(
+                        title: "App indipendente",
+                        symbol: "checkmark.shield",
+                        text: "DPF Monitor è un prodotto indipendente e non è affiliato, sponsorizzato o approvato da Alfa Romeo, Stellantis o dai costruttori dei veicoli compatibili. I marchi citati appartengono ai rispettivi titolari."
+                    )
+
+                    VStack(spacing: 0) {
+                        AboutLinkRow(title: "Informativa privacy", symbol: "hand.raised.fill", destination: AppLinks.privacy)
+                        Divider().overlay(Brand.hairline)
+                        AboutLinkRow(title: "Supporto", symbol: "questionmark.circle.fill", destination: AppLinks.support)
+                        Divider().overlay(Brand.hairline)
+                        AboutLinkRow(title: "Contatta l’assistenza", symbol: "envelope.fill", destination: AppLinks.email)
+                    }
+                    .padding(.horizontal, 16)
+                    .glassPanel(cornerRadius: 22)
+
+                    Text(versionText)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(Brand.textDim)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 4)
+                }
+                .padding(18)
+            }
+            .background(DashboardBackground())
+            .navigationTitle("Informazioni")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Fine") { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func informationSection(title: String, symbol: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: symbol)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+            Text(text)
+                .font(.system(size: 13, design: .rounded))
+                .foregroundStyle(.white.opacity(0.68))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .glassPanel(cornerRadius: 22)
+    }
+}
+
+private struct AboutLinkRow: View {
+    let title: String
+    let symbol: String
+    let destination: URL
+
+    var body: some View {
+        Link(destination: destination) {
+            HStack(spacing: 12) {
+                Image(systemName: symbol)
+                    .foregroundStyle(Brand.redBright)
+                    .frame(width: 22)
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Brand.textDim)
+            }
+            .padding(.vertical, 15)
+        }
+    }
+}
+
+// MARK: - Test Lab
+
+private struct TestLabView: View {
+    @Environment(\.dismiss) private var dismiss
     @Bindable var session: MonitorSession
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    StatusCard(status: session.status)
-                    ActionButton(session: session)
-                    LiveDataSection(live: session.live)
-                    DPFSection(dpf: session.dpf, lastEvent: session.lastRegenEvent)
-                    Footer()
+                VStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Label("Test senza automobile", systemImage: "car.side.fill")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                        Text("Gli scenari usano la stessa logica della connessione reale: interfaccia, Live Activity e notifiche di inizio/fine rigenerazione.")
+                            .font(.system(size: 13, design: .rounded))
+                            .foregroundStyle(Brand.textDim)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Button(action: session.runSimulationSequence) {
+                        Label("Esegui ciclo completo (8 secondi)", systemImage: "play.fill")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(
+                                LinearGradient(colors: [.cyan, .blue], startPoint: .leading, endPoint: .trailing),
+                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: session.testNotification) {
+                        Label("Test tra 5 s: blocca lo schermo", systemImage: "bell.badge.fill")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Brand.hairline))
+                    }
+                    .buttonStyle(.plain)
+
+                    VStack(spacing: 9) {
+                        ForEach(DPFSimulationScenario.allCases) { scenario in
+                            ScenarioButton(
+                                scenario: scenario,
+                                selected: session.activeScenario == scenario,
+                                action: { session.applySimulation(scenario) }
+                            )
+                        }
+                    }
+
+                    Text("Per testare manualmente entrambe le notifiche, tocca prima “Inizio rigenerazione” e poi “Fine rigenerazione”.")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(Brand.textDim)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding()
+                .padding(18)
             }
-            .navigationTitle("AlfaDPF")
+            .background(DashboardBackground())
+            .navigationTitle("Laboratorio DPF")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if session.status == .simulating {
+                        Button("Termina test") { session.stop() }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Fine") { dismiss() }
+                }
+            }
         }
+        .preferredColorScheme(.dark)
     }
 }
 
-// MARK: - Subviews
-
-private struct StatusCard: View {
-    let status: MonitorSession.Status
+private struct ScenarioButton: View {
+    let scenario: DPFSimulationScenario
+    let selected: Bool
+    let action: () -> Void
 
     var body: some View {
-        let (label, tint) = display(status)
-        HStack(spacing: 12) {
-            Circle().fill(tint).frame(width: 10, height: 10)
-            Text(label).font(.headline)
-            Spacer()
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: scenario.symbol)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(selected ? .cyan : .white.opacity(0.65))
+                    .frame(width: 35, height: 35)
+                    .background((selected ? Color.cyan : Color.white).opacity(0.10), in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(scenario.title)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    Text(scenario.detail)
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(Brand.textDim)
+                }
+                Spacer()
+                if selected {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.cyan)
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(12)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 17))
+            .overlay(
+                RoundedRectangle(cornerRadius: 17)
+                    .stroke(selected ? Color.cyan.opacity(0.6) : Brand.hairline, lineWidth: 0.8)
+            )
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-
-    private func display(_ s: MonitorSession.Status) -> (String, Color) {
-        switch s {
-        case .idle:         return ("Idle",        .gray)
-        case .connecting:   return ("Connecting…", .orange)
-        case .running:      return ("Connected",   .green)
-        case .failed(let m):return (m,             .red)
-        }
-    }
-}
-
-private struct ActionButton: View {
-    @Bindable var session: MonitorSession
-
-    var body: some View {
-        Button(action: toggle) {
-            Text(session.status == .running ? "Disconnect" : "Connect to OBD")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(session.status == .running ? Color.red : Color.accentColor)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-    }
-
-    private func toggle() {
-        switch session.status {
-        case .running: session.stop()
-        default:       session.start()
-        }
+        .buttonStyle(.plain)
     }
 }
 
-private struct LiveDataSection: View {
-    let live: Mode01Reader.Live
+// MARK: - Diagnostics
 
-    var body: some View {
-        SectionHeader("Live data")
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            Tile(title: "RPM",       value: live.rpm.map { String(format: "%.0f", $0) })
-            Tile(title: "Speed",     value: live.speedKph.map { "\(Int($0)) km/h" })
-            Tile(title: "Coolant",   value: live.coolantC.map { "\(Int($0))°C" })
-            Tile(title: "Intake",    value: live.intakeTempC.map { "\(Int($0))°C" })
-            Tile(title: "Load",      value: live.engineLoadPct.map { String(format: "%.0f%%", $0) })
-        }
-    }
-}
-
-private struct DPFSection: View {
+private struct DiagnosticsView: View {
+    @Environment(\.dismiss) private var dismiss
+    private let log = OBDLog.shared
     let dpf: DPFState
-    let lastEvent: String?
+    let onTestNotification: () -> Void
 
     var body: some View {
-        SectionHeader("DPF status")
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            Tile(title: "Clogging",     value: dpf.cloggingPercent.map { String(format: "%.0f%%", $0) })
-            Tile(title: "Since regen",  value: dpf.distanceSinceLastRegenKm.map { "\(Int($0)) km" })
-            Tile(title: "Exhaust",      value: dpf.exhaustTempC.map { "\(Int($0))°C" })
-            Tile(title: "Regen",        value: regenDisplay(dpf))
-            Tile(title: "Progress",     value: dpf.regenProgressPercent.map { String(format: "%.1f%%", $0) })
-            Tile(title: "Total regens", value: dpf.totalRegenCount.map { "\(Int($0))" })
+        NavigationStack {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if let raw = dpf.cloggingRaw {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("ULTIMA LETTURA CARICO DPF")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.cyan)
+                                Text("PID 2218E4 · ECU \(dpf.cloggingECUHeader ?? "—")")
+                                Text("raw \(raw) (0x\(String(raw, radix: 16, uppercase: true)))")
+                                Text("formula raw×1000/65535 = \(dpf.cloggingPercent.map { String(format: "%.3f%%", $0) } ?? "—")")
+                                Text(dpf.cloggingSourceVerified == true
+                                     ? "Header verificato Giulia/Stelvio 2.2D"
+                                     : "Header non ancora convalidato: confronto beta richiesto")
+                                    .foregroundStyle(
+                                        dpf.cloggingSourceVerified == true ? .green : .orange
+                                    )
+                            }
+                            .font(.system(.caption2, design: .monospaced))
+                            .padding(12)
+                            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+                        }
+
+                        Text(log.lines.isEmpty
+                             ? "Nessun comando ancora.\nConnetti l'OBD e torna qui."
+                             : log.text)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                    }
+                    .padding(14)
+                    Color.clear.frame(height: 1).id("bottom")
+                }
+                .onChange(of: log.lines.count) {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+            }
+            .background(Brand.ink)
+            .navigationTitle("Diagnostica OBD")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Copia") { UIPasteboard.general.string = log.text }
+                        .disabled(log.lines.isEmpty)
+                }
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button(action: onTestNotification) {
+                        Label("Test avviso", systemImage: "bell.badge")
+                    }
+                    Button("Fine") { dismiss() }
+                }
+            }
         }
-        if let lastEvent {
-            Text(lastEvent).font(.footnote).foregroundStyle(.secondary)
-        }
-    }
-
-    private func regenDisplay(_ s: DPFState) -> String? {
-        guard let active = s.regenActive else { return nil }
-        return active ? "ACTIVE" : "idle"
-    }
-}
-
-private struct Footer: View {
-    var body: some View {
-        Text("DPF PIDs are community-verified on Alfa Romeo Giulia 2.2D and typical FCA diesels. If a tile stays dashed, your ECU variant may use different PIDs — check the alfaowner forum.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.top, 8)
-    }
-}
-
-private struct SectionHeader: View {
-    let text: String
-    init(_ text: String) { self.text = text }
-    var body: some View {
-        Text(text).font(.title3.weight(.semibold)).padding(.top, 8)
-    }
-}
-
-private struct Tile: View {
-    let title: String
-    let value: String?
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value ?? "—").font(.title3.monospacedDigit())
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .preferredColorScheme(.dark)
     }
 }
