@@ -19,6 +19,18 @@ enum BLECharacteristicPicker {
         var canWrite: Bool
     }
 
+    /// Names commonly used by ELM327-compatible BLE adapters. The GATT
+    /// characteristic check remains the final compatibility test; this only
+    /// prevents us from connecting to unrelated peripherals while scanning.
+    static func looksLikeELM(name: String?, advertisedServices: [CBUUID]) -> Bool {
+        if advertisedServices.contains(vlinkService) { return true }
+
+        let label = (name ?? "").uppercased()
+        return [
+            "VLINK", "OBD", "ELM327", "VEEPEAK", "VIECAR", "CARISTA", "KONNWEI",
+        ].contains { label.contains($0) }
+    }
+
     static func pick(from candidates: [Candidate]) -> (notify: CBUUID, write: CBUUID)? {
         let known = candidates.filter { $0.service == vlinkService }
         if known.contains(where: { $0.characteristic == vlinkNotify && $0.canNotify }),
@@ -144,10 +156,12 @@ actor BLEConnection: OBDTransport {
                                 name: String?,
                                 advertisedServices: [CBUUID]) {
         guard shouldRun, self.peripheral == nil else { return }
-        let label = (name ?? peripheral.name ?? "").uppercased()
-        let looksLikeELM = label.contains("VLINK") || label.contains("OBD")
-            || advertisedServices.contains(BLECharacteristicPicker.vlinkService)
-        guard looksLikeELM else { return }
+        let discoveredName = name ?? peripheral.name
+        let label = (discoveredName ?? "").uppercased()
+        guard BLECharacteristicPicker.looksLikeELM(
+            name: discoveredName,
+            advertisedServices: advertisedServices
+        ) else { return }
 
         OBDLog.log("BLE: found '\(label.isEmpty ? "?" : label)', connecting")
         self.peripheral = peripheral

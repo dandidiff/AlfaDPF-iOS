@@ -37,6 +37,25 @@ l'entitlement di una app CarPlay completa. Riferimenti Apple:
 [ActivityKit](https://developer.apple.com/documentation/activitykit),
 [Live Activities](https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities).
 
+La Live Activity nasce soltanto dopo la ricezione dei primi dati DPF freschi e
+termina quando si disconnette l'OBD; inoltre iOS deve consentire le Live
+Activity e almeno un elemento della relativa sezione deve essere selezionato.
+La schermata **Elementi visibili** mostra direttamente lo stato del permesso.
+
+## Compatibilità adattatori
+
+L'app non è legata a un singolo esemplare: usa il protocollo testuale ELM327 e
+può quindi funzionare con altri adattatori compatibili. In Bluetooth LE
+riconosce i nomi più comuni (VLink, OBD/ELM327, Veepeak, Viecar, Carista e
+Konnwei) e, dopo la connessione, cerca nello stesso servizio una caratteristica
+di notifica e una di scrittura. Il supporto non è però garantito per Bluetooth
+Classic, dispositivi proprietari o cloni ELM incompleti. In Wi-Fi, al momento,
+il dongle deve offrire il server TCP all'indirizzo `192.168.0.10:35000`.
+
+La lettura DPF è separata dalla compatibilità del dongle: i PID usati sono
+proprietari Alfa/FCA, quindi un adattatore compatibile non rende automaticamente
+compatibile una vettura di un altro gruppo o una centralina con PID differenti.
+
 ## Test senza automobile
 
 Nell'app toccare l'icona con le due provette, quindi:

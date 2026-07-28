@@ -1,3 +1,4 @@
+import ActivityKit
 import SwiftUI
 import UIKit
 import UserNotifications
@@ -510,7 +511,20 @@ private struct StatusBadge: View {
                     .scaleEffect(pulse ? 1.7 : 1)
                     .opacity(pulse ? 0 : 1)
                 Circle().fill(info.color).frame(width: 7, height: 7)
-            }
+                    footer: "La Live Activity compare solo dopo i primi dati DPF aggiornati e termina quando disconnetti l’OBD. Se tutte le voci sono spente, viene disattivata.",
+                Section("Stato Live Activity") {
+                    Label(
+                        ActivityAuthorizationInfo().areActivitiesEnabled
+                            ? "Consentite da iOS"
+                            : "Disattivate nelle impostazioni di iOS",
+                        systemImage: ActivityAuthorizationInfo().areActivitiesEnabled
+                            ? "checkmark.circle.fill"
+                            : "exclamationmark.triangle.fill"
+                    )
+                    .foregroundStyle(
+                        ActivityAuthorizationInfo().areActivitiesEnabled ? .green : .orange
+                    )
+                }
             Text(info.label)
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .lineLimit(1)
@@ -955,6 +969,20 @@ private struct AboutSafetyView: View {
                     .glassPanel(cornerRadius: 22)
 
                     informationSection(
+            Text(transportNote)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+    private var transportNote: String {
+        switch session.transportKind {
+        case .bluetooth:
+            return "Compatibile potenzialmente con più adattatori BLE ELM327/VLink; servizi e caratteristiche devono esporre un canale seriale notify/write."
+        case .wifi:
+            return "Compatibile con adattatori Wi‑Fi ELM327 che rispondono su 192.168.0.10:35000."
+        }
+    }
+
                         title: "Uso informativo",
                         symbol: "wrench.and.screwdriver",
                         text: "Le letture dipendono dall’adattatore e dalla centralina del veicolo. DPF Monitor non sostituisce strumenti professionali, manutenzione, diagnosi o indicazioni del costruttore."

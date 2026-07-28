@@ -375,6 +375,15 @@ do {
 // MARK: - BLE characteristic picking
 
 typealias BLECandidate = BLECharacteristicPicker.Candidate
+
+expect(
+    BLECharacteristicPicker.looksLikeELM(name: "VEEPEAK BLE+", advertisedServices: []),
+    "BLE discovery recognises a common ELM-compatible adapter name"
+)
+expect(
+    !BLECharacteristicPicker.looksLikeELM(name: "Living Room TV", advertisedServices: []),
+    "BLE discovery ignores unrelated peripherals"
+)
 let svcVlink = CBUUID(string: "FFF0")
 let chrNotifyVlink = CBUUID(string: "FFF1")
 let chrWriteVlink = CBUUID(string: "FFF2")
