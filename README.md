@@ -91,6 +91,20 @@ strategia riconosce la rigenerazione solo dopo aver osservato insieme scarico
 caldo e calo sostenuto dell'intasamento; il raffreddamento confermato chiude il
 ciclo.
 
+## Prossima build
+
+- Aggiungere una raccolta diagnostica beta **volontaria e disattivata di
+  default**, con anteprima e conferma esplicita prima dell'invio.
+- Raccogliere soltanto modello/motore dichiarati dal tester, tipo di adattatore,
+  versione app/iOS, PID interrogato, ECU/header, risposta raw, valore decodificato
+  ed eventuale errore o timeout.
+- Non raccogliere VIN, posizione, targa, nome, email, nome dell'adattatore
+  Bluetooth o altri identificativi permanenti.
+- Usare un identificativo casuale per singolo report, senza profilazione tra
+  sessioni.
+- Aggiornare informativa privacy e dichiarazioni App Store prima di distribuire
+  la funzionalità.
+
 ## Test automatici
 
 Il runner standalone copre parser CAN 11/29 bit, formule, tracker di
