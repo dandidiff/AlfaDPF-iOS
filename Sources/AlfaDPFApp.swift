@@ -684,9 +684,9 @@ private struct RegenStatusRow: View {
 
     private var regenTitle: String {
         switch dpf.regenActive {
-        case true:  return "Rigenerazione attiva"
-        case false: return "Rigenerazione non attiva"
-        case nil:   return "Stato rigenerazione sconosciuto"
+        case .some(true):  return "Rigenerazione attiva"
+        case .some(false): return "Rigenerazione non attiva"
+        case .none:        return "Stato rigenerazione sconosciuto"
         }
     }
 }
