@@ -559,22 +559,25 @@ private struct HeroGauge: View {
     private var tint: Color {
         guard hasData else { return .gray }
         if isCached { return .gray }
-        return dpf.regenActive == true ? .orange : .cyan
+        if dpf.regenActive == true { return .orange }
+        if load >= 80 { return Brand.redBright }
+        if load >= 60 { return .orange }
+        return .green
     }
 
     private var loadLabel: String {
         guard hasData else { return "Dati non disponibili" }
-        return dpf.regenActive == true ? "Rigenerazione attiva" : "Indice calcolato ECU"
+        if load >= 80 { return "Carico critico" }
+        if load >= 60 { return "Carico elevato" }
+        return "DPF pulito"
     }
 
     private var guidance: String {
         guard hasData else { return "Connetti l'adattatore oppure usa il laboratorio test." }
         if isCached { return "Valore dell’ultima connessione, non in tempo reale." }
         if dpf.regenActive == true { return "Continua a guidare e non spegnere il motore." }
-        if dpf.cloggingSourceVerified == false {
-            return "Risposta da un indirizzo ECU non ancora convalidato per questo modello."
-        }
-        return "Indice proprietario FCA: non predice da solo l’avvio e può differire da altre app."
+        if load >= 60 { return "La rigenerazione è attesa, ma non è ancora attiva." }
+        return "Il filtro è nella normale zona di utilizzo."
     }
 
     var body: some View {
@@ -584,7 +587,7 @@ private struct HeroGauge: View {
                     .frame(width: 172, height: 172)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("CARICO CALCOLATO ECU")
+                    Text("DPF LOAD")
                         .font(.system(size: 11, weight: .heavy, design: .rounded))
                         .tracking(2.3)
                         .foregroundStyle(Brand.textDim)
@@ -638,7 +641,7 @@ private struct HeroGauge: View {
                             .foregroundStyle(Brand.textDim)
                     }
                 }
-                Text("INDICE ECU")
+                Text("SATURAZIONE")
                     .font(.system(size: 8, weight: .heavy, design: .rounded))
                     .tracking(1.5)
                     .foregroundStyle(Brand.textDim)
@@ -667,7 +670,7 @@ private struct RegenStatusRow: View {
                     .foregroundStyle(active ? .orange : .white.opacity(0.82))
                 Text(isCached
                      ? "Ultimo stato salvato, non in tempo reale"
-                     : "Stima da PID dedicato e segnali termici ECU")
+                     : "Stato reale letto dal PID di rigenerazione")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundStyle(Brand.textDim)
             }
@@ -725,10 +728,10 @@ private struct DPFDetailGrid: View {
                 )
                 MetricCard(
                     icon: "number.square",
-                    title: "RAW PID 2218E4",
-                    value: dpf.cloggingRaw.map { String($0) },
-                    unit: "ECU",
-                    accent: isCached ? .gray : .cyan
+                    title: "RIGENERAZIONI",
+                    value: dpf.totalRegenCount.map { String(format: "%.0f", $0) },
+                    unit: "totali",
+                    accent: isCached ? .gray : Brand.redBright
                 )
             }
         }
@@ -955,12 +958,6 @@ private struct AboutSafetyView: View {
                         title: "Uso informativo",
                         symbol: "wrench.and.screwdriver",
                         text: "Le letture dipendono dall’adattatore e dalla centralina del veicolo. DPF Monitor non sostituisce strumenti professionali, manutenzione, diagnosi o indicazioni del costruttore."
-                    )
-
-                    informationSection(
-                        title: "Avvisi durante la guida",
-                        symbol: "bell.and.waves.left.and.right",
-                        text: "Gli avvisi richiedono che iOS mantenga attiva la lettura OBD. Con iPhone bloccato il sistema può sospendere il polling; inoltre Full immersion e Siri decidono se mostrare o leggere una notifica. L’app non può garantire un avviso in ogni condizione."
                     )
 
                     informationSection(
