@@ -33,8 +33,8 @@ struct DPFActivityWidget: Widget {
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(
                                 context.isStale
-                                ? .secondary
-                                : (context.state.isRegenerating ? .orange : .secondary)
+                                ? Color.secondary
+                                : (context.state.isRegenerating ? Color.orange : Color.secondary)
                             )
                         Text(context.isStale ? "—" : primaryStatus(context.state))
                             .font(.title2.bold().monospacedDigit())
@@ -199,7 +199,9 @@ private struct RegenPill: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: 2) {
             Image(systemName: isStale ? "clock.fill" : (state.isRegenerating ? "flame.fill" : "flame"))
-                .foregroundStyle(!isStale && state.isRegenerating ? .orange : .secondary)
+                .foregroundStyle(
+                    !isStale && state.isRegenerating ? Color.orange : Color.secondary
+                )
             if isStale {
                 Text("NON LIVE")
                     .font(.caption2.weight(.heavy))
