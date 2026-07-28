@@ -1,0 +1,42 @@
+name: iOS CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build app and Live Activity widget
+        run: >
+          xcodebuild
+          -project AlfaDPF.xcodeproj
+          -scheme AlfaDPF
+          -configuration Debug
+          -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Compile protocol tests
+        run: >
+          xcrun swiftc
+          Sources/Models.swift
+          Sources/OBDLog.swift
+          Sources/OBDTransport.swift
+          Sources/OBDConnection.swift
+          Sources/BLEConnection.swift
+          Sources/ELM327.swift
+          Sources/Mode01.swift
+          Tests/main.swift
+          -o /tmp/alfadpf_tests
+
+      - name: Run protocol tests
+        run: /tmp/alfadpf_tests
