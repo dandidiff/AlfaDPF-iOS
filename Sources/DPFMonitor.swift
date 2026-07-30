@@ -14,6 +14,7 @@ struct DPFMonitorSnapshot: Sendable {
     var hasFreshCoreTelemetry: Bool {
         freshPIDs.contains(.cloggingPercent)
             || freshPIDs.contains(.exhaustTempC)
+            || freshPIDs.contains(.postDPFTempC)
             || freshPIDs.contains(.regenProgressPercent)
     }
 
@@ -47,13 +48,13 @@ actor DPFMonitor {
     private var lastSuccessfulReadAt: Date?
     private var lastSuccessfulCoreReadAt: Date?
     private var pidRetryAfter: [DPFPID: Date] = [:]
+    private var preferredExhaustTemperaturePID: DPFPID?
 
     /// Number of consecutive polls where the regen-progress read failed.
     /// After a few, we drop the state to unknown so we don't keep firing
     /// transitions off stale truth.
     private var consecutiveProgressFailures = 0
     private static let progressFailureThreshold = 3
-
     init(elm: ELM327, alerts: AlertService) {
         self.elm = elm
         self.alerts = alerts
@@ -78,6 +79,7 @@ actor DPFMonitor {
 
     private func pollOnce() async {
         let sampledAt = Date()
+        let cadenceSequence = pollSequence
         var fresh = DPFState(timestamp: sampledAt)
         var freshPIDs: Set<DPFPID> = []
         var failedPIDs: Set<DPFPID> = []
@@ -110,11 +112,13 @@ actor DPFMonitor {
             failedPIDs.insert(.cloggingPercent)
         }
         do {
-            let reading = try await read(.exhaustTempC)
+            let (pid, reading) = try await readPreferredExhaustTemperature()
             fresh.exhaustTempC = reading.value
-            freshPIDs.insert(.exhaustTempC)
+            fresh.exhaustTemperaturePID = pid.rawValue
+            freshPIDs.insert(pid)
         } catch {
             failedPIDs.insert(.exhaustTempC)
+            failedPIDs.insert(.postDPFTempC)
         }
 
         let event = regenTracker.observe(
@@ -142,15 +146,37 @@ actor DPFMonitor {
         // unstructured Task could be suspended before reaching the system.
         if let event { await emit(event) }
 
+        // Make the established signals observable before any optional Mode 22
+        // request. Actor reentrancy lets the UI poll this snapshot while the
+        // ECU is answering the lower-priority reads below.
+        pollSequence &+= 1
+        let criticalCompletedAt = Date()
+        if !freshPIDs.isEmpty {
+            lastSuccessfulReadAt = criticalCompletedAt
+        }
+        if freshPIDs.contains(.cloggingPercent)
+            || freshPIDs.contains(.exhaustTempC)
+            || freshPIDs.contains(.postDPFTempC)
+            || freshPIDs.contains(.regenProgressPercent) {
+            lastSuccessfulCoreReadAt = criticalCompletedAt
+        }
+        snapshot = DPFMonitorSnapshot(
+            state: next,
+            pollSequence: pollSequence,
+            freshPIDs: freshPIDs,
+            failedPIDs: failedPIDs,
+            lastSuccessfulReadAt: lastSuccessfulReadAt,
+            lastSuccessfulCoreReadAt: lastSuccessfulCoreReadAt
+        )
+
         // Non-critical telemetry comes last. A slow or unsupported PID cannot
         // delay the transition detector or its local notification.
         var secondary = DPFState(timestamp: sampledAt)
-        // Distance changes slowly and is not needed for a regeneration edge.
-        // Poll it every fifth cycle so an unsupported secondary PID cannot
-        // stretch the critical 2-second loop. The historical regeneration
-        // counter is intentionally not polled: community definitions conflict
-        // between 2218A4 and 22381D, so displaying either as fact is unsafe.
-        if pollSequence.isMultiple(of: 5) {
+        // These values change slowly and are not needed for a regeneration
+        // edge. Polling every fifth cycle keeps unsupported optional PIDs away
+        // from the critical 2-second path.
+        switch cadenceSequence % 5 {
+        case 0:
             do {
                 let reading = try await read(.distanceSinceRegenKm)
                 secondary.distanceSinceLastRegenKm = reading.value
@@ -158,18 +184,39 @@ actor DPFMonitor {
             } catch {
                 failedPIDs.insert(.distanceSinceRegenKm)
             }
+        case 1:
+            do {
+                let reading = try await read(.totalRegenCount)
+                secondary.totalRegenCount = reading.value
+                freshPIDs.insert(.totalRegenCount)
+            } catch {
+                failedPIDs.insert(.totalRegenCount)
+            }
+        case 2:
+            do {
+                let reading = try await read(.oilPressureStatus)
+                guard reading.raw <= UInt32(UInt8.max) else {
+                    throw OBDError.protocolError("invalid oil pressure state")
+                }
+                secondary.oilPressureStatusRaw = UInt8(reading.raw)
+                freshPIDs.insert(.oilPressureStatus)
+            } catch {
+                failedPIDs.insert(.oilPressureStatus)
+            }
+        default:
+            break
         }
 
         next = next.mergingFreshTelemetry(from: secondary)
         latest = next
 
-        pollSequence &+= 1
         let completedAt = Date()
         if !freshPIDs.isEmpty {
             lastSuccessfulReadAt = completedAt
         }
         if freshPIDs.contains(.cloggingPercent)
             || freshPIDs.contains(.exhaustTempC)
+            || freshPIDs.contains(.postDPFTempC)
             || freshPIDs.contains(.regenProgressPercent) {
             lastSuccessfulCoreReadAt = completedAt
         }
@@ -195,6 +242,36 @@ actor DPFMonitor {
     private var ecuHeaders: [DPFPID: String] = [:]
     /// Last header that answered anything, tried first to keep probing cheap.
     private var lastGoodHeader: String?
+
+    /// 223915 is the post-DPF probe and is the preferred comparable value for
+    /// regeneration temperatures. Some ECU variants only expose the older
+    /// 2218DE definition, so it remains an automatic fallback. When fallback
+    /// is in use we retry the preferred probe periodically rather than locking
+    /// a transient startup failure for the whole drive.
+    private func readPreferredExhaustTemperature() async throws -> (DPFPID, PIDReading) {
+        if preferredExhaustTemperaturePID == .postDPFTempC {
+            do {
+                return (.postDPFTempC, try await read(.postDPFTempC))
+            } catch {
+                preferredExhaustTemperaturePID = nil
+            }
+        }
+
+        if preferredExhaustTemperaturePID == .exhaustTempC,
+           !pollSequence.isMultiple(of: 30) {
+            return (.exhaustTempC, try await read(.exhaustTempC))
+        }
+
+        do {
+            let reading = try await read(.postDPFTempC)
+            preferredExhaustTemperaturePID = .postDPFTempC
+            return (.postDPFTempC, reading)
+        } catch {
+            let reading = try await read(.exhaustTempC)
+            preferredExhaustTemperaturePID = .exhaustTempC
+            return (.exhaustTempC, reading)
+        }
+    }
 
     private func read(_ pid: DPFPID) async throws -> PIDReading {
         if let retryAt = pidRetryAfter[pid], retryAt > Date() {
@@ -245,7 +322,11 @@ actor DPFMonitor {
         let raw = try pid.integerRawValue(bytes: bytes)
         let value = try pid.decode(bytes: bytes)
         let hex = bytes.map { String(format: "%02X", $0) }.joined()
-        if pid == .cloggingPercent || pid == .regenProgressPercent {
+        if pid == .cloggingPercent
+            || pid == .regenProgressPercent
+            || pid == .oilPressureStatus
+            || pid == .exhaustTempC
+            || pid == .postDPFTempC {
             OBDLog.log(
                 String(
                     format: "DPF %@ header=%@ bytes=%@ raw=%u formula=%@ value=%.3f",

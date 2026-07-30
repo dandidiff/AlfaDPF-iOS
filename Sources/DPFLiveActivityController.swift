@@ -15,9 +15,11 @@ final class DPFLiveActivityController {
         guard dpf.cloggingPercent != nil || dpf.regenProgressPercent != nil else { return }
 
         let state = DPFActivityAttributes.ContentState(
-            loadPercent: dpf.cloggingPercent.map { Int($0.rounded()).clamped(to: 0...100) },
-            regenProgressPercent: dpf.regenProgressPercent.map { Int($0.rounded()).clamped(to: 0...100) },
-            isRegenerating: dpf.regenActive == true,
+            loadPercent: dpf.cloggingPercent.map { $0.rounded(toPlaces: 1) },
+            regenProgressPercent: dpf.regenProgressPercent.map {
+                $0.clamped(to: 0...100).rounded(toPlaces: 1)
+            },
+            isRegenerating: dpf.effectiveRegenerationMode == .active,
             exhaustTemperatureC: dpf.exhaustTempC.map { Int($0.rounded()) },
             updatedAt: dpf.timestamp
         )
@@ -78,5 +80,12 @@ final class DPFLiveActivityController {
 private extension Comparable {
     func clamped(to limits: ClosedRange<Self>) -> Self {
         min(max(self, limits.lowerBound), limits.upperBound)
+    }
+}
+
+private extension Double {
+    func rounded(toPlaces places: Int) -> Double {
+        let factor = pow(10, Double(places))
+        return (self * factor).rounded() / factor
     }
 }

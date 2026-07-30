@@ -32,6 +32,8 @@ struct AlfaDPFApp: App {
         WindowGroup {
             PhoneRootView(session: session)
                 .preferredColorScheme(.dark)
+                .environment(\.appAccent, session.appAccent.color)
+                .tint(session.appAccent.color)
         }
     }
 }
@@ -39,13 +41,37 @@ struct AlfaDPFApp: App {
 // MARK: - Visual language
 
 private enum Brand {
-    static let red = Color(red: 0.93, green: 0.11, blue: 0.16)
+    /// Semantic red used only for dangerous/high-load states.
     static let redBright = Color(red: 1.00, green: 0.27, blue: 0.31)
-    static let burgundy = Color(red: 0.28, green: 0.015, blue: 0.035)
     static let ink = Color(red: 0.025, green: 0.025, blue: 0.035)
     static let panel = Color(red: 0.10, green: 0.10, blue: 0.13)
     static let textDim = Color.white.opacity(0.55)
     static let hairline = Color.white.opacity(0.12)
+}
+
+private struct AppAccentKey: EnvironmentKey {
+    static let defaultValue = StelvioAccent.rossoAlfa.color
+}
+
+private extension EnvironmentValues {
+    var appAccent: Color {
+        get { self[AppAccentKey.self] }
+        set { self[AppAccentKey.self] = newValue }
+    }
+}
+
+private extension StelvioAccent {
+    var color: Color {
+        Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
+    }
+
+    var brightColor: Color {
+        Color(
+            red: min(rgb.red * 1.18 + 0.04, 1),
+            green: min(rgb.green * 1.18 + 0.04, 1),
+            blue: min(rgb.blue * 1.18 + 0.04, 1)
+        )
+    }
 }
 
 private enum AppLinks {
@@ -86,7 +112,7 @@ private extension View {
 
 struct PhoneRootView: View {
     @Bindable var session: MonitorSession
-    @State private var showDiagnostics = false
+    @State private var showSettings = false
     @State private var showTestLab = false
     @State private var showAbout = false
     @State private var showNotificationSetup = false
@@ -101,8 +127,7 @@ struct PhoneRootView: View {
                 VStack(spacing: 18) {
                     HeaderBar(
                         status: session.status,
-                        onDiagnostics: { showDiagnostics = true },
-                        onTestLab: { showTestLab = true },
+                        onSettings: { showSettings = true },
                         onAbout: { showAbout = true }
                     )
 
@@ -121,7 +146,8 @@ struct PhoneRootView: View {
 
                     DPFDetailGrid(
                         dpf: session.dpf,
-                        isCached: session.isShowingCachedTelemetry
+                        isCached: session.isShowingCachedTelemetry,
+                        visibleMetrics: session.visibleDashboardMetrics
                     )
 
                     if let event = session.lastRegenEvent {
@@ -136,11 +162,8 @@ struct PhoneRootView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .sheet(isPresented: $showDiagnostics) {
-            DiagnosticsView(
-                dpf: session.dpf,
-                onTestNotification: session.testNotification
-            )
+        .sheet(isPresented: $showSettings) {
+            SettingsView(session: session)
         }
         .sheet(isPresented: $showTestLab) {
             TestLabView(session: session)
@@ -176,7 +199,7 @@ struct PhoneRootView: View {
             guard url.scheme == "alfadpf",
                   url.host == nil || url.host == "connect"
             else { return }
-            session.startAutomaticallyIfNeeded()
+            session.start()
         }
         .onAppear(perform: applyDebugLaunchScenarioIfNeeded)
     }
@@ -195,6 +218,8 @@ struct PhoneRootView: View {
         switch environment["ALFADPF_SCREEN"] {
         case "testLab":
             showTestLab = true
+        case "settings":
+            showSettings = true
         case "about":
             showAbout = true
         default:
@@ -211,6 +236,7 @@ private struct NotificationSetupView: View {
     @Environment(\.openURL) private var openURL
     @State private var isRequesting = false
     @State private var showSettingsStep = false
+    @Environment(\.appAccent) private var appAccent
 
     var body: some View {
         ZStack {
@@ -221,7 +247,7 @@ private struct NotificationSetupView: View {
 
                 Image(systemName: showSettingsStep ? "gear.badge" : "bell.and.waves.left.and.right.fill")
                     .font(.system(size: 54, weight: .semibold))
-                    .foregroundStyle(showSettingsStep ? .orange : Brand.redBright)
+                    .foregroundStyle(showSettingsStep ? .orange : appAccent)
                     .frame(width: 112, height: 112)
                     .background(.ultraThinMaterial, in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.18)))
@@ -305,7 +331,7 @@ private struct NotificationSetupView: View {
                         .padding(.vertical, 16)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(Brand.red)
+                    .tint(appAccent)
                     .disabled(isRequesting)
                 }
             }
@@ -424,15 +450,17 @@ private struct CachedStateStrip: View {
 }
 
 private struct DashboardBackground: View {
+    @Environment(\.appAccent) private var appAccent
+
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Brand.burgundy.opacity(0.92), Brand.ink, .black],
+                colors: [appAccent.opacity(0.30), Brand.ink, .black],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             Circle()
-                .fill(Brand.red.opacity(0.22))
+                .fill(appAccent.opacity(0.22))
                 .frame(width: 330, height: 330)
                 .blur(radius: 80)
                 .offset(x: -170, y: -330)
@@ -450,9 +478,9 @@ private struct DashboardBackground: View {
 
 private struct HeaderBar: View {
     let status: MonitorSession.Status
-    let onDiagnostics: () -> Void
-    let onTestLab: () -> Void
+    let onSettings: () -> Void
     let onAbout: () -> Void
+    @Environment(\.appAccent) private var appAccent
 
     var body: some View {
         HStack(spacing: 8) {
@@ -460,7 +488,7 @@ private struct HeaderBar: View {
                 Text("DPF")
                     .font(.system(size: 11, weight: .heavy, design: .rounded))
                     .tracking(3.6)
-                    .foregroundStyle(Brand.redBright)
+                    .foregroundStyle(appAccent)
                 Text("Monitor")
                     .font(.system(size: 29, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
@@ -468,10 +496,8 @@ private struct HeaderBar: View {
 
             Spacer(minLength: 8)
 
-            RoundGlassButton(symbol: "waveform.badge.magnifyingglass", action: onDiagnostics)
-                .accessibilityLabel("Diagnostica OBD")
-            RoundGlassButton(symbol: "testtube.2", action: onTestLab)
-                .accessibilityLabel("Laboratorio test")
+            RoundGlassButton(symbol: "gearshape.fill", action: onSettings)
+                .accessibilityLabel("Impostazioni")
             RoundGlassButton(symbol: "info.circle", action: onAbout)
                 .accessibilityLabel("Informazioni, sicurezza e privacy")
             StatusBadge(status: status)
@@ -559,7 +585,7 @@ private struct HeroGauge: View {
     private var tint: Color {
         guard hasData else { return .gray }
         if isCached { return .gray }
-        if dpf.regenActive == true { return .orange }
+        if dpf.isRegenerating { return .orange }
         if load >= 80 { return Brand.redBright }
         if load >= 60 { return .orange }
         return .green
@@ -575,7 +601,9 @@ private struct HeroGauge: View {
     private var guidance: String {
         guard hasData else { return "Connetti l'adattatore oppure usa il laboratorio test." }
         if isCached { return "Valore dell’ultima connessione, non in tempo reale." }
-        if dpf.regenActive == true { return "Continua a guidare e non spegnere il motore." }
+        if dpf.effectiveRegenerationMode == .active {
+            return "Continua a guidare e non spegnere il motore."
+        }
         if load >= 60 { return "La rigenerazione è attesa, ma non è ancora attiva." }
         return "Il filtro è nella normale zona di utilizzo."
     }
@@ -633,8 +661,8 @@ private struct HeroGauge: View {
 
             VStack(spacing: -2) {
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
-                    Text(hasData ? String(format: "%.0f", load) : "—")
-                        .font(.system(size: 54, weight: .bold, design: .rounded).monospacedDigit())
+                    Text(hasData ? String(format: "%.1f", load) : "—")
+                        .font(.system(size: 49, weight: .bold, design: .rounded).monospacedDigit())
                     if hasData {
                         Text("%")
                             .font(.system(size: 21, weight: .semibold, design: .rounded))
@@ -656,7 +684,8 @@ private struct RegenStatusRow: View {
     let isCached: Bool
 
     var body: some View {
-        let active = dpf.regenActive == true
+        let mode = dpf.effectiveRegenerationMode
+        let active = mode != .none
         HStack(spacing: 12) {
             Image(systemName: active ? "flame.fill" : "flame")
                 .font(.system(size: 18, weight: .semibold))
@@ -668,16 +697,14 @@ private struct RegenStatusRow: View {
                 Text(regenTitle)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(active ? .orange : .white.opacity(0.82))
-                Text(isCached
-                     ? "Ultimo stato salvato, non in tempo reale"
-                     : "Stato reale letto dal PID di rigenerazione")
+                Text(statusDetail)
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundStyle(Brand.textDim)
             }
 
             Spacer()
 
-            if let progress = dpf.regenProgressPercent, active {
+            if let progress = dpf.regenProgressPercent, mode == .active {
                 Text(String(format: "%.0f%%", progress))
                     .font(.system(size: 20, weight: .bold, design: .rounded).monospacedDigit())
                     .foregroundStyle(.orange)
@@ -686,11 +713,22 @@ private struct RegenStatusRow: View {
     }
 
     private var regenTitle: String {
-        switch dpf.regenActive {
-        case .some(true):  return "Rigenerazione attiva"
-        case .some(false): return "Rigenerazione non attiva"
-        case .none:        return "Stato rigenerazione sconosciuto"
+        switch dpf.effectiveRegenerationMode {
+        case .active: return "Rigenerazione attiva"
+        case .passive: return "Rigenerazione passiva"
+        case .none:
+            return dpf.regenActive == nil && dpf.regenerationMode == nil
+                ? "Stato rigenerazione sconosciuto"
+                : "Rigenerazione non attiva"
         }
+    }
+
+    private var statusDetail: String {
+        if isCached { return "Ultimo stato salvato, non in tempo reale" }
+        if dpf.regenerationMode == dpf.effectiveRegenerationMode {
+            return "Stato reale letto dal PID di rigenerazione"
+        }
+        return "Stato stimato dai dati disponibili"
     }
 }
 
@@ -699,44 +737,78 @@ private struct RegenStatusRow: View {
 private struct DPFDetailGrid: View {
     let dpf: DPFState
     let isCached: Bool
+    let visibleMetrics: Set<DashboardMetric>
+    @Environment(\.appAccent) private var appAccent
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            SectionLabel(text: "DETTAGLI DPF", icon: "aqi.medium")
-            LazyVGrid(columns: columns, spacing: 12) {
-                MetricCard(
-                    icon: "road.lanes",
-                    title: "DALL'ULTIMA REGEN",
-                    value: dpf.distanceSinceLastRegenKm.map { String(format: "%.0f", $0) },
-                    unit: "km",
-                    accent: isCached ? .gray : .cyan
-                )
-                MetricCard(
-                    icon: "thermometer.high",
-                    title: "SCARICO",
-                    value: dpf.exhaustTempC.map { String(format: "%.0f", $0) },
-                    unit: "°C",
-                    accent: isCached ? .gray : .orange
-                )
-                MetricCard(
-                    icon: "arrow.triangle.2.circlepath",
-                    title: "AVANZAMENTO",
-                    value: dpf.regenProgressPercent.map { String(format: "%.1f", $0) },
-                    unit: "%",
-                    accent: isCached ? .gray : (dpf.regenActive == true ? .orange : .gray)
-                )
-                MetricCard(
-                    icon: "number.square",
-                    title: "RIGENERAZIONI",
-                    value: dpf.totalRegenCount.map { String(format: "%.0f", $0) },
-                    unit: "totali",
-                    accent: isCached ? .gray : Brand.redBright
-                )
+        if !visibleMetrics.isEmpty {
+            VStack(alignment: .leading, spacing: 11) {
+                SectionLabel(text: "DETTAGLI DPF", icon: "aqi.medium")
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(DashboardMetric.allCases.filter(visibleMetrics.contains)) { metric in
+                        card(for: metric)
+                    }
+                }
             }
+            .saturation(isCached ? 0 : 1)
+            .opacity(isCached ? 0.64 : 1)
         }
-        .saturation(isCached ? 0 : 1)
-        .opacity(isCached ? 0.64 : 1)
+    }
+
+    @ViewBuilder
+    private func card(for metric: DashboardMetric) -> some View {
+        switch metric {
+        case .distanceSinceRegeneration:
+            MetricCard(
+                icon: "road.lanes",
+                title: "DALL'ULTIMA REGEN",
+                value: dpf.distanceSinceLastRegenKm.map { String(format: "%.0f", $0) },
+                unit: "km",
+                accent: isCached ? .gray : .cyan
+            )
+        case .exhaustTemperature:
+            MetricCard(
+                icon: "thermometer.high",
+                title: "SCARICO",
+                value: dpf.exhaustTempC.map { String(format: "%.0f", $0) },
+                unit: "°C",
+                accent: isCached ? .gray : .orange
+            )
+        case .regenerationProgress:
+            MetricCard(
+                icon: "arrow.triangle.2.circlepath",
+                title: "AVANZAMENTO",
+                value: dpf.regenProgressPercent.map { String(format: "%.1f", $0) },
+                unit: "%",
+                accent: isCached ? .gray : (dpf.effectiveRegenerationMode == .active ? .orange : .gray)
+            )
+        case .totalRegenerations:
+            MetricCard(
+                icon: "number.square",
+                title: "RIGENERAZIONI",
+                value: dpf.totalRegenCount.map { String(format: "%.0f", $0) },
+                unit: "totali",
+                accent: isCached ? .gray : appAccent
+            )
+        case .oilPressure:
+            MetricCard(
+                icon: "oilcan.fill",
+                title: "PRESSIONE OLIO",
+                value: dpf.oilPressureStatusText,
+                unit: "",
+                accent: oilPressureAccent
+            )
+        }
+    }
+
+    private var oilPressureAccent: Color {
+        if isCached { return .gray }
+        switch dpf.oilPressureStatusRaw {
+        case 1: return .orange
+        case 2: return .green
+        default: return .gray
+        }
     }
 }
 
@@ -779,7 +851,8 @@ private struct MetricCard: View {
                     .font(.system(size: 27, weight: .semibold, design: .rounded).monospacedDigit())
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                if value != nil {
+                    .minimumScaleFactor(0.55)
+                if value != nil, !unit.isEmpty {
                     Text(unit)
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(Brand.textDim)
@@ -815,13 +888,7 @@ private struct EventStrip: View {
 
 private struct ConnectionPanel: View {
     @Bindable var session: MonitorSession
-
-    private var locked: Bool {
-        switch session.status {
-        case .idle, .failed: return false
-        case .connecting, .running, .simulating: return true
-        }
-    }
+    @Environment(\.appAccent) private var appAccent
 
     var body: some View {
         VStack(spacing: 12) {
@@ -834,15 +901,6 @@ private struct ConnectionPanel: View {
                         .foregroundStyle(.cyan.opacity(0.75))
                 }
             }
-
-            Picker("Trasporto", selection: $session.transportKind) {
-                ForEach(TransportKind.allCases) { kind in
-                    Text(kind.label).tag(kind)
-                }
-            }
-            .pickerStyle(.segmented)
-            .disabled(locked)
-            .opacity(locked ? 0.55 : 1)
 
             Label("Configura la connessione da fermo. Non usare iPhone durante la guida.", systemImage: "steeringwheel")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -867,7 +925,7 @@ private struct ConnectionPanel: View {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(Color.white.opacity(0.20), lineWidth: 0.8)
                 )
-                .shadow(color: Brand.red.opacity(isStopped ? 0.35 : 0.05), radius: 15, y: 7)
+                .shadow(color: appAccent.opacity(isStopped ? 0.35 : 0.05), radius: 15, y: 7)
             }
             .buttonStyle(.plain)
 
@@ -911,7 +969,8 @@ private struct ConnectionPanel: View {
     private var buttonGradient: LinearGradient {
         let colors: [Color]
         switch session.status {
-        case .idle, .failed: colors = [Brand.redBright, Brand.red, Brand.burgundy]
+        case .idle, .failed:
+            colors = [session.appAccent.brightColor, appAccent, appAccent.opacity(0.42)]
         case .simulating:    colors = [.cyan.opacity(0.8), .blue.opacity(0.6)]
         default:             colors = [Color.white.opacity(0.22), Color.white.opacity(0.10)]
         }
@@ -925,6 +984,183 @@ private struct ConnectionPanel: View {
         case .idle, .failed:
             session.start()
         }
+    }
+}
+
+// MARK: - Settings
+
+private struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var session: MonitorSession
+    @State private var showDiagnostics = false
+    @State private var showTestLab = false
+    @Environment(\.appAccent) private var appAccent
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    settingsSection(title: "CONNESSIONE", icon: "cable.connector") {
+                        Toggle(isOn: $session.autoConnectEnabled) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Connessione automatica")
+                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                Text("Tenta la connessione Bluetooth all’apertura dell’app")
+                                    .font(.system(size: 11, design: .rounded))
+                                    .foregroundStyle(Brand.textDim)
+                            }
+                        }
+                        .tint(appAccent)
+                    }
+
+                    settingsSection(title: "COLORE ACCENT", icon: "paintpalette.fill") {
+                        Menu {
+                            ForEach(StelvioAccent.allCases) { option in
+                                Button {
+                                    session.appAccent = option
+                                } label: {
+                                    if session.appAccent == option {
+                                        Label(option.title, systemImage: "checkmark")
+                                    } else {
+                                        Text(option.title)
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Circle()
+                                    .fill(session.appAccent.color)
+                                    .frame(width: 25, height: 25)
+                                    .overlay(
+                                        Circle().stroke(
+                                            Color.white.opacity(0.34),
+                                            lineWidth: 0.8
+                                        )
+                                    )
+                                Text(session.appAccent.title)
+                                    .font(.system(
+                                        size: 14,
+                                        weight: .semibold,
+                                        design: .rounded
+                                    ))
+                                    .foregroundStyle(.white)
+                                Spacer()
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(Brand.textDim)
+                            }
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    settingsSection(title: "PAGINA PRINCIPALE", icon: "rectangle.grid.2x2") {
+                        VStack(spacing: 0) {
+                            ForEach(DashboardMetric.allCases) { metric in
+                                Toggle(
+                                    metric.title,
+                                    isOn: Binding(
+                                        get: {
+                                            session.visibleDashboardMetrics.contains(metric)
+                                        },
+                                        set: {
+                                            session.setDashboardMetric(metric, isVisible: $0)
+                                        }
+                                    )
+                                )
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .tint(appAccent)
+                                .padding(.vertical, 8)
+
+                                if metric != DashboardMetric.allCases.last {
+                                    Divider().overlay(Brand.hairline)
+                                }
+                            }
+                        }
+                    }
+
+                    settingsSection(title: "STRUMENTI", icon: "wrench.and.screwdriver") {
+                        VStack(spacing: 0) {
+                            SettingsToolButton(
+                                title: "Diagnostica OBD",
+                                symbol: "waveform.badge.magnifyingglass"
+                            ) {
+                                showDiagnostics = true
+                            }
+                            Divider().overlay(Brand.hairline)
+                            SettingsToolButton(
+                                title: "Laboratorio DPF",
+                                symbol: "testtube.2"
+                            ) {
+                                showTestLab = true
+                            }
+                        }
+                    }
+                }
+                .padding(18)
+            }
+            .background(DashboardBackground())
+            .navigationTitle("Impostazioni")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Fine") { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .sheet(isPresented: $showDiagnostics) {
+            DiagnosticsView(
+                dpf: session.dpf,
+                onTestNotification: session.testNotification
+            )
+        }
+        .sheet(isPresented: $showTestLab) {
+            TestLabView(session: session)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    private func settingsSection<Content: View>(
+        title: String,
+        icon: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 11) {
+            SectionLabel(text: title, icon: icon)
+            content()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .glassPanel(cornerRadius: 22)
+        }
+    }
+}
+
+private struct SettingsToolButton: View {
+    let title: String
+    let symbol: String
+    let action: () -> Void
+    @Environment(\.appAccent) private var appAccent
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: symbol)
+                    .foregroundStyle(appAccent)
+                    .frame(width: 22)
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Brand.textDim)
+            }
+            .padding(.vertical, 13)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -1014,12 +1250,13 @@ private struct AboutLinkRow: View {
     let title: String
     let symbol: String
     let destination: URL
+    @Environment(\.appAccent) private var appAccent
 
     var body: some View {
         Link(destination: destination) {
             HStack(spacing: 12) {
                 Image(systemName: symbol)
-                    .foregroundStyle(Brand.redBright)
+                    .foregroundStyle(appAccent)
                     .frame(width: 22)
                 Text(title)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -1160,6 +1397,32 @@ private struct DiagnosticsView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
+                        if dpf.exhaustTemperaturePID != nil
+                            || dpf.regenerationMode != nil
+                            || dpf.oilPressureStatusRaw != nil {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("NUOVI SEGNALI ECU")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.cyan)
+                                if let pid = dpf.exhaustTemperaturePID {
+                                    Text(
+                                        "Temperatura: PID \(String(format: "22%04X", pid))"
+                                        + " · \(dpf.exhaustTempC.map { String(format: "%.1f °C", $0) } ?? "—")"
+                                    )
+                                }
+                                Text("Rigenerazione: \(regenerationModeText)")
+                                Text(
+                                    "Pressione olio: "
+                                    + (dpf.oilPressureStatusRaw.map {
+                                        "\($0) · \(dpf.oilPressureStatusText ?? "sconosciuta")"
+                                    } ?? "PID non disponibile")
+                                )
+                            }
+                            .font(.system(.caption2, design: .monospaced))
+                            .padding(12)
+                            .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+                        }
+
                         if let raw = dpf.cloggingRaw {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("ULTIMA LETTURA CARICO DPF")
@@ -1212,5 +1475,14 @@ private struct DiagnosticsView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private var regenerationModeText: String {
+        guard let mode = dpf.regenerationMode else { return "PID non disponibile" }
+        switch mode {
+        case .none: return "0 · nessuna"
+        case .passive: return "1 · passiva"
+        case .active: return "2 · attiva"
+        }
     }
 }

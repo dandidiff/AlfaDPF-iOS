@@ -1,9 +1,15 @@
 import Foundation
 
+enum OBDError: Error {
+    case notReady
+    case protocolError(String)
+    case timeout
+}
+
 /// A byte transport that speaks the ELM327 line protocol: ASCII commands
 /// terminated by `\r`, responses terminated by the `>` prompt character.
-/// Implemented by `OBDConnection` (Wi-Fi TCP) and `BLEConnection`
-/// (Bluetooth Low Energy GATT).
+/// The app uses `BLEConnection` (Bluetooth Low Energy GATT). The legacy TCP
+/// implementation remains outside the app target only for transport tests.
 protocol OBDTransport: Actor {
     func start()
     func stop() async

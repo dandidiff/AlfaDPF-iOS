@@ -1,7 +1,7 @@
 DPF Monitor does not require an account or login.
 
 The production connection requires:
-- a compatible ELM327 adapter using Bluetooth Low Energy or Wi-Fi;
+- a compatible ELM327 adapter using Bluetooth Low Energy;
 - a supported Alfa Romeo/FCA diesel vehicle;
 - ignition on and the vehicle safely parked.
 
@@ -14,7 +14,7 @@ The complete UI can be reviewed without external hardware:
 
 The waveform icon opens a local diagnostic log. The info icon opens the safety notice, privacy policy, and support links.
 
-The app does not collect data, use analytics or advertising, create user accounts, or send vehicle data to a server. Bluetooth and local-network access are used only to communicate directly with the selected adapter.
+The app does not collect data, use analytics or advertising, create user accounts, or send vehicle data to a server. Bluetooth is used only to communicate directly with the selected adapter.
 
 Safety: configure and use the app only while the vehicle is stationary. The app is informational and does not replace professional diagnostics or vehicle maintenance.
 

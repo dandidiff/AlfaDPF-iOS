@@ -1,33 +1,106 @@
 import Foundation
 
-/// Which transport carries the ELM327 byte stream. Persisted so the app
-/// reconnects the same way next launch (and CarPlay picks the same one).
-enum TransportKind: String, CaseIterable, Identifiable {
-    case bluetooth
-    case wifi
+/// Regeneration state used by the UI and simulator. Real OBD sessions derive
+/// active regeneration from progress/temperature: 2218EC is documented as a
+/// forced-regeneration command state and the on-road logs prove it stays zero
+/// throughout a normal active regeneration.
+enum DPFRegenerationMode: Int, Codable, Equatable, Sendable {
+    case none = 0
+    case passive = 1
+    case active = 2
+}
+
+/// Factory paint names offered on Stelvio across its model years. RGB values
+/// are screen-friendly approximations for the app accent, not paint formulas.
+enum StelvioAccent: String, CaseIterable, Codable, Identifiable, Sendable {
+    case rossoAlfa
+    case biancoAlfa
+    case neroVulcano
+    case grigioVesuvio
+    case grigioStromboli
+    case grigioSilverstone
+    case titanioImola
+    case bluMontecarlo
+    case rossoCompetizione
+    case biancoTrofeo
+    case bluMisano
+    case bluAnodizzato
+    case biancoLunare
+    case ocraGTJunior
+    case rossoVillaDEste
+    case verdeMontreal
+    case verdeVisconti
+    case rossoEtna
+    case grigioMoonlight
 
     var id: String { rawValue }
-    var label: String {
+
+    var title: String {
         switch self {
-        case .bluetooth: return "Bluetooth"
-        case .wifi:      return "Wi-Fi"
+        case .rossoAlfa: return "Rosso Alfa"
+        case .biancoAlfa: return "Bianco Alfa"
+        case .neroVulcano: return "Nero Vulcano"
+        case .grigioVesuvio: return "Grigio Vesuvio"
+        case .grigioStromboli: return "Grigio Stromboli"
+        case .grigioSilverstone: return "Grigio Silverstone"
+        case .titanioImola: return "Titanio Imola"
+        case .bluMontecarlo: return "Blu Montecarlo"
+        case .rossoCompetizione: return "Rosso Competizione"
+        case .biancoTrofeo: return "Bianco Trofeo"
+        case .bluMisano: return "Blu Misano"
+        case .bluAnodizzato: return "Blu Anodizzato"
+        case .biancoLunare: return "Bianco Lunare"
+        case .ocraGTJunior: return "Ocra GT Junior"
+        case .rossoVillaDEste: return "Rosso Villa d’Este"
+        case .verdeMontreal: return "Verde Montreal"
+        case .verdeVisconti: return "Verde Visconti"
+        case .rossoEtna: return "Rosso Etna"
+        case .grigioMoonlight: return "Grigio Moonlight"
         }
     }
 
-    private static let defaultsKey = "transportKind"
-
-    static func saved() -> TransportKind {
-        TransportKind(rawValue: UserDefaults.standard.string(forKey: defaultsKey) ?? "") ?? .bluetooth
-    }
-
-    func save() {
-        UserDefaults.standard.set(rawValue, forKey: Self.defaultsKey)
-    }
-
-    func makeTransport() -> any OBDTransport {
+    var rgb: (red: Double, green: Double, blue: Double) {
         switch self {
-        case .bluetooth: return BLEConnection()
-        case .wifi:      return OBDConnection()
+        case .rossoAlfa:          return (0.93, 0.11, 0.16)
+        case .biancoAlfa:         return (0.84, 0.84, 0.80)
+        case .neroVulcano:        return (0.36, 0.38, 0.42)
+        case .grigioVesuvio:      return (0.43, 0.46, 0.48)
+        case .grigioStromboli:    return (0.55, 0.56, 0.54)
+        case .grigioSilverstone:  return (0.68, 0.69, 0.67)
+        case .titanioImola:       return (0.67, 0.62, 0.52)
+        case .bluMontecarlo:      return (0.08, 0.30, 0.65)
+        case .rossoCompetizione:  return (0.76, 0.03, 0.07)
+        case .biancoTrofeo:       return (0.92, 0.91, 0.85)
+        case .bluMisano:          return (0.04, 0.45, 0.86)
+        case .bluAnodizzato:      return (0.13, 0.31, 0.43)
+        case .biancoLunare:       return (0.73, 0.73, 0.69)
+        case .ocraGTJunior:       return (0.78, 0.48, 0.06)
+        case .rossoVillaDEste:    return (0.48, 0.04, 0.06)
+        case .verdeMontreal:      return (0.05, 0.45, 0.30)
+        case .verdeVisconti:      return (0.12, 0.38, 0.22)
+        case .rossoEtna:          return (0.59, 0.05, 0.04)
+        case .grigioMoonlight:    return (0.39, 0.41, 0.43)
+        }
+    }
+}
+
+/// Telemetry cards that the driver can choose to show on the main page.
+enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
+    case distanceSinceRegeneration
+    case exhaustTemperature
+    case regenerationProgress
+    case totalRegenerations
+    case oilPressure
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .distanceSinceRegeneration: return "Distanza dall’ultima rigenerazione"
+        case .exhaustTemperature: return "Temperatura gas di scarico"
+        case .regenerationProgress: return "Avanzamento rigenerazione"
+        case .totalRegenerations: return "Rigenerazioni totali"
+        case .oilPressure: return "Pressione olio"
         }
     }
 }
@@ -44,6 +117,11 @@ struct DPFState: Codable, Equatable, Sendable {
     var regenProgressPercent: Double?     // 0 when idle, >0 while a regen is running
     var totalRegenCount: Double?
     var regenActive: Bool?                // derived: progress > hysteresis
+    var regenerationMode: DPFRegenerationMode?
+    /// EDC17C69 exposes a pressure state, not a trustworthy pressure in bar.
+    var oilPressureStatusRaw: UInt8?
+    /// PID that supplied `exhaustTempC`, retained for diagnostics.
+    var exhaustTemperaturePID: UInt16?
     /// Audit data for the load value. Persisting it makes an on-road
     /// comparison diagnosable later without Xcode attached.
     var cloggingRaw: UInt32?
@@ -61,6 +139,35 @@ extension DPFState {
             || distanceSinceLastRegenKm != nil
             || regenProgressPercent != nil
             || totalRegenCount != nil
+            || regenerationMode != nil
+            || oilPressureStatusRaw != nil
+    }
+
+    /// Prefer the dedicated ECU state when it reports a regeneration, while
+    /// preserving the existing detector as a fallback if the PID says idle or
+    /// is unsupported on a specific ECU.
+    var effectiveRegenerationMode: DPFRegenerationMode {
+        if regenActive == true { return .active }
+        if regenerationMode == .passive { return .passive }
+        if regenerationMode == .active { return .active }
+        return .none
+    }
+
+    var isRegenerating: Bool {
+        effectiveRegenerationMode != .none
+    }
+
+    /// The diesel ECU's public diagnostic value is categorical. Showing a
+    /// made-up number in bar would be less useful than reporting its real
+    /// state and leaving unknown variants explicit.
+    var oilPressureStatusText: String? {
+        guard let oilPressureStatusRaw else { return nil }
+        switch oilPressureStatusRaw {
+        case 0: return "Assente"
+        case 1: return "Non significativa"
+        case 2: return "Normale"
+        default: return "Stato \(oilPressureStatusRaw)"
+        }
     }
 
     /// Applies only values that were actually read in the new sample.
@@ -74,6 +181,12 @@ extension DPFState {
         merged.regenProgressPercent =
             fresh.regenProgressPercent ?? regenProgressPercent
         merged.totalRegenCount = fresh.totalRegenCount ?? totalRegenCount
+        merged.regenerationMode = fresh.regenerationMode ?? regenerationMode
+        merged.oilPressureStatusRaw =
+            fresh.oilPressureStatusRaw ?? oilPressureStatusRaw
+        if fresh.exhaustTempC != nil {
+            merged.exhaustTemperaturePID = fresh.exhaustTemperaturePID
+        }
         if fresh.cloggingPercent != nil {
             merged.cloggingRaw = fresh.cloggingRaw
             merged.cloggingECUHeader = fresh.cloggingECUHeader
@@ -164,6 +277,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenProgressPercent: 0,
                 totalRegenCount: 291,
                 regenActive: false,
+                regenerationMode: DPFRegenerationMode.none,
                 timestamp: timestamp
             )
         case .loaded:
@@ -174,6 +288,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenProgressPercent: 0,
                 totalRegenCount: 291,
                 regenActive: false,
+                regenerationMode: DPFRegenerationMode.none,
                 timestamp: timestamp
             )
         case .regenStarted:
@@ -184,6 +299,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenProgressPercent: 1.5,
                 totalRegenCount: 291,
                 regenActive: true,
+                regenerationMode: .active,
                 timestamp: timestamp
             )
         case .regenInProgress:
@@ -194,6 +310,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenProgressPercent: 52,
                 totalRegenCount: 291,
                 regenActive: true,
+                regenerationMode: .active,
                 timestamp: timestamp
             )
         case .regenFinished:
@@ -204,6 +321,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenProgressPercent: 0,
                 totalRegenCount: 292,
                 regenActive: false,
+                regenerationMode: DPFRegenerationMode.none,
                 timestamp: timestamp
             )
         case .unavailable:
@@ -230,12 +348,18 @@ struct RegenActivityTracker {
     /// while the calculated soot load falls steadily.
     private static let inferredStartTemperatureC = 500.0
     private static let inferredStopTemperatureC = 460.0
+    /// A just-completed regeneration remains above 500 °C while the soot index
+    /// sits near 20 and may keep falling. Requiring a loaded-filter baseline
+    /// prevents that cool-down tail (or a reconnect during it) from becoming
+    /// a second, false start notification.
+    private static let inferredMinimumStartingLoad = 80.0
     private static let inferredMinimumLoadDrop = 1.0
     private static let inferredDeclineSamples = 3
     private static let inferredCoolSamplesToFinish = 3
     private static let maximumCandidateGap: TimeInterval = 90
 
     private enum Evidence {
+        case modePID
         case progressPID
         case thermalLoadTrend
     }
@@ -253,7 +377,8 @@ struct RegenActivityTracker {
     mutating func observe(progressPercent: Double?,
                           at timestamp: Date,
                           cloggingPercent: Double?,
-                          exhaustTemperatureC: Double? = nil) -> RegenEvent? {
+                          exhaustTemperatureC: Double? = nil,
+                          regenerationMode: DPFRegenerationMode? = nil) -> RegenEvent? {
         let validProgress = progressPercent.flatMap { $0.isFinite ? $0 : nil }
 
         if isActive == true {
@@ -265,7 +390,26 @@ struct RegenActivityTracker {
                 return nil
             }
 
+            if regenerationMode == .active {
+                evidence = .modePID
+                consecutiveCoolSamples = 0
+                return nil
+            }
+
             switch evidence {
+            case .modePID:
+                // A missing optional PID must not manufacture a finish edge.
+                if regenerationMode == nil {
+                    guard inferredBurnHasFinished(
+                        exhaustTemperatureC: exhaustTemperatureC
+                    ) else { return nil }
+                } else {
+                    guard regenerationMode == DPFRegenerationMode.none
+                            || regenerationMode == .passive
+                    else {
+                        return nil
+                    }
+                }
             case .progressPID:
                 guard validProgress.map({ $0 <= Self.stopThresholdPercent }) == true else {
                     return nil
@@ -298,6 +442,15 @@ struct RegenActivityTracker {
             return .started(at: timestamp, cloggingPercent: cloggingPercent)
         }
 
+        if regenerationMode == .active {
+            isActive = true
+            startedAt = timestamp
+            evidence = .modePID
+            consecutiveCoolSamples = 0
+            resetHotCandidate()
+            return .started(at: timestamp, cloggingPercent: cloggingPercent)
+        }
+
         if let inferredStart = observeHotLoadTrend(
             cloggingPercent: cloggingPercent,
             exhaustTemperatureC: exhaustTemperatureC,
@@ -312,7 +465,11 @@ struct RegenActivityTracker {
 
         // Preserve unknown when no trustworthy input exists. A missing sample
         // must not fabricate an idle edge or erase an in-progress candidate.
-        guard validProgress != nil || exhaustTemperatureC != nil || cloggingPercent != nil else {
+        guard validProgress != nil
+                || exhaustTemperatureC != nil
+                || cloggingPercent != nil
+                || regenerationMode != nil
+        else {
             return nil
         }
         isActive = false
@@ -341,6 +498,10 @@ struct RegenActivityTracker {
         }
 
         if hotCandidateStartedAt == nil {
+            guard load >= Self.inferredMinimumStartingLoad else {
+                resetHotCandidate()
+                return nil
+            }
             hotCandidateStartedAt = timestamp
             hotCandidatePeakLoad = load
             hotCandidatePreviousLoad = load
@@ -390,23 +551,20 @@ struct RegenActivityTracker {
 
 /// Alfa / FCA Mode 22 PIDs used for DPF monitoring.
 ///
-/// The load, temperature, regeneration-process and distance definitions below
-/// are community-validated on Alfa/FCA diesels; they are not published OEM
-/// specifications. The historical regeneration counter is retained only for
-/// decoding old captures and is not polled because sources disagree on its
-/// PID across ECU variants. If a car returns `NO DATA`, compatibility is
-/// unknown rather than something the app should guess.
+/// The definitions below are community-validated on Giulia/Stelvio EDC17C69.
+/// Optional signals are probed independently: `NO DATA` means unsupported on
+/// that ECU and must never invalidate the established core telemetry.
 ///
 /// Sources:
-/// - https://www.alfaowner.com/threads/list-of-pids.305552/
-/// - https://torque-bhp.com/community/main-forum/alfa-romeo-giulietta-dpf-pids/
-/// - https://www.kapron-ap.com/dpf/dpf-diagnostics-fiat-en.html
+/// - https://github.com/danardi78/Alfaromeo-Giulia-Stelvio-PIDs
 enum DPFPID: UInt16, Hashable, Sendable {
     case cloggingPercent      = 0x18E4
     case exhaustTempC         = 0x18DE
+    case postDPFTempC         = 0x3915
     case totalRegenCount      = 0x18A4
     case regenProgressPercent = 0x380B
     case distanceSinceRegenKm = 0x3807
+    case oilPressureStatus    = 0x194D
 
     var mode: UInt8 { 0x22 }
 
@@ -418,7 +576,7 @@ enum DPFPID: UInt16, Hashable, Sendable {
         switch self {
         case .cloggingPercent:
             return "raw×1000/65535"
-        case .exhaustTempC:
+        case .exhaustTempC, .postDPFTempC:
             return "raw×0.02−40 °C"
         case .totalRegenCount:
             return "raw"
@@ -426,6 +584,8 @@ enum DPFPID: UInt16, Hashable, Sendable {
             return "raw×100/65535"
         case .distanceSinceRegenKm:
             return "raw24×0.1 km"
+        case .oilPressureStatus:
+            return "stato ECU"
         }
     }
 
@@ -437,6 +597,13 @@ enum DPFPID: UInt16, Hashable, Sendable {
             return UInt32(bytes[0]) << 16 |
                 UInt32(bytes[1]) << 8 |
                 UInt32(bytes[2])
+        }
+
+        if self == .oilPressureStatus {
+            guard let first = bytes.first else {
+                throw OBDError.protocolError("\(self) needs at least 1 byte")
+            }
+            return UInt32(first)
         }
 
         guard bytes.count >= 2 else {
@@ -454,10 +621,12 @@ enum DPFPID: UInt16, Hashable, Sendable {
         // Exact published FCA/Torque equation. Keep the factor expressed as
         // a ratio: the rounded 0.01526 obscured provenance during comparisons.
         case .cloggingPercent:      return raw * (1000.0 / 65_535.0)
-        case .exhaustTempC:         return raw * 0.02 - 40.0
+        case .exhaustTempC,
+             .postDPFTempC:         return raw * 0.02 - 40.0
         case .totalRegenCount:      return raw
         case .regenProgressPercent: return raw * (100.0 / 65_535.0)
         case .distanceSinceRegenKm: return raw * 0.1
+        case .oilPressureStatus:    return raw
         }
     }
 }

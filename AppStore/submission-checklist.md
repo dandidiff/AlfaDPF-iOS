@@ -5,13 +5,13 @@
 - Nome pubblico: `DPF Monitor`
 - Bundle ID: `com.tamburi.AlfaDPF`
 - Versione: `1.0.0`
-- Build: `1`
+- Build: `7`
 - SKU suggerito: `dpf-monitor-ios-001`
 - Lingua principale: Italiano
 - Categoria primaria: Utility
 - Categoria secondaria: nessuna
 - Copyright: `2026 Eddy Tamburi`
-- Prezzo suggerito: gratuito
+- Prezzo: `4,99 €`
 
 ## URL
 

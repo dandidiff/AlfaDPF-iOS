@@ -172,21 +172,25 @@ private struct DPFStateIcon: View {
 }
 
 private struct DPFMiniGauge: View {
-    let load: Int?
+    let load: Double?
     let diameter: CGFloat
 
     var body: some View {
         ZStack {
             Circle().stroke(Color.white.opacity(0.10), lineWidth: max(3, diameter * 0.09))
             Circle()
-                .trim(from: 0, to: CGFloat(load ?? 0) / 100)
+                // The numeric FCA index may exceed 100; only the drawn arc is
+                // capped so SwiftUI never receives an invalid trim fraction.
+                .trim(from: 0, to: CGFloat(min(max(load ?? 0, 0), 100) / 100))
                 .stroke(
                     loadTint(for: load),
                     style: StrokeStyle(lineWidth: max(3, diameter * 0.09), lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
-            Text(load.map { "\($0)" } ?? "—")
-                .font(.system(size: diameter * 0.29, weight: .bold, design: .rounded).monospacedDigit())
+            Text(load.map(loadValue) ?? "—")
+                .font(.system(size: diameter * 0.25, weight: .bold, design: .rounded).monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
         }
         .frame(width: diameter, height: diameter)
     }
@@ -211,7 +215,7 @@ private struct RegenPill: View {
                     .font(.caption2.weight(.heavy))
                     .foregroundStyle(.orange)
                 if let progress = state.regenProgressPercent, progress > 0 {
-                    Text("\(progress)%")
+                    Text("\(loadValue(progress))%")
                         .font(.caption.bold().monospacedDigit())
                         .foregroundStyle(.orange)
                 }
@@ -224,18 +228,25 @@ private struct RegenPill: View {
     }
 }
 
-private func loadTint(for load: Int?) -> Color {
-    load == nil ? .gray : .cyan
+private func loadTint(for load: Double?) -> Color {
+    guard let load else { return .gray }
+    if load > 95 { return .red }
+    if load >= 85 { return .orange }
+    return .green
 }
 
-private func loadText(_ load: Int?) -> String {
-    load.map { "\($0)%" } ?? "—"
+private func loadValue(_ value: Double) -> String {
+    String(format: "%.1f", value)
+}
+
+private func loadText(_ load: Double?) -> String {
+    load.map { "\(loadValue($0))%" } ?? "—"
 }
 
 private func primaryStatus(_ state: DPFActivityAttributes.ContentState) -> String {
     guard state.isRegenerating else { return loadText(state.loadPercent) }
     if let progress = state.regenProgressPercent, progress > 0 {
-        return "ATTIVA · \(progress)%"
+        return "ATTIVA · \(loadValue(progress))%"
     }
     return "ATTIVA"
 }
@@ -243,14 +254,14 @@ private func primaryStatus(_ state: DPFActivityAttributes.ContentState) -> Strin
 private func compactStatus(_ state: DPFActivityAttributes.ContentState) -> String {
     guard state.isRegenerating else { return loadText(state.loadPercent) }
     if let progress = state.regenProgressPercent, progress > 0 {
-        return "\(progress)%"
+        return "\(loadValue(progress))%"
     }
     return "ATTIVA"
 }
 
-private func loadStatus(_ load: Int?) -> String {
+private func loadStatus(_ load: Double?) -> String {
     guard let load else { return "Dati non disponibili" }
-    return "Indice ECU \(load)%"
+    return "Indice ECU \(loadValue(load))%"
 }
 
 private func temperatureText(_ temperature: Int?) -> String {

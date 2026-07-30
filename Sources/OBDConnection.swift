@@ -168,9 +168,3 @@ actor OBDConnection: OBDTransport {
         readyContinuations.removeAll()
     }
 }
-
-enum OBDError: Error {
-    case notReady
-    case protocolError(String)
-    case timeout
-}
