@@ -23,9 +23,23 @@ final class MonitorSession {
     private(set) var alertAuthorization: AlertAuthorizationState = .checking
     private(set) var hasLiveTelemetry = false
 
-    /// User-selected transport; persisted and applied on the next connection.
-    var transportKind: TransportKind = .saved() {
-        didSet { transportKind.save() }
+    var autoConnectEnabled: Bool {
+        didSet {
+            defaults.set(autoConnectEnabled, forKey: Self.autoConnectDefaultsKey)
+        }
+    }
+
+    var visibleDashboardMetrics: Set<DashboardMetric> {
+        didSet {
+            let values = visibleDashboardMetrics.map(\.rawValue).sorted()
+            defaults.set(values, forKey: Self.dashboardMetricsDefaultsKey)
+        }
+    }
+
+    var appAccent: StelvioAccent {
+        didSet {
+            defaults.set(appAccent.rawValue, forKey: Self.appAccentDefaultsKey)
+        }
     }
 
     private var obd: (any OBDTransport)?
@@ -40,9 +54,24 @@ final class MonitorSession {
     private var lastPersistedState: DPFState?
     private var lastAcceptedPollSequence: UInt64 = 0
     private var reportedTelemetryInterruption = false
+    private static let autoConnectDefaultsKey = "autoConnectEnabled.v1"
+    private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
+    private static let appAccentDefaultsKey = "appAccent.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        if defaults.object(forKey: Self.autoConnectDefaultsKey) == nil {
+            self.autoConnectEnabled = true
+        } else {
+            self.autoConnectEnabled = defaults.bool(forKey: Self.autoConnectDefaultsKey)
+        }
+        if let stored = defaults.stringArray(forKey: Self.dashboardMetricsDefaultsKey) {
+            self.visibleDashboardMetrics = Set(stored.compactMap(DashboardMetric.init(rawValue:)))
+        } else {
+            self.visibleDashboardMetrics = Set(DashboardMetric.allCases)
+        }
+        self.appAccent = defaults.string(forKey: Self.appAccentDefaultsKey)
+            .flatMap(StelvioAccent.init(rawValue:)) ?? .rossoAlfa
         let saved = DPFStateStore.load(from: defaults)
         self.dpf = saved ?? DPFState()
         self.lastPersistedState = saved
@@ -75,8 +104,17 @@ final class MonitorSession {
     }
 
     func startAutomaticallyIfNeeded() {
+        guard autoConnectEnabled else { return }
         guard status == .idle || isFailed(status) else { return }
         start()
+    }
+
+    func setDashboardMetric(_ metric: DashboardMetric, isVisible: Bool) {
+        if isVisible {
+            visibleDashboardMetrics.insert(metric)
+        } else {
+            visibleDashboardMetrics.remove(metric)
+        }
     }
 
     func start() {
@@ -201,7 +239,8 @@ final class MonitorSession {
             progressPercent: next.regenProgressPercent,
             at: timestamp,
             cloggingPercent: next.cloggingPercent,
-            exhaustTemperatureC: next.exhaustTempC
+            exhaustTemperatureC: next.exhaustTempC,
+            regenerationMode: next.regenerationMode
         )
         next.regenActive = simulationTracker.isActive
         dpf = next
@@ -224,10 +263,15 @@ final class MonitorSession {
     // MARK: - Real OBD session
 
     private func boot() async {
-        alertAuthorization = await alerts.configure()
-        guard !Task.isCancelled else { return }
+        let bootStartedAt = Date()
+        // Notification settings and BLE discovery are independent. Running
+        // them together removes an avoidable pause before scanning without
+        // changing the adapter or ELM protocol sequence.
+        let alertSetupTask = Task { [alerts] in
+            await alerts.configure()
+        }
 
-        let obd = transportKind.makeTransport()
+        let obd = BLEConnection()
         self.obd = obd
         await obd.start()
         await obd.isReady()
@@ -235,6 +279,12 @@ final class MonitorSession {
             await obd.stop()
             return
         }
+        OBDLog.log(
+            String(
+                format: "connection: BLE ready after %.2f s",
+                Date().timeIntervalSince(bootStartedAt)
+            )
+        )
 
         let elm = ELM327(connection: obd)
         do {
@@ -247,6 +297,7 @@ final class MonitorSession {
             await obd.stop()
             return
         }
+        alertAuthorization = await alertSetupTask.value
         guard !Task.isCancelled else {
             await obd.stop()
             return
@@ -256,6 +307,12 @@ final class MonitorSession {
         self.monitor = monitor
         await monitor.start(interval: .seconds(2))
         status = .running
+        OBDLog.log(
+            String(
+                format: "connection: session running after %.2f s",
+                Date().timeIntervalSince(bootStartedAt)
+            )
+        )
 
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -288,7 +345,7 @@ final class MonitorSession {
 
         let last = lastPersistedState
         let elapsed = last.map { snapshot.timestamp.timeIntervalSince($0.timestamp) } ?? .infinity
-        let importantEdge = last?.regenActive != snapshot.regenActive
+        let importantEdge = last?.effectiveRegenerationMode != snapshot.effectiveRegenerationMode
             || last?.totalRegenCount != snapshot.totalRegenCount
         if elapsed >= 5 || importantEdge {
             DPFStateStore.save(snapshot, to: defaults)

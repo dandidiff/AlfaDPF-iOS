@@ -1,8 +1,8 @@
 # AlfaDPF iOS
 
-Monitor DPF per Alfa Romeo / FCA diesel via adattatore ELM327 Bluetooth LE o
-Wi-Fi. La versione corrente è volutamente concentrata sui dati del filtro e
-sulla rilevazione affidabile della rigenerazione.
+Monitor DPF per Alfa Romeo / FCA diesel via adattatore ELM327 Bluetooth LE.
+La versione corrente è volutamente concentrata sui dati del filtro e sulla
+rilevazione affidabile della rigenerazione.
 
 Il nome pubblico della versione App Store è **DPF Monitor**. Informativa privacy
 e supporto sono pubblicati su
@@ -39,7 +39,7 @@ l'entitlement di una app CarPlay completa. Riferimenti Apple:
 
 ## Test senza automobile
 
-Nell'app toccare l'icona con le due provette, quindi:
+Nell'app aprire **Impostazioni → Laboratorio DPF**, quindi:
 
 1. accettare le notifiche alla prima richiesta;
 2. toccare **Esegui ciclo completo (8 secondi)**;
@@ -78,32 +78,26 @@ nella sessione in auto.
 
 ## PID DPF
 
-- `2218E4` — saturazione %, `(A·256+B) · 0.01526`
+- `2218E4` — saturazione %, `(A·256+B) · (1000/65535)`
 - `2218DE` — temperatura scarico °C, `(A·256+B) · 0.02 − 40`
+- `223915` — temperatura post-DPF °C, preferita con fallback automatico a
+  `2218DE`
 - `22380B` — avanzamento rigenerazione %, `(A·256+B) · (100/65535)`
 - `223807` — distanza dall'ultima rigenerazione km, valore a 3 byte `· 0.1`
 - `2218A4` — numero totale rigenerazioni
+- `2218EC` non viene usato come stato della rigenerazione normale: le prove su
+  strada confermano che è lo stato della rigenerazione forzata e rimane `0`
+  anche durante una rigenerazione attiva
+- `22194D` — stato pressione olio; sui diesel non viene inventato un valore in
+  bar quando la diagnosi espone soltanto lo stato
 
 `DPFMonitor` prova gli indirizzi ECU FCA conosciuti, memorizza separatamente
 l'header funzionante per ogni PID e mantiene il rilevamento attivo attraverso
 brevi campioni mancanti. Se `22380B` resta a zero o non risponde, una seconda
 strategia riconosce la rigenerazione solo dopo aver osservato insieme scarico
 caldo e calo sostenuto dell'intasamento; il raffreddamento confermato chiude il
-ciclo.
-
-## Prossima build
-
-- Aggiungere una raccolta diagnostica beta **volontaria e disattivata di
-  default**, con anteprima e conferma esplicita prima dell'invio.
-- Raccogliere soltanto modello/motore dichiarati dal tester, tipo di adattatore,
-  versione app/iOS, PID interrogato, ECU/header, risposta raw, valore decodificato
-  ed eventuale errore o timeout.
-- Non raccogliere VIN, posizione, targa, nome, email, nome dell'adattatore
-  Bluetooth o altri identificativi permanenti.
-- Usare un identificativo casuale per singolo report, senza profilazione tra
-  sessioni.
-- Aggiornare informativa privacy e dichiarazioni App Store prima di distribuire
-  la funzionalità.
+ciclo. Il PID di stato è opzionale: valori sconosciuti o `NO DATA` non
+disattivano mai il rilevatore già esistente.
 
 ## Test automatici
 

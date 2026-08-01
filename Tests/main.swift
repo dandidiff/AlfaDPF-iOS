@@ -102,10 +102,16 @@ do {
     )
     let temp = try DPFPID.exhaustTempC.decode(bytes: [0x59, 0xD8]) // 23000 * 0.02 - 40
     expect(abs(temp - 420.0) < 0.01, "decode: exhaust 420 °C")
+    let postDPFTemp = try DPFPID.postDPFTempC.decode(bytes: [0x7D, 0x00])
+    expect(abs(postDPFTemp - 600.0) < 0.01, "decode: post-DPF exhaust 600 °C")
     let progress = try DPFPID.regenProgressPercent.decode(bytes: [0x80, 0x00])
     expect(abs(progress - 50.0) < 0.01, "decode: regen process ~50%")
     let distance = try DPFPID.distanceSinceRegenKm.decode(bytes: [0x00, 0x05, 0xE8])
     expect(abs(distance - 151.2) < 0.01, "decode: distance since regen 151.2 km")
+    expect(
+        try DPFPID.oilPressureStatus.integerRawValue(bytes: [0x02]) == 2,
+        "decode: oil pressure status uses one byte"
+    )
 } catch {
     failures += 1
     print("FAIL: DPF decoding threw \(error)")
@@ -171,6 +177,25 @@ expect(
     mergedSnapshot.mergingFreshTelemetry(from: failedPoll) == mergedSnapshot,
     "snapshot: failed poll cannot replace last-good values or freshness timestamp"
 )
+var newSignals = DPFState(timestamp: partialAt.addingTimeInterval(20))
+newSignals.regenerationMode = .passive
+newSignals.oilPressureStatusRaw = 2
+newSignals.exhaustTempC = 601
+newSignals.exhaustTemperaturePID = DPFPID.postDPFTempC.rawValue
+let mergedNewSignals = mergedSnapshot.mergingFreshTelemetry(from: newSignals)
+expect(
+    mergedNewSignals.effectiveRegenerationMode == .passive
+        && mergedNewSignals.isRegenerating
+        && mergedNewSignals.oilPressureStatusText == "Normale"
+        && mergedNewSignals.exhaustTemperaturePID == DPFPID.postDPFTempC.rawValue,
+    "snapshot: passive regen, oil state and temperature source merge safely"
+)
+var conflictingSignals = mergedNewSignals
+conflictingSignals.regenActive = true
+expect(
+    conflictingSignals.effectiveRegenerationMode == .active,
+    "snapshot: established active evidence wins over a conflicting optional mode"
+)
 snapshotDefaults.removePersistentDomain(forName: snapshotSuite)
 
 // MARK: - Regen event tracking
@@ -216,6 +241,46 @@ expect(
                               cloggingPercent: 65)
         == .started(at: startedAt, cloggingPercent: 65),
     "regen tracker: first active sample still warns"
+)
+
+var modeTracker = RegenActivityTracker()
+expect(
+    modeTracker.observe(
+        progressPercent: 0,
+        at: idleAt,
+        cloggingPercent: 70,
+        regenerationMode: .passive
+    ) == nil && modeTracker.isActive == false,
+    "regen mode: passive is visible but does not emit an active-regeneration alert"
+)
+expect(
+    modeTracker.observe(
+        progressPercent: 0,
+        at: startedAt,
+        cloggingPercent: 70,
+        regenerationMode: .active
+    ) == .started(at: startedAt, cloggingPercent: 70),
+    "regen mode: dedicated active state emits start"
+)
+expect(
+    modeTracker.observe(
+        progressPercent: 0,
+        at: finishedAt,
+        cloggingPercent: 60,
+        regenerationMode: .passive
+    ) == .finished(at: finishedAt, duration: 12 * 60),
+    "regen mode: active to passive emits active-regeneration finish"
+)
+
+var fallbackWinsTracker = RegenActivityTracker()
+expect(
+    fallbackWinsTracker.observe(
+        progressPercent: 2,
+        at: startedAt,
+        cloggingPercent: 70,
+        regenerationMode: DPFRegenerationMode.none
+    ) == .started(at: startedAt, cloggingPercent: 70),
+    "regen mode: ECU idle state cannot suppress established progress evidence"
 )
 
 // Some FCA ECUs return a permanently-zero regeneration progress PID. In
@@ -298,6 +363,20 @@ for offset in stride(from: 0.0, through: 30.0, by: 5.0) {
 expect(
     hotButStableTracker.isActive == false,
     "regen fallback: high temperature without load drop stays idle"
+)
+
+var postRegenTailTracker = RegenActivityTracker()
+for (offset, load) in [21.1, 20.8, 20.4, 20.0].enumerated() {
+    _ = postRegenTailTracker.observe(
+        progressPercent: 0,
+        at: inferredAt.addingTimeInterval(Double(offset) * 5),
+        cloggingPercent: load,
+        exhaustTemperatureC: 615
+    )
+}
+expect(
+    postRegenTailTracker.isActive == false,
+    "regen fallback: hot post-regeneration tail cannot create a second start"
 )
 
 // MARK: - Test Lab scenarios
@@ -497,7 +576,7 @@ final class MockELMServer: @unchecked Sendable {
 
 // MARK: - Connection tests
 
-let port: UInt16 = 38217
+let port: UInt16 = 49217
 let server = try MockELMServer(port: port) { cmd in
     switch cmd {
     case "ATZ":    return "ATZ\rELM327 v1.5\r\r>"
@@ -562,7 +641,7 @@ await obd.stop()
 
 // Enhanced PIDs need the request addressed to a specific ECU via ATSH. Verify
 // the header is sent, in the same critical section, before the 22 request.
-let port2: UInt16 = 38218
+let port2: UInt16 = 49218
 let recorder = CommandRecorder()
 let server2 = try MockELMServer(port: port2) { cmd in
     recorder.record(cmd)

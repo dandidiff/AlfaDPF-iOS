@@ -2,7 +2,7 @@ DPF Monitor mostra in tempo reale le informazioni essenziali del filtro antipart
 
 COLLEGA E CONTROLLA
 
-Connetti un adattatore ELM327 compatibile tramite Bluetooth Low Energy o Wi‑Fi e consulta:
+Connetti un adattatore ELM327 compatibile tramite Bluetooth Low Energy e consulta:
 
 • carico del filtro DPF;
 • temperatura dei gas di scarico;

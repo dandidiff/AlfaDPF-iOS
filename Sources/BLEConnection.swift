@@ -57,8 +57,13 @@ actor BLEConnection: OBDTransport {
     /// `engine.ingest` sees bytes in arrival order (a per-packet `Task` would
     /// not — unstructured tasks have no ordering guarantee).
     private var rxDrainTask: Task<Void, Never>?
+    /// A remembered adapter can be reconnected without waiting for a fresh
+    /// advertisement. If it no longer exists, a short timeout falls back to
+    /// the original broad scan so changing dongle remains automatic.
+    private var fastReconnectTask: Task<Void, Never>?
     /// True between `start()` and `stop()` — gates auto-reconnect.
     private var shouldRun = false
+    private static let lastPeripheralIdentifierKey = "lastBLEOBDPeripheralIdentifier.v1"
 
     func start() {
         shouldRun = true
@@ -82,6 +87,8 @@ actor BLEConnection: OBDTransport {
             central?.cancelPeripheralConnection(peripheral)
         }
         central?.stopScan()
+        fastReconnectTask?.cancel()
+        fastReconnectTask = nil
         proxy?.rxContinuation?.finish()
         rxDrainTask?.cancel()
         rxDrainTask = nil
@@ -127,7 +134,9 @@ actor BLEConnection: OBDTransport {
         switch btState {
         case .poweredOn:
             if peripheral == nil {
-                startScan(central)
+                if !connectToRememberedPeripheral(using: central) {
+                    startScan(central)
+                }
             }
         case .unauthorized:
             OBDLog.log("BLE: permission denied")
@@ -150,14 +159,18 @@ actor BLEConnection: OBDTransport {
         guard looksLikeELM else { return }
 
         OBDLog.log("BLE: found '\(label.isEmpty ? "?" : label)', connecting")
-        self.peripheral = peripheral
-        state = .connecting
-        central?.stopScan()
-        central?.connect(peripheral, options: nil)
+        connect(peripheral, using: central)
     }
 
     fileprivate func connected(_ peripheral: CBPeripheral) {
         guard peripheral === self.peripheral, let proxy else { return }
+        fastReconnectTask?.cancel()
+        fastReconnectTask = nil
+        UserDefaults.standard.set(
+            peripheral.identifier.uuidString,
+            forKey: Self.lastPeripheralIdentifierKey
+        )
+        OBDLog.log("BLE: connected in \(connectionElapsedDescription)")
         peripheral.delegate = proxy
         peripheral.discoverServices(nil)
     }
@@ -201,12 +214,16 @@ actor BLEConnection: OBDTransport {
             return
         }
         OBDLog.log("BLE: ready")
+        fastReconnectTask?.cancel()
+        fastReconnectTask = nil
         state = .ready
         resumeReadyContinuations()
     }
 
     fileprivate func disconnected(_ peripheral: CBPeripheral, error: Error?) async {
         guard peripheral === self.peripheral else { return }
+        fastReconnectTask?.cancel()
+        fastReconnectTask = nil
         OBDLog.log("BLE: disconnected\(error.map { ": \($0)" } ?? "")")
         self.peripheral = nil
         notifyChar = nil
@@ -226,8 +243,65 @@ actor BLEConnection: OBDTransport {
 
     // MARK: - Private
 
+    private var connectionStartedAt: Date?
+
+    private var connectionElapsedDescription: String {
+        guard let connectionStartedAt else { return "unknown time" }
+        return String(format: "%.2f s", Date().timeIntervalSince(connectionStartedAt))
+    }
+
+    private func connect(_ peripheral: CBPeripheral, using central: CBCentralManager?) {
+        guard shouldRun, let central else { return }
+        self.peripheral = peripheral
+        connectionStartedAt = Date()
+        state = .connecting
+        central.stopScan()
+        central.connect(peripheral, options: nil)
+    }
+
+    private func connectToRememberedPeripheral(using central: CBCentralManager) -> Bool {
+        guard let rawIdentifier = UserDefaults.standard.string(
+            forKey: Self.lastPeripheralIdentifierKey
+        ),
+        let identifier = UUID(uuidString: rawIdentifier),
+        let remembered = central.retrievePeripherals(withIdentifiers: [identifier]).first
+        else {
+            return false
+        }
+
+        OBDLog.log("BLE: reconnecting remembered adapter \(identifier.uuidString)")
+        connect(remembered, using: central)
+        fastReconnectTask?.cancel()
+        fastReconnectTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            await self?.rememberedConnectionTimedOut(identifier: identifier)
+        }
+        return true
+    }
+
+    private func rememberedConnectionTimedOut(identifier: UUID) {
+        guard shouldRun,
+              case .connecting = state,
+              peripheral?.identifier == identifier,
+              let central
+        else { return }
+
+        OBDLog.log("BLE: remembered adapter did not answer; falling back to scan")
+        if let stalled = peripheral {
+            central.cancelPeripheralConnection(stalled)
+        }
+        peripheral = nil
+        connectionStartedAt = nil
+        notifyChar = nil
+        writeChar = nil
+        fastReconnectTask = nil
+        startScan(central)
+    }
+
     private func startScan(_ central: CBCentralManager) {
         state = .scanning
+        connectionStartedAt = nil
         // Scan broadly: some clones don't advertise their serial service, so
         // filtering by service UUID would miss them; we match in `discovered`.
         central.scanForPeripherals(withServices: nil, options: nil)
