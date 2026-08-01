@@ -60,29 +60,38 @@ final class MonitorSession {
     private static let appAccentDefaultsKey = "appAccent.v1"
 
     init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
+        let initialAutoConnectEnabled: Bool
         if defaults.object(forKey: Self.autoConnectDefaultsKey) == nil {
-            self.autoConnectEnabled = true
+            initialAutoConnectEnabled = true
         } else {
-            self.autoConnectEnabled = defaults.bool(forKey: Self.autoConnectDefaultsKey)
+            initialAutoConnectEnabled = defaults.bool(forKey: Self.autoConnectDefaultsKey)
         }
+
+        let initialVisibleDashboardMetrics: Set<DashboardMetric>
         if let stored = defaults.stringArray(forKey: Self.dashboardMetricsDefaultsKey) {
-            self.visibleDashboardMetrics = Set(stored.compactMap(DashboardMetric.init(rawValue:)))
+            var visibleMetrics = Set(stored.compactMap(DashboardMetric.init(rawValue:)))
             if !defaults.bool(forKey: Self.batteryMetricMigrationDefaultsKey) {
-                self.visibleDashboardMetrics.insert(.batteryVoltage)
+                visibleMetrics.insert(.batteryVoltage)
                 defaults.set(
-                    self.visibleDashboardMetrics.map(\.rawValue).sorted(),
+                    visibleMetrics.map(\.rawValue).sorted(),
                     forKey: Self.dashboardMetricsDefaultsKey
                 )
                 defaults.set(true, forKey: Self.batteryMetricMigrationDefaultsKey)
             }
+            initialVisibleDashboardMetrics = visibleMetrics
         } else {
-            self.visibleDashboardMetrics = Set(DashboardMetric.allCases)
+            initialVisibleDashboardMetrics = Set(DashboardMetric.allCases)
             defaults.set(true, forKey: Self.batteryMetricMigrationDefaultsKey)
         }
-        self.appAccent = defaults.string(forKey: Self.appAccentDefaultsKey)
+
+        let initialAppAccent = defaults.string(forKey: Self.appAccentDefaultsKey)
             .flatMap(StelvioAccent.init(rawValue:)) ?? .rossoAlfa
         let saved = DPFStateStore.load(from: defaults)
+
+        self.defaults = defaults
+        self.autoConnectEnabled = initialAutoConnectEnabled
+        self.visibleDashboardMetrics = initialVisibleDashboardMetrics
+        self.appAccent = initialAppAccent
         self.dpf = saved ?? DPFState()
         self.lastPersistedState = saved
     }
