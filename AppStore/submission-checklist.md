@@ -1,10 +1,10 @@
-# Alpha DPF Monitor 1.0.1 — scheda di pubblicazione
+# Alpha DPF Monitor 1.1 — scheda di pubblicazione
 
 ## Identità
 
 - Nome pubblico: `Alpha DPF Monitor`
 - Bundle ID: `com.tamburi.AlfaDPF`
-- Versione: `1.0.1`
+- Versione: `1.1`
 - Build: `9`
 - SKU suggerito: `dpf-monitor-ios-001`
 - Lingua principale: Italiano
