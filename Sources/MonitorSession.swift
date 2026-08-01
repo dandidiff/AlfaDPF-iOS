@@ -56,6 +56,7 @@ final class MonitorSession {
     private var reportedTelemetryInterruption = false
     private static let autoConnectDefaultsKey = "autoConnectEnabled.v1"
     private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
+    private static let batteryMetricMigrationDefaultsKey = "batteryMetricAdded.v1"
     private static let appAccentDefaultsKey = "appAccent.v1"
 
     init(defaults: UserDefaults = .standard) {
@@ -67,8 +68,17 @@ final class MonitorSession {
         }
         if let stored = defaults.stringArray(forKey: Self.dashboardMetricsDefaultsKey) {
             self.visibleDashboardMetrics = Set(stored.compactMap(DashboardMetric.init(rawValue:)))
+            if !defaults.bool(forKey: Self.batteryMetricMigrationDefaultsKey) {
+                self.visibleDashboardMetrics.insert(.batteryVoltage)
+                defaults.set(
+                    self.visibleDashboardMetrics.map(\.rawValue).sorted(),
+                    forKey: Self.dashboardMetricsDefaultsKey
+                )
+                defaults.set(true, forKey: Self.batteryMetricMigrationDefaultsKey)
+            }
         } else {
             self.visibleDashboardMetrics = Set(DashboardMetric.allCases)
+            defaults.set(true, forKey: Self.batteryMetricMigrationDefaultsKey)
         }
         self.appAccent = defaults.string(forKey: Self.appAccentDefaultsKey)
             .flatMap(StelvioAccent.init(rawValue:)) ?? .rossoAlfa
@@ -81,6 +91,13 @@ final class MonitorSession {
     /// error, but the UI renders them as historical rather than live.
     var isShowingCachedTelemetry: Bool {
         dpf.hasTelemetry && !hasLiveTelemetry && status != .simulating
+    }
+
+    /// The transport can already be connected while the ECU is still
+    /// returning its first useful DPF sample. Keep that phase explicit so the
+    /// dashboard does not look frozen or empty.
+    var isAwaitingTelemetry: Bool {
+        status == .connecting || (status == .running && !hasLiveTelemetry)
     }
 
     /// Reads the current settings without triggering the system sheet, so the

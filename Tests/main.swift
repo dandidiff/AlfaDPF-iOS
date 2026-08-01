@@ -87,6 +87,22 @@ expectThrows("mode22: PID mismatch throws") {
     _ = try ELM327.parseMode22Response("7E8056218DE0CCD", expectedPID: 0x18E4)
 }
 
+// MARK: - Adapter voltage
+
+do {
+    let voltage = try ELM327.parseBatteryVoltage("12.6V\r>")
+    expect(abs(voltage - 12.6) < 0.001, "ATRV: parses adapter voltage")
+    let echoed = try ELM327.parseBatteryVoltage("ATRV\r14.2 V\r>")
+    expect(abs(echoed - 14.2) < 0.001, "ATRV: ignores command echo and spaces")
+} catch {
+    failures += 1
+    print("FAIL: ATRV parsing threw \(error)")
+}
+
+expectThrows("ATRV: rejects invalid response") {
+    _ = try ELM327.parseBatteryVoltage("NO DATA\r>")
+}
+
 // MARK: - DPF decoding
 
 do {
@@ -133,6 +149,7 @@ let savedSnapshot = DPFState(
     regenProgressPercent: 0,
     totalRegenCount: 304,
     regenActive: false,
+    batteryVoltage: 14.1,
     timestamp: savedAt
 )
 DPFStateStore.save(savedSnapshot, to: snapshotDefaults)
@@ -187,6 +204,7 @@ expect(
     mergedNewSignals.effectiveRegenerationMode == .passive
         && mergedNewSignals.isRegenerating
         && mergedNewSignals.oilPressureStatusText == "Normale"
+        && mergedNewSignals.batteryVoltage == savedSnapshot.batteryVoltage
         && mergedNewSignals.exhaustTemperaturePID == DPFPID.postDPFTempC.rawValue,
     "snapshot: passive regen, oil state and temperature source merge safely"
 )

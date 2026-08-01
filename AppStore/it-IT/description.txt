@@ -1,4 +1,4 @@
-DPF Monitor mostra in tempo reale le informazioni essenziali del filtro antiparticolato dei veicoli diesel compatibili.
+Alpha DPF Monitor mostra in tempo reale le informazioni essenziali del filtro antiparticolato dei veicoli diesel compatibili.
 
 COLLEGA E CONTROLLA
 
@@ -8,7 +8,8 @@ Connetti un adattatore ELM327 compatibile tramite Bluetooth Low Energy e consult
 • temperatura dei gas di scarico;
 • stato e avanzamento della rigenerazione;
 • distanza dall’ultima rigenerazione;
-• numero totale di rigenerazioni.
+• numero totale di rigenerazioni;
+• tensione batteria misurata dall’adattatore.
 
 RIGENERAZIONE SEMPRE VISIBILE
 
@@ -26,6 +27,6 @@ COMPATIBILITÀ E SICUREZZA
 
 La disponibilità dei dati dipende da veicolo, centralina e adattatore. L’app è progettata per specifici veicoli diesel Alfa Romeo/FCA compatibili con i PID supportati: verifica sempre la compatibilità del tuo modello.
 
-Configura e consulta l’app soltanto a veicolo fermo. DPF Monitor fornisce indicazioni informative e non sostituisce una diagnosi professionale, la manutenzione o le istruzioni del costruttore.
+Configura e consulta l’app soltanto a veicolo fermo. Alpha DPF Monitor fornisce indicazioni informative e non sostituisce una diagnosi professionale, la manutenzione o le istruzioni del costruttore.
 
-DPF Monitor è un prodotto indipendente e non è affiliato, sponsorizzato o approvato da Alfa Romeo, Stellantis o dai costruttori dei veicoli compatibili. I marchi citati appartengono ai rispettivi titolari.
+Alpha DPF Monitor è un prodotto indipendente e non è affiliato, sponsorizzato o approvato da Alfa Romeo, Stellantis o dai costruttori dei veicoli compatibili. I marchi citati appartengono ai rispettivi titolari.

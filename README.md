@@ -1,10 +1,11 @@
-# AlfaDPF iOS
+# Alpha DPF Monitor iOS
 
 Monitor DPF per Alfa Romeo / FCA diesel via adattatore ELM327 Bluetooth LE.
 La versione corrente è volutamente concentrata sui dati del filtro e sulla
-rilevazione affidabile della rigenerazione.
+rilevazione affidabile della rigenerazione. La dashboard mostra anche la
+tensione di alimentazione reale restituita dall’adattatore tramite `ATRV`.
 
-Il nome pubblico della versione App Store è **DPF Monitor**. Informativa privacy
+Il nome pubblico della versione App Store è **Alpha DPF Monitor**. Informativa privacy
 e supporto sono pubblicati su
 [dpf-monitor-support.etamburi.chatgpt.site](https://dpf-monitor-support.etamburi.chatgpt.site);
 i metadati di pubblicazione sono raccolti nella cartella `AppStore`.
@@ -50,10 +51,10 @@ Nell'app aprire **Impostazioni → Laboratorio DPF**, quindi:
 
 Per la prova reale lasciare attiva la sessione Bluetooth, bloccare il telefono
 e verificare anche CarPlay. Gli avvisi usano una categoria abilitata per
-CarPlay; in **Impostazioni → Notifiche → AlfaDPF** devono essere consentiti
+CarPlay; in **Impostazioni → Notifiche → Alpha DPF Monitor** devono essere consentiti
 Schermata di blocco e Suoni. Con un Personal Team le notifiche urgenti non sono
 firmabili, quindi anche la modalità Full immersion Guida deve consentire gli
-avvisi di AlfaDPF.
+avvisi di Alpha DPF Monitor.
 
 Ogni scenario può anche essere selezionato singolarmente. Per provare soltanto
 il canale di notifica usare **Prova solo banner e suono**. Il simulatore usa lo

@@ -19,6 +19,7 @@
 		A1000001000000000000000C /* BLEConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000011000000000000000F /* BLEConnection.swift */; };
 		A1000001000000000000000D /* OBDLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000010 /* OBDLog.swift */; };
 		A1000001000000000000000E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000011 /* PrivacyInfo.xcprivacy */; };
+		A1000001000000000000000F /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000012 /* Localizable.xcstrings */; };
 		B10000010000000000000001 /* DPFActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000001 /* DPFActivityAttributes.swift */; };
 		B10000010000000000000002 /* DPFLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000002 /* DPFLiveActivityController.swift */; };
 		B10000010000000000000003 /* DPFWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000003 /* DPFWidgetBundle.swift */; };
@@ -67,6 +68,7 @@
 		A1000011000000000000000F /* BLEConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEConnection.swift; sourceTree = "<group>"; };
 		A10000110000000000000010 /* OBDLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OBDLog.swift; sourceTree = "<group>"; };
 		A10000110000000000000011 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A10000110000000000000012 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		B10000110000000000000001 /* DPFActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DPFActivityAttributes.swift; sourceTree = "<group>"; };
 		B10000110000000000000002 /* DPFLiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DPFLiveActivityController.swift; sourceTree = "<group>"; };
 		B10000110000000000000003 /* DPFWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DPFWidgetBundle.swift; sourceTree = "<group>"; };
@@ -128,6 +130,7 @@
 				A10000110000000000000008 /* Info.plist */,
 				A10000110000000000000009 /* AlfaDPF.entitlements */,
 				A10000110000000000000011 /* PrivacyInfo.xcprivacy */,
+				A10000110000000000000012 /* Localizable.xcstrings */,
 				A1000011000000000000000B /* Assets.xcassets */,
 			);
 			path = App;
@@ -211,9 +214,10 @@
 			};
 			buildConfigurationList = A10000510000000000000002 /* Build configuration list for PBXProject "AlfaDPF" */;
 			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = en;
+			developmentRegion = it;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				it,
 				en,
 				Base,
 			);
@@ -235,6 +239,7 @@
 			files = (
 				A10000010000000000000008 /* Assets.xcassets in Resources */,
 				A1000001000000000000000E /* PrivacyInfo.xcprivacy in Resources */,
+				A1000001000000000000000F /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -389,7 +394,7 @@
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
 				CODE_SIGN_ENTITLEMENTS = App/AlfaDPF.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
@@ -414,7 +419,7 @@
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
 				CODE_SIGN_ENTITLEMENTS = App/AlfaDPF.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -437,7 +442,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = 37BFAY885U;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DPFWidget/Info.plist;
@@ -465,7 +470,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = 37BFAY885U;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DPFWidget/Info.plist;
