@@ -28,8 +28,10 @@ struct DPFActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.center) {
                     VStack(spacing: 2) {
                         Text(context.isStale
-                             ? "NON AGGIORNATO"
-                             : (context.state.isRegenerating ? "RIGENERAZIONE" : "INDICE ECU"))
+                             ? String(localized: "NON AGGIORNATO")
+                             : (context.state.isRegenerating
+                                ? String(localized: "RIGENERAZIONE")
+                                : String(localized: "INDICE ECU")))
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(
                                 context.isStale
@@ -109,17 +111,17 @@ private struct LockScreenDPFView: View {
                     .tracking(1.7)
                     .foregroundStyle(.red)
                 Text(context.isStale
-                     ? "Dati non aggiornati"
+                     ? String(localized: "Dati non aggiornati")
                      : (context.state.isRegenerating
-                        ? "Rigenerazione attiva"
+                        ? String(localized: "Rigenerazione attiva")
                         : loadStatus(context.state.loadPercent)))
                     .font(.headline)
                     .lineLimit(1)
                 Text(context.isStale
-                     ? "Apri l’app per riconnettere"
+                     ? String(localized: "Apri l’app per riconnettere")
                      : (context.state.isRegenerating
-                     ? "Non spegnere il motore"
-                     : "Filtro antiparticolato"))
+                     ? String(localized: "Non spegnere il motore")
+                     : String(localized: "Filtro antiparticolato")))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -246,9 +248,9 @@ private func loadText(_ load: Double?) -> String {
 private func primaryStatus(_ state: DPFActivityAttributes.ContentState) -> String {
     guard state.isRegenerating else { return loadText(state.loadPercent) }
     if let progress = state.regenProgressPercent, progress > 0 {
-        return "ATTIVA · \(loadValue(progress))%"
+        return String(format: String(localized: "ATTIVA · %@%%"), loadValue(progress))
     }
-    return "ATTIVA"
+    return String(localized: "ATTIVA")
 }
 
 private func compactStatus(_ state: DPFActivityAttributes.ContentState) -> String {
@@ -256,12 +258,12 @@ private func compactStatus(_ state: DPFActivityAttributes.ContentState) -> Strin
     if let progress = state.regenProgressPercent, progress > 0 {
         return "\(loadValue(progress))%"
     }
-    return "ATTIVA"
+    return String(localized: "ATTIVA")
 }
 
 private func loadStatus(_ load: Double?) -> String {
-    guard let load else { return "Dati non disponibili" }
-    return "Indice ECU \(loadValue(load))%"
+    guard let load else { return String(localized: "Dati non disponibili") }
+    return String(format: String(localized: "Indice ECU %@%%"), loadValue(load))
 }
 
 private func temperatureText(_ temperature: Int?) -> String {

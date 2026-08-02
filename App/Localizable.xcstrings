@@ -2,6 +2,19 @@
   "sourceLanguage" : "it",
   "strings" : {
     "%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%"
+          }
+        }
+      }
+    },
+    "%@%%" : {
+
+    },
+    "ALFA DPF" : {
 
     },
     "ALPHA DPF" : {
@@ -35,6 +48,16 @@
         }
       }
     },
+    "Apri l’app per riconnettere" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the app to reconnect"
+          }
+        }
+      }
+    },
     "Attendo i primi valori dalla centralina" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -42,6 +65,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for the first ECU readings"
+          }
+        }
+      }
+    },
+    "ATTIVA" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ACTIVE"
+          }
+        }
+      }
+    },
+    "ATTIVA · %@%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ACTIVE · %@%%"
           }
         }
       }
@@ -68,7 +111,14 @@
       }
     },
     "Avanzamento rigenerazione" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration progress"
+          }
+        }
+      }
     },
     "BATTERIA" : {
       "extractionState" : "stale",
@@ -114,7 +164,14 @@
       }
     },
     "Configura l’adattatore e consulta i dati soltanto a veicolo fermo. Non interagire con iPhone durante la guida e rispetta sempre il codice della strada." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up the adapter and check data only while parked. Do not interact with iPhone while driving, and always obey traffic laws."
+          }
+        }
+      }
     },
     "Configura la connessione da fermo. Non usare iPhone durante la guida." : {
       "localizations" : {
@@ -180,7 +237,14 @@
       }
     },
     "Copia" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
     },
     "DALL'ULTIMA REGEN" : {
       "extractionState" : "stale",
@@ -193,8 +257,27 @@
         }
       }
     },
+    "Dati DPF non aggiornati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF data not updated"
+          }
+        }
+      }
+    },
+    "Dati non aggiornati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data not updated"
+          }
+        }
+      }
+    },
     "Dati non disponibili" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -216,7 +299,14 @@
       }
     },
     "Diagnostica OBD" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD diagnostics"
+          }
+        }
+      }
     },
     "Disconnetti" : {
       "extractionState" : "stale",
@@ -240,7 +330,14 @@
       }
     },
     "DPF LOAD" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF LOAD"
+          }
+        }
+      }
     },
     "DPF pulito" : {
       "extractionState" : "stale",
@@ -265,7 +362,24 @@
       }
     },
     "Esegui ciclo completo (8 secondi)" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Run full cycle (8 seconds)"
+          }
+        }
+      }
+    },
+    "Filtro antiparticolato" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diesel particulate filter"
+          }
+        }
+      }
     },
     "Fine" : {
       "localizations" : {
@@ -278,16 +392,44 @@
       }
     },
     "formula raw×1000/65535 = %@" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "formula raw×1000/65535 = %@"
+          }
+        }
+      }
     },
     "Gli scenari usano la stessa logica della connessione reale: interfaccia, Live Activity e notifiche di inizio/fine rigenerazione." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The scenarios use the same logic as a real connection: interface, Live Activity, and regeneration start/end notifications."
+          }
+        }
+      }
     },
     "Header non ancora convalidato: confronto beta richiesto" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Header not yet validated: beta comparison required"
+          }
+        }
+      }
     },
     "Header verificato Giulia/Stelvio 2.2D" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Header verified for Giulia/Stelvio 2.2D"
+          }
+        }
+      }
     },
     "Il filtro è nella normale zona di utilizzo." : {
       "extractionState" : "stale",
@@ -311,7 +453,34 @@
       }
     },
     "In Full immersion › Alla guida abilita anche “Consenti notifiche urgenti”. iOS non permette all’app di verificarlo o attivarlo." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Focus › Driving, also enable “Allow Time Sensitive Notifications.” iOS does not allow the app to check or enable this setting."
+          }
+        }
+      }
+    },
+    "INDICE ECU" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ECU INDEX"
+          }
+        }
+      }
+    },
+    "Indice ECU %@%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ECU index %@%%"
+          }
+        }
+      }
     },
     "Informazioni" : {
       "localizations" : {
@@ -345,7 +514,14 @@
       }
     },
     "Laboratorio DPF" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF Test Lab"
+          }
+        }
+      }
     },
     "Lettura dati DPF…" : {
       "extractionState" : "stale",
@@ -359,7 +535,24 @@
       }
     },
     "Monitor" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monitor"
+          }
+        }
+      }
+    },
+    "NON AGGIORNATO" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NOT UPDATED"
+          }
+        }
+      }
     },
     "NON LIVE" : {
       "localizations" : {
@@ -372,10 +565,34 @@
       }
     },
     "Non perdere una rigenerazione" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Never miss a regeneration"
+          }
+        }
+      }
+    },
+    "Non spegnere il motore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do not turn off the engine"
+          }
+        }
+      }
     },
     "NUOVI SEGNALI ECU" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NEW ECU SIGNALS"
+          }
+        }
+      }
     },
     "OBD disattivato durante il test" : {
       "localizations" : {
@@ -388,10 +605,24 @@
       }
     },
     "Per testare manualmente entrambe le notifiche, tocca prima “Inizio rigenerazione” e poi “Fine rigenerazione”." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To test both notifications manually, tap “Regeneration started” first, then “Regeneration finished.”"
+          }
+        }
+      }
     },
     "PID 2218E4 · ECU %@" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 2218E4 · ECU %@"
+          }
+        }
+      }
     },
     "Pressione olio" : {
       "localizations" : {
@@ -437,6 +668,12 @@
     },
     "raw %u (0x%@)" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "raw %1$u (0x%2$@)"
+          }
+        },
         "it" : {
           "stringUnit" : {
             "state" : "new",
@@ -456,13 +693,42 @@
         }
       }
     },
+    "RIGEN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REGEN"
+          }
+        }
+      }
+    },
+    "RIGENERAZIONE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REGENERATION"
+          }
+        }
+      }
+    },
     "Rigenerazione attiva" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Active regeneration"
+          }
+        }
+      }
+    },
+    "Rigenerazione DPF attiva" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF regeneration active"
           }
         }
       }
@@ -490,7 +756,14 @@
       }
     },
     "Rigenerazione: %@" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration: %@"
+          }
+        }
+      }
     },
     "RIGENERAZIONI" : {
       "extractionState" : "stale",
@@ -541,6 +814,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "EXHAUST"
+          }
+        }
+      }
+    },
+    "standby" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "standby"
           }
         }
       }
@@ -620,19 +903,54 @@
       }
     },
     "Termina test" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop test"
+          }
+        }
+      }
     },
     "Test avviso" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test alert"
+          }
+        }
+      }
     },
     "Test senza automobile" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test without a vehicle"
+          }
+        }
+      }
     },
     "Test tra 5 s: blocca lo schermo" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test in 5 sec: lock the screen"
+          }
+        }
+      }
     },
     "ULTIMA LETTURA CARICO DPF" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LAST DPF LOAD READING"
+          }
+        }
+      }
     },
     "ULTIMO STATO SALVATO" : {
       "localizations" : {
