@@ -52,6 +52,33 @@ struct ELM327 {
         return try Self.parseMode22Response(response, expectedPID: pid)
     }
 
+    /// Reads the vehicle supply voltage measured at the adapter. `ATRV` is an
+    /// ELM command rather than an ECU PID, so it does not change the selected
+    /// diagnostic header.
+    func readBatteryVoltage() async throws -> Double {
+        let response = try await connection.send("ATRV")
+        return try Self.parseBatteryVoltage(response)
+    }
+
+    static func parseBatteryVoltage(_ text: String) throws -> Double {
+        let candidates = text
+            .split(whereSeparator: { $0.isNewline || $0 == ">" })
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+        for candidate in candidates {
+            let compact = candidate
+                .filter { !$0.isWhitespace }
+                .uppercased()
+            guard compact.hasSuffix("V") else { continue }
+            guard let voltage = Double(compact.dropLast()), voltage.isFinite,
+                  (0...100).contains(voltage)
+            else { continue }
+            return voltage
+        }
+
+        throw OBDError.protocolError("invalid ATRV response: \(text)")
+    }
+
     static func parseMode22Response(_ text: String, expectedPID: UInt16) throws -> [UInt8] {
         // 62 = 0x22 + 0x40 (positive reply), followed by the echoed PID.
         try extractPayload(after: String(format: "62%04X", expectedPID), in: text)

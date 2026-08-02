@@ -91,16 +91,18 @@ enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
     case regenerationProgress
     case totalRegenerations
     case oilPressure
+    case batteryVoltage
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .distanceSinceRegeneration: return "Distanza dall’ultima rigenerazione"
-        case .exhaustTemperature: return "Temperatura gas di scarico"
-        case .regenerationProgress: return "Avanzamento rigenerazione"
-        case .totalRegenerations: return "Rigenerazioni totali"
-        case .oilPressure: return "Pressione olio"
+        case .distanceSinceRegeneration: return String(localized: "Distanza dall’ultima rigenerazione")
+        case .exhaustTemperature: return String(localized: "Temperatura gas di scarico")
+        case .regenerationProgress: return String(localized: "Avanzamento rigenerazione")
+        case .totalRegenerations: return String(localized: "Rigenerazioni totali")
+        case .oilPressure: return String(localized: "Pressione olio")
+        case .batteryVoltage: return String(localized: "Tensione batteria")
         }
     }
 }
@@ -120,6 +122,9 @@ struct DPFState: Codable, Equatable, Sendable {
     var regenerationMode: DPFRegenerationMode?
     /// EDC17C69 exposes a pressure state, not a trustworthy pressure in bar.
     var oilPressureStatusRaw: UInt8?
+    /// Supply voltage reported by the ELM327 (`ATRV`). This is the adapter's
+    /// measured vehicle voltage, not an Alfa-specific ECU PID.
+    var batteryVoltage: Double?
     /// PID that supplied `exhaustTempC`, retained for diagnostics.
     var exhaustTemperaturePID: UInt16?
     /// Audit data for the load value. Persisting it makes an on-road
@@ -141,6 +146,7 @@ extension DPFState {
             || totalRegenCount != nil
             || regenerationMode != nil
             || oilPressureStatusRaw != nil
+            || batteryVoltage != nil
     }
 
     /// Prefer the dedicated ECU state when it reports a regeneration, while
@@ -184,6 +190,7 @@ extension DPFState {
         merged.regenerationMode = fresh.regenerationMode ?? regenerationMode
         merged.oilPressureStatusRaw =
             fresh.oilPressureStatusRaw ?? oilPressureStatusRaw
+        merged.batteryVoltage = fresh.batteryVoltage ?? batteryVoltage
         if fresh.exhaustTempC != nil {
             merged.exhaustTemperaturePID = fresh.exhaustTemperaturePID
         }
@@ -278,6 +285,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 totalRegenCount: 291,
                 regenActive: false,
                 regenerationMode: DPFRegenerationMode.none,
+                batteryVoltage: 12.6,
                 timestamp: timestamp
             )
         case .loaded:
@@ -289,6 +297,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 totalRegenCount: 291,
                 regenActive: false,
                 regenerationMode: DPFRegenerationMode.none,
+                batteryVoltage: 14.2,
                 timestamp: timestamp
             )
         case .regenStarted:
@@ -300,6 +309,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 totalRegenCount: 291,
                 regenActive: true,
                 regenerationMode: .active,
+                batteryVoltage: 14.1,
                 timestamp: timestamp
             )
         case .regenInProgress:
@@ -311,6 +321,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 totalRegenCount: 291,
                 regenActive: true,
                 regenerationMode: .active,
+                batteryVoltage: 14.0,
                 timestamp: timestamp
             )
         case .regenFinished:
@@ -322,6 +333,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 totalRegenCount: 292,
                 regenActive: false,
                 regenerationMode: DPFRegenerationMode.none,
+                batteryVoltage: 13.9,
                 timestamp: timestamp
             )
         case .unavailable:

@@ -151,7 +151,7 @@ actor AlertService {
 
     func notifyTest() async {
         await post(
-            title: "Test avviso AlfaDPF",
+            title: "Test avviso Alpha DPF Monitor",
             body: "Test a schermo bloccato: se Siri è abilitata, deve leggere questo avviso.",
             delay: 5
         )
@@ -170,7 +170,7 @@ actor AlertService {
         content.categoryIdentifier = Self.regenCategoryIdentifier
         // A DPF regeneration is time-sensitive vehicle information: it should
         // arrive immediately and may break through Focus when the user allows
-        // Time Sensitive notifications for DPF Monitor.
+        // Time Sensitive notifications for Alpha DPF Monitor.
         content.interruptionLevel = .timeSensitive
         content.relevanceScore = 1
         let req = UNNotificationRequest(

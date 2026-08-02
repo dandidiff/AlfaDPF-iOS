@@ -203,6 +203,10 @@ actor DPFMonitor {
             } catch {
                 failedPIDs.insert(.oilPressureStatus)
             }
+        case 3:
+            // Adapter voltage is intentionally secondary: a slow clone must
+            // never delay regeneration detection or make core DPF data stale.
+            secondary.batteryVoltage = try? await elm.readBatteryVoltage()
         default:
             break
         }

@@ -1,0 +1,671 @@
+{
+  "sourceLanguage" : "it",
+  "strings" : {
+    "%" : {
+
+    },
+    "ALPHA DPF" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ALPHA DPF"
+          }
+        }
+      }
+    },
+    "Annulla connessione" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel connection"
+          }
+        }
+      }
+    },
+    "Apri Impostazioni" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
+          }
+        }
+      }
+    },
+    "Attendo i primi valori dalla centralina" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for the first ECU readings"
+          }
+        }
+      }
+    },
+    "Attiva gli avvisi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable alerts"
+          }
+        }
+      }
+    },
+    "AVANZAMENTO" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PROGRESS"
+          }
+        }
+      }
+    },
+    "Avanzamento rigenerazione" : {
+
+    },
+    "BATTERIA" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BATTERY"
+          }
+        }
+      }
+    },
+    "Carico critico" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Critical load"
+          }
+        }
+      }
+    },
+    "Carico elevato" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High load"
+          }
+        }
+      }
+    },
+    "Completa gli avvisi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish alert setup"
+          }
+        }
+      }
+    },
+    "Configura l’adattatore e consulta i dati soltanto a veicolo fermo. Non interagire con iPhone durante la guida e rispetta sempre il codice della strada." : {
+
+    },
+    "Configura la connessione da fermo. Non usare iPhone durante la guida." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set up the connection while parked. Do not use iPhone while driving."
+          }
+        }
+      }
+    },
+    "CONNESSIONE" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CONNECTION"
+          }
+        }
+      }
+    },
+    "Connessione all’adattatore…" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting to the adapter…"
+          }
+        }
+      }
+    },
+    "Connessione automatica" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic connection"
+          }
+        }
+      }
+    },
+    "Connetti all'OBD" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect to OBD"
+          }
+        }
+      }
+    },
+    "Continua nell’app" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue to app"
+          }
+        }
+      }
+    },
+    "Copia" : {
+
+    },
+    "DALL'ULTIMA REGEN" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SINCE LAST REGEN"
+          }
+        }
+      }
+    },
+    "Dati non disponibili" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data unavailable"
+          }
+        }
+      }
+    },
+    "DETTAGLI DPF" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF DETAILS"
+          }
+        }
+      }
+    },
+    "Diagnostica OBD" : {
+
+    },
+    "Disconnetti" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnect"
+          }
+        }
+      }
+    },
+    "Distanza dall’ultima rigenerazione" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distance since last regeneration"
+          }
+        }
+      }
+    },
+    "DPF LOAD" : {
+
+    },
+    "DPF pulito" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clean DPF"
+          }
+        }
+      }
+    },
+    "Errore" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        }
+      }
+    },
+    "Esegui ciclo completo (8 secondi)" : {
+
+    },
+    "Fine" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "formula raw×1000/65535 = %@" : {
+
+    },
+    "Gli scenari usano la stessa logica della connessione reale: interfaccia, Live Activity e notifiche di inizio/fine rigenerazione." : {
+
+    },
+    "Header non ancora convalidato: confronto beta richiesto" : {
+
+    },
+    "Header verificato Giulia/Stelvio 2.2D" : {
+
+    },
+    "Il filtro è nella normale zona di utilizzo." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The filter is in its normal operating range."
+          }
+        }
+      }
+    },
+    "Impostazioni" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        }
+      }
+    },
+    "In Full immersion › Alla guida abilita anche “Consenti notifiche urgenti”. iOS non permette all’app di verificarlo o attivarlo." : {
+
+    },
+    "Informazioni" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        }
+      }
+    },
+    "Informazioni, sicurezza e privacy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About, safety and privacy"
+          }
+        }
+      }
+    },
+    "La rigenerazione è attesa, ma non è ancora attiva." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration is expected but is not active yet."
+          }
+        }
+      }
+    },
+    "Laboratorio DPF" : {
+
+    },
+    "Lettura dati DPF…" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading DPF data…"
+          }
+        }
+      }
+    },
+    "Monitor" : {
+
+    },
+    "NON LIVE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NOT LIVE"
+          }
+        }
+      }
+    },
+    "Non perdere una rigenerazione" : {
+
+    },
+    "NUOVI SEGNALI ECU" : {
+
+    },
+    "OBD disattivato durante il test" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD disabled during testing"
+          }
+        }
+      }
+    },
+    "Per testare manualmente entrambe le notifiche, tocca prima “Inizio rigenerazione” e poi “Fine rigenerazione”." : {
+
+    },
+    "PID 2218E4 · ECU %@" : {
+
+    },
+    "Pressione olio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oil pressure"
+          }
+        }
+      }
+    },
+    "PRESSIONE OLIO" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OIL PRESSURE"
+          }
+        }
+      }
+    },
+    "Prima la sicurezza" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Safety first"
+          }
+        }
+      }
+    },
+    "Pronto" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready"
+          }
+        }
+      }
+    },
+    "raw %u (0x%@)" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "raw %1$u (0x%2$@)"
+          }
+        }
+      }
+    },
+    "Ricerca dell’ELM327 in corso" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching for the ELM327"
+          }
+        }
+      }
+    },
+    "Rigenerazione attiva" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active regeneration"
+          }
+        }
+      }
+    },
+    "Rigenerazione non attiva" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration inactive"
+          }
+        }
+      }
+    },
+    "Rigenerazione passiva" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passive regeneration"
+          }
+        }
+      }
+    },
+    "Rigenerazione: %@" : {
+
+    },
+    "RIGENERAZIONI" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REGENERATIONS"
+          }
+        }
+      }
+    },
+    "Rigenerazioni totali" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total regenerations"
+          }
+        }
+      }
+    },
+    "Riprova connessione" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry connection"
+          }
+        }
+      }
+    },
+    "SATURAZIONE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SATURATION"
+          }
+        }
+      }
+    },
+    "SCARICO" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EXHAUST"
+          }
+        }
+      }
+    },
+    "Stato reale letto dal PID di rigenerazione" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actual status read from the regeneration PID"
+          }
+        }
+      }
+    },
+    "Stato rigenerazione sconosciuto" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration status unknown"
+          }
+        }
+      }
+    },
+    "Stato stimato dai dati disponibili" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status estimated from available data"
+          }
+        }
+      }
+    },
+    "Temperatura gas di scarico" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exhaust gas temperature"
+          }
+        }
+      }
+    },
+    "Tensione batteria" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Battery voltage"
+          }
+        }
+      }
+    },
+    "Tenta la connessione Bluetooth all’apertura dell’app" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try the Bluetooth connection when the app opens"
+          }
+        }
+      }
+    },
+    "Termina simulazione" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop simulation"
+          }
+        }
+      }
+    },
+    "Termina test" : {
+
+    },
+    "Test avviso" : {
+
+    },
+    "Test senza automobile" : {
+
+    },
+    "Test tra 5 s: blocca lo schermo" : {
+
+    },
+    "ULTIMA LETTURA CARICO DPF" : {
+
+    },
+    "ULTIMO STATO SALVATO" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LAST SAVED STATE"
+          }
+        }
+      }
+    },
+    "Ultimo stato salvato, non in tempo reale" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last saved state, not real time"
+          }
+        }
+      }
+    },
+    "Valore dell’ultima connessione, non in tempo reale." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Value from the last connection, not real time."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

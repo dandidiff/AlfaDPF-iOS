@@ -139,6 +139,10 @@ struct PhoneRootView: View {
                         CachedStateStrip(updatedAt: session.dpf.timestamp)
                     }
 
+                    if session.isAwaitingTelemetry {
+                        TelemetryLoadingStrip(isConnected: session.status == .running)
+                    }
+
                     HeroGauge(
                         dpf: session.dpf,
                         isCached: session.isShowingCachedTelemetry
@@ -257,7 +261,7 @@ private struct NotificationSetupView: View {
                         .font(.system(size: 29, weight: .bold, design: .rounded))
                         .multilineTextAlignment(.center)
 
-                    Text(explanation)
+                    Text(LocalizedStringKey(explanation))
                         .font(.system(size: 15, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.72))
                         .multilineTextAlignment(.center)
@@ -343,7 +347,7 @@ private struct NotificationSetupView: View {
 
     private var explanation: String {
         if showSettingsStep {
-            return "iOS non permette a DPF Monitor di cambiare queste preferenze al posto tuo. Controlla anche Full immersion › Alla guida."
+            return "iOS non permette ad Alpha DPF Monitor di cambiare queste preferenze al posto tuo. Controlla anche Full immersion › Alla guida."
         }
         return "Gli avvisi di rigenerazione sono informazioni sensibili al tempo. Ti guidiamo una volta sola; poi l’app tenterà automaticamente la connessione all’OBD."
     }
@@ -380,9 +384,9 @@ private struct NotificationGuidanceCard: View {
                     .foregroundStyle(.orange)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
+                    Text(LocalizedStringKey(title))
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    Text(detail)
+                    Text(LocalizedStringKey(detail))
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.62))
                         .multilineTextAlignment(.leading)
@@ -413,12 +417,12 @@ private struct NotificationGuidanceCard: View {
             return "Apri Impostazioni e consenti gli avvisi di rigenerazione."
         }
         if !state.alertEnabled || !state.lockScreenEnabled || !state.soundEnabled {
-            return "Abilita avvisi, schermo bloccato e suoni per DPF Monitor."
+            return "Abilita avvisi, schermo bloccato e suoni per Alpha DPF Monitor."
         }
         if !state.timeSensitiveEnabled {
             return "Abilita anche “Consenti notifiche urgenti” nella Full immersion Alla guida."
         }
-        return "Abilita “Annuncia notifiche” per DPF Monitor; l’app non può forzare la lettura."
+        return "Abilita “Annuncia notifiche” per Alpha DPF Monitor; l’app non può forzare la lettura."
     }
 }
 
@@ -446,6 +450,29 @@ private struct CachedStateStrip: View {
         .foregroundStyle(.white.opacity(0.58))
         .padding(14)
         .glassPanel(cornerRadius: 18)
+    }
+}
+
+private struct TelemetryLoadingStrip: View {
+    let isConnected: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProgressView()
+                .tint(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(LocalizedStringKey(isConnected ? "Lettura dati DPF…" : "Connessione all’adattatore…"))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                Text(LocalizedStringKey(isConnected ? "Attendo i primi valori dalla centralina" : "Ricerca dell’ELM327 in corso"))
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(Brand.textDim)
+            }
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(.white.opacity(0.86))
+        .padding(14)
+        .glassPanel(cornerRadius: 18)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -485,7 +512,7 @@ private struct HeaderBar: View {
     var body: some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("DPF")
+                Text("ALPHA DPF")
                     .font(.system(size: 11, weight: .heavy, design: .rounded))
                     .tracking(3.6)
                     .foregroundStyle(appAccent)
@@ -537,7 +564,7 @@ private struct StatusBadge: View {
                     .opacity(pulse ? 0 : 1)
                 Circle().fill(info.color).frame(width: 7, height: 7)
             }
-            Text(info.label)
+            Text(LocalizedStringKey(info.label))
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .lineLimit(1)
         }
@@ -620,12 +647,12 @@ private struct HeroGauge: View {
                         .tracking(2.3)
                         .foregroundStyle(Brand.textDim)
 
-                    Text(loadLabel)
+                    Text(LocalizedStringKey(loadLabel))
                         .font(.system(size: 25, weight: .bold, design: .rounded))
                         .foregroundStyle(tint)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text(guidance)
+                    Text(LocalizedStringKey(guidance))
                         .font(.system(size: 13, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.60))
                         .fixedSize(horizontal: false, vertical: true)
@@ -694,10 +721,10 @@ private struct RegenStatusRow: View {
                 .background((active ? Color.orange : Color.white).opacity(0.10), in: Circle())
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(regenTitle)
+                Text(LocalizedStringKey(regenTitle))
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundStyle(active ? .orange : .white.opacity(0.82))
-                Text(statusDetail)
+                Text(LocalizedStringKey(statusDetail))
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundStyle(Brand.textDim)
             }
@@ -799,7 +826,22 @@ private struct DPFDetailGrid: View {
                 unit: "",
                 accent: oilPressureAccent
             )
+        case .batteryVoltage:
+            MetricCard(
+                icon: "battery.75percent",
+                title: "BATTERIA",
+                value: dpf.batteryVoltage.map { String(format: "%.1f", $0) },
+                unit: "V",
+                accent: batteryVoltageAccent
+            )
         }
+    }
+
+    private var batteryVoltageAccent: Color {
+        guard !isCached, let voltage = dpf.batteryVoltage else { return .gray }
+        if voltage < 11.8 { return Brand.redBright }
+        if voltage < 12.2 { return .orange }
+        return .green
     }
 
     private var oilPressureAccent: Color {
@@ -819,7 +861,7 @@ private struct SectionLabel: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: icon)
-            Text(text).tracking(2)
+            Text(LocalizedStringKey(text)).tracking(2)
         }
         .font(.system(size: 10, weight: .bold, design: .rounded))
         .foregroundStyle(Brand.textDim)
@@ -839,7 +881,7 @@ private struct MetricCard: View {
             HStack(spacing: 7) {
                 Image(systemName: icon)
                     .foregroundStyle(accent)
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
@@ -874,7 +916,7 @@ private struct EventStrip: View {
         HStack(spacing: 10) {
             Image(systemName: simulated ? "testtube.2" : "bell.badge.fill")
                 .foregroundStyle(simulated ? .cyan : .orange)
-            Text(text)
+            Text(LocalizedStringKey(text))
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.75))
             Spacer(minLength: 0)
@@ -914,7 +956,7 @@ private struct ConnectionPanel: View {
                     } else {
                         Image(systemName: buttonSymbol)
                     }
-                    Text(buttonTitle)
+                    Text(LocalizedStringKey(buttonTitle))
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                 }
                 .foregroundStyle(.white)
@@ -1022,7 +1064,7 @@ private struct SettingsView: View {
                                     if session.appAccent == option {
                                         Label(option.title, systemImage: "checkmark")
                                     } else {
-                                        Text(option.title)
+                                        Text(LocalizedStringKey(option.title))
                                     }
                                 }
                             }
@@ -1037,7 +1079,7 @@ private struct SettingsView: View {
                                             lineWidth: 0.8
                                         )
                                     )
-                                Text(session.appAccent.title)
+                                Text(LocalizedStringKey(session.appAccent.title))
                                     .font(.system(
                                         size: 14,
                                         weight: .semibold,
@@ -1150,7 +1192,7 @@ private struct SettingsToolButton: View {
                 Image(systemName: symbol)
                     .foregroundStyle(appAccent)
                     .frame(width: 22)
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                 Spacer()
@@ -1170,7 +1212,7 @@ private struct AboutSafetyView: View {
     @Environment(\.dismiss) private var dismiss
 
     private var versionText: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
         return "Versione \(version) (\(build))"
     }
@@ -1193,13 +1235,13 @@ private struct AboutSafetyView: View {
                     informationSection(
                         title: "Uso informativo",
                         symbol: "wrench.and.screwdriver",
-                        text: "Le letture dipendono dall’adattatore e dalla centralina del veicolo. DPF Monitor non sostituisce strumenti professionali, manutenzione, diagnosi o indicazioni del costruttore."
+                        text: "Le letture dipendono dall’adattatore e dalla centralina del veicolo. Alpha DPF Monitor non sostituisce strumenti professionali, manutenzione, diagnosi o indicazioni del costruttore."
                     )
 
                     informationSection(
                         title: "App indipendente",
                         symbol: "checkmark.shield",
-                        text: "DPF Monitor è un prodotto indipendente e non è affiliato, sponsorizzato o approvato da Alfa Romeo, Stellantis o dai costruttori dei veicoli compatibili. I marchi citati appartengono ai rispettivi titolari."
+                        text: "Alpha DPF Monitor è un prodotto indipendente e non è affiliato, sponsorizzato o approvato da Alfa Romeo, Stellantis o dai costruttori dei veicoli compatibili. I marchi citati appartengono ai rispettivi titolari."
                     )
 
                     VStack(spacing: 0) {
@@ -1236,7 +1278,7 @@ private struct AboutSafetyView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label(title, systemImage: symbol)
                 .font(.system(size: 17, weight: .semibold, design: .rounded))
-            Text(text)
+            Text(LocalizedStringKey(text))
                 .font(.system(size: 13, design: .rounded))
                 .foregroundStyle(.white.opacity(0.68))
         }
@@ -1258,7 +1300,7 @@ private struct AboutLinkRow: View {
                 Image(systemName: symbol)
                     .foregroundStyle(appAccent)
                     .frame(width: 22)
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                 Spacer()

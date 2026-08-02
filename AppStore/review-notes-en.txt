@@ -1,4 +1,4 @@
-DPF Monitor does not require an account or login.
+Alpha DPF Monitor does not require an account or login.
 
 The production connection requires:
 - a compatible ELM327 adapter using Bluetooth Low Energy;
