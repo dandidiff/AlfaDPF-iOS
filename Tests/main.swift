@@ -238,6 +238,9 @@ expect(
 var newSignals = DPFState(timestamp: partialAt.addingTimeInterval(20))
 newSignals.regenerationMode = .passive
 newSignals.oilPressureStatusRaw = 2
+newSignals.engineRPM = 1_850
+newSignals.coolantTemperatureC = 93
+newSignals.turboBoostBar = 0.82
 newSignals.exhaustTempC = 601
 newSignals.exhaustTemperaturePID = DPFPID.postDPFTempC.rawValue
 let mergedNewSignals = mergedSnapshot.mergingFreshTelemetry(from: newSignals)
@@ -246,8 +249,11 @@ expect(
         && mergedNewSignals.isRegenerating
         && mergedNewSignals.oilPressureStatusText == "Normale"
         && mergedNewSignals.batteryVoltage == savedSnapshot.batteryVoltage
+        && mergedNewSignals.engineRPM == 1_850
+        && mergedNewSignals.coolantTemperatureC == 93
+        && mergedNewSignals.turboBoostBar == 0.82
         && mergedNewSignals.exhaustTemperaturePID == DPFPID.postDPFTempC.rawValue,
-    "snapshot: passive regen, oil state and temperature source merge safely"
+    "snapshot: regen, oil and optional engine signals merge safely"
 )
 var conflictingSignals = mergedNewSignals
 conflictingSignals.regenActive = true
@@ -510,6 +516,34 @@ do {
     print("FAIL: rpm decode threw \(error)")
 }
 
+do {
+    expect(try Mode01Reader.decodeCoolant([0x80]) == 88,
+           "decode: coolant 88 C")
+    expect(try Mode01Reader.decodePressureKPa([0x96]) == 150,
+           "decode: pressure 150 kPa")
+    expect(Mode01Reader.turboBoostBar(
+        manifoldAbsoluteKPa: 180,
+        barometricKPa: 98
+    ) == 0.82, "decode: turbo uses MAP minus barometric pressure")
+    expect(Mode01Reader.turboBoostBar(
+        manifoldAbsoluteKPa: 80,
+        barometricKPa: 98
+    ) == 0, "decode: turbo vacuum clamps to zero")
+    expect(Mode01Reader.turboBoostBar(
+        manifoldAbsoluteKPa: 100,
+        barometricKPa: 0
+    ) == nil, "decode: invalid barometric pressure is unavailable")
+    expect(Mode01Reader.functionalRequestHeader(forPhysicalHeader: "7E0") == "7DF",
+           "mode01: 11-bit physical header maps to functional header")
+    expect(Mode01Reader.functionalRequestHeader(forPhysicalHeader: "18da10f1") == "18DB33F1",
+           "mode01: 29-bit physical header maps to functional header")
+    expect(Mode01Reader.functionalRequestHeader(forPhysicalHeader: "ABCDEF") == nil,
+           "mode01: unknown header format is rejected")
+} catch {
+    failures += 1
+    print("FAIL: engine telemetry decode threw \(error)")
+}
+
 // MARK: - BLE characteristic picking
 
 typealias BLECandidate = BLECharacteristicPicker.Candidate
@@ -519,11 +553,39 @@ let chrWriteVlink = CBUUID(string: "FFF2")
 let svcOther = CBUUID(string: "ABC0")
 let chrOther1 = CBUUID(string: "ABC1")
 let chrOther2 = CBUUID(string: "ABC2")
+let svcKonnwei = CBUUID(string: "FFE0")
+let chrKonnweiData = CBUUID(string: "FFE1")
+
+expect(BLEAdvertisementClassifier.matches(name: "KONNWEI-KW903", advertisedServices: []),
+       "ble: Konnwei brand name accepted")
+expect(BLEAdvertisementClassifier.matches(name: "KW903", advertisedServices: []),
+       "ble: confirmed Konnwei BLE model accepted")
+expect(BLEAdvertisementClassifier.matches(name: "OBDPRO", advertisedServices: []),
+       "ble: existing OBD name accepted")
+expect(BLEAdvertisementClassifier.matches(name: nil, advertisedServices: [svcVlink]),
+       "ble: existing advertised FFF0 accepted")
+expect(!BLEAdvertisementClassifier.matches(name: "KW902", advertisedServices: []),
+       "ble: Konnwei Classic-only model not claimed")
+expect(!BLEAdvertisementClassifier.matches(name: "HMSoft", advertisedServices: [svcKonnwei]),
+       "ble: unrelated HM-10 FFE0 peripheral rejected")
+expect(!BLEAdvertisementClassifier.matches(name: nil, advertisedServices: []),
+       "ble: anonymous unrelated peripheral rejected")
+
+do {
+    // Konnwei KW903 commonly exposes one duplex FFE1 characteristic.
+    let picked = BLECharacteristicPicker.pick(from: [
+        BLECandidate(service: svcOther, characteristic: chrOther1, canNotify: true, canWrite: true),
+        BLECandidate(service: svcKonnwei, characteristic: chrKonnweiData, canNotify: true, canWrite: true),
+    ])
+    expect(picked?.notify == chrKonnweiData && picked?.write == chrKonnweiData,
+           "ble: Konnwei FFE0/FFE1 duplex layout preferred")
+}
 
 do {
     // The known Vlink layout wins even when another usable pair exists.
     let picked = BLECharacteristicPicker.pick(from: [
         BLECandidate(service: svcOther, characteristic: chrOther1, canNotify: true, canWrite: true),
+        BLECandidate(service: svcKonnwei, characteristic: chrKonnweiData, canNotify: true, canWrite: true),
         BLECandidate(service: svcVlink, characteristic: chrNotifyVlink, canNotify: true, canWrite: false),
         BLECandidate(service: svcVlink, characteristic: chrWriteVlink, canNotify: false, canWrite: true),
     ])

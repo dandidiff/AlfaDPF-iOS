@@ -44,7 +44,7 @@ do {
     exit(1)
 }
 
-log("\n— Standard Mode 01 (works on any OBD-II car) —")
+log("\n— Standard Mode 01 (when supported by the ECU) —")
 let mode01 = Mode01Reader(connection: ble)
 let live = await mode01.poll()
 log("RPM:      \(fmt(live.rpm, ""))")
@@ -52,6 +52,7 @@ log("Speed:    \(fmt(live.speedKph, "km/h"))")
 log("Coolant:  \(fmt(live.coolantC, "°C"))")
 log("Intake:   \(fmt(live.intakeTempC, "°C"))")
 log("Load:     \(fmt(live.engineLoadPct, "%"))")
+log("Turbo:    \(fmt(live.turboBoostBar, "bar"))")
 
 log("\n— Alfa/FCA Mode 22 DPF PIDs —")
 let dpfPIDs: [(String, DPFPID, String)] = [

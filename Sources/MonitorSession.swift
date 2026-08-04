@@ -55,6 +55,7 @@ final class MonitorSession {
     private static let autoConnectDefaultsKey = "autoConnectEnabled.v1"
     private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
     private static let batteryMetricMigrationDefaultsKey = "batteryMetricAdded.v1"
+    private static let engineMetricsMigrationDefaultsKey = "engineMetricsAdded.v1"
     private static let appAccentDefaultsKey = "appAccent.v1"
 
     init(defaults: UserDefaults = .standard) {
@@ -70,16 +71,21 @@ final class MonitorSession {
             var visibleMetrics = Set(stored.compactMap(DashboardMetric.init(rawValue:)))
             if !defaults.bool(forKey: Self.batteryMetricMigrationDefaultsKey) {
                 visibleMetrics.insert(.batteryVoltage)
-                defaults.set(
-                    visibleMetrics.map(\.rawValue).sorted(),
-                    forKey: Self.dashboardMetricsDefaultsKey
-                )
                 defaults.set(true, forKey: Self.batteryMetricMigrationDefaultsKey)
             }
+            if !defaults.bool(forKey: Self.engineMetricsMigrationDefaultsKey) {
+                visibleMetrics.formUnion([.engineRPM, .coolantTemperature, .turboPressure])
+                defaults.set(true, forKey: Self.engineMetricsMigrationDefaultsKey)
+            }
+            defaults.set(
+                visibleMetrics.map(\.rawValue).sorted(),
+                forKey: Self.dashboardMetricsDefaultsKey
+            )
             initialVisibleDashboardMetrics = visibleMetrics
         } else {
             initialVisibleDashboardMetrics = Set(DashboardMetric.allCases)
             defaults.set(true, forKey: Self.batteryMetricMigrationDefaultsKey)
+            defaults.set(true, forKey: Self.engineMetricsMigrationDefaultsKey)
         }
 
         let initialAppAccent = defaults.string(forKey: Self.appAccentDefaultsKey)

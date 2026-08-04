@@ -61,7 +61,7 @@ struct DPFActivityWidget: Widget {
                 } else if context.state.isRegenerating {
                     HStack(spacing: 2) {
                         Image(systemName: "flame.fill")
-                        Text("RIGEN")
+                        Text(String(localized: "RIGEN"))
                             .font(.caption2.weight(.heavy))
                     }
                     .foregroundStyle(.orange)
@@ -130,12 +130,9 @@ private struct LockScreenDPFView: View {
             RegenPill(state: context.state, isStale: context.isStale)
         }
         .padding(14)
-        .overlay {
-            if !context.isStale && context.state.isRegenerating {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.orange.opacity(0.85), lineWidth: 2)
-            }
-        }
+        // No custom stroke: iOS already draws the Live Activity container
+        // shape. Regeneration emphasis comes from the orange background tint
+        // (activityBackgroundTint), the icon, and the ATTIVA pill below.
     }
 }
 
@@ -154,7 +151,7 @@ private struct DPFStateIcon: View {
                     .foregroundStyle(.secondary)
             }
             .frame(width: diameter, height: diameter)
-            .accessibilityLabel("Dati DPF non aggiornati")
+            .accessibilityLabel(String(localized: "Dati DPF non aggiornati"))
         } else if state.isRegenerating {
             ZStack {
                 Circle()
@@ -166,7 +163,7 @@ private struct DPFStateIcon: View {
                     .foregroundStyle(.orange)
             }
             .frame(width: diameter, height: diameter)
-            .accessibilityLabel("Rigenerazione DPF attiva")
+            .accessibilityLabel(String(localized: "Rigenerazione DPF attiva"))
         } else {
             DPFMiniGauge(load: state.loadPercent, diameter: diameter)
         }
@@ -209,11 +206,11 @@ private struct RegenPill: View {
                     !isStale && state.isRegenerating ? Color.orange : Color.secondary
                 )
             if isStale {
-                Text("NON LIVE")
+                Text(String(localized: "NON LIVE"))
                     .font(.caption2.weight(.heavy))
                     .foregroundStyle(.secondary)
             } else if state.isRegenerating {
-                Text("ATTIVA")
+                Text(String(localized: "ATTIVA"))
                     .font(.caption2.weight(.heavy))
                     .foregroundStyle(.orange)
                 if let progress = state.regenProgressPercent, progress > 0 {
@@ -222,7 +219,7 @@ private struct RegenPill: View {
                         .foregroundStyle(.orange)
                 }
             } else {
-                Text("standby")
+                Text(String(localized: "standby"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }

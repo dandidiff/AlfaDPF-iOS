@@ -549,17 +549,14 @@ private struct RoundGlassButton: View {
 
 private struct StatusBadge: View {
     let status: MonitorSession.Status
-    @State private var pulse = false
 
     var body: some View {
         let info = display
         HStack(spacing: 7) {
             ZStack {
                 Circle()
-                    .fill(info.color.opacity(0.38))
+                    .fill(info.color.opacity(0.24))
                     .frame(width: 14, height: 14)
-                    .scaleEffect(pulse ? 1.7 : 1)
-                    .opacity(pulse ? 0 : 1)
                 Circle().fill(info.color).frame(width: 7, height: 7)
             }
             Text(LocalizedStringKey(info.label))
@@ -571,8 +568,6 @@ private struct StatusBadge: View {
         .padding(.vertical, 9)
         .background(.thinMaterial, in: Capsule())
         .overlay(Capsule().stroke(Brand.hairline, lineWidth: 0.7))
-        .onAppear(perform: syncPulse)
-        .onChange(of: status) { syncPulse() }
     }
 
     private var display: (label: String, color: Color) {
@@ -585,17 +580,6 @@ private struct StatusBadge: View {
         }
     }
 
-    private func syncPulse() {
-        let shouldPulse = status == .running || status == .simulating
-        if shouldPulse {
-            pulse = false
-            withAnimation(.easeOut(duration: 1.25).repeatForever(autoreverses: false)) {
-                pulse = true
-            }
-        } else {
-            withAnimation(.linear(duration: 0.1)) { pulse = false }
-        }
-    }
 }
 
 // MARK: - Main DPF gauge
@@ -663,7 +647,6 @@ private struct HeroGauge: View {
         }
         .padding(20)
         .glassPanel(cornerRadius: 30)
-        .saturation(isCached ? 0 : 1)
         .opacity(isCached ? 0.64 : 1)
     }
 
@@ -682,12 +665,14 @@ private struct HeroGauge: View {
                 )
                 .rotationEffect(.degrees(-90))
                 .shadow(color: tint.opacity(0.38), radius: 10)
-                .animation(.smooth(duration: 0.65), value: load)
+                .animation(.smooth(duration: 1.2), value: load)
 
             VStack(spacing: -2) {
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
                     Text(hasData ? String(format: "%.1f", load) : "—")
                         .font(.system(size: 49, weight: .bold, design: .rounded).monospacedDigit())
+                        .contentTransition(.numericText())
+                        .animation(.smooth(duration: 0.45), value: load)
                     if hasData {
                         Text("%")
                             .font(.system(size: 21, weight: .semibold, design: .rounded))
@@ -769,14 +754,13 @@ private struct DPFDetailGrid: View {
     var body: some View {
         if !visibleMetrics.isEmpty {
             VStack(alignment: .leading, spacing: 11) {
-                SectionLabel(text: "DETTAGLI DPF", icon: "aqi.medium")
+                SectionLabel(text: "DATI VEICOLO", icon: "car.side.fill")
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(DashboardMetric.allCases.filter(visibleMetrics.contains)) { metric in
                         card(for: metric)
                     }
                 }
             }
-            .saturation(isCached ? 0 : 1)
             .opacity(isCached ? 0.64 : 1)
         }
     }
@@ -819,7 +803,7 @@ private struct DPFDetailGrid: View {
         case .oilPressure:
             MetricCard(
                 icon: "oilcan.fill",
-                title: "PRESSIONE OLIO",
+                title: "STATO PRESSIONE OLIO",
                 value: dpf.oilPressureStatusText,
                 unit: "",
                 accent: oilPressureAccent
@@ -831,6 +815,30 @@ private struct DPFDetailGrid: View {
                 value: dpf.batteryVoltage.map { String(format: "%.1f", $0) },
                 unit: "V",
                 accent: batteryVoltageAccent
+            )
+        case .engineRPM:
+            MetricCard(
+                icon: "gauge.with.dots.needle.50percent",
+                title: "GIRI MOTORE",
+                value: dpf.engineRPM.map { String(format: "%.0f", $0) },
+                unit: "rpm",
+                accent: isCached ? .gray : .cyan
+            )
+        case .coolantTemperature:
+            MetricCard(
+                icon: "thermometer.medium",
+                title: "LIQUIDO MOTORE",
+                value: dpf.coolantTemperatureC.map { String(format: "%.0f", $0) },
+                unit: "°C",
+                accent: coolantTemperatureAccent
+            )
+        case .turboPressure:
+            MetricCard(
+                icon: "wind",
+                title: "PRESSIONE TURBO",
+                value: dpf.turboBoostBar.map { String(format: "%.2f", $0) },
+                unit: "bar",
+                accent: isCached ? .gray : .mint
             )
         }
     }
@@ -849,6 +857,14 @@ private struct DPFDetailGrid: View {
         case 2: return .green
         default: return .gray
         }
+    }
+
+    private var coolantTemperatureAccent: Color {
+        guard !isCached, let temperature = dpf.coolantTemperatureC else { return .gray }
+        if temperature > 115 { return Brand.redBright }
+        if temperature > 105 { return .orange }
+        if temperature >= 70 { return .green }
+        return .cyan
     }
 }
 
@@ -892,6 +908,8 @@ private struct MetricCard: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
+                    .contentTransition(.numericText())
+                    .animation(.smooth(duration: 0.35), value: value)
                 if value != nil, !unit.isEmpty {
                     Text(unit)
                         .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -1118,6 +1136,21 @@ private struct SettingsView: View {
                                 }
                             }
                         }
+
+                        Divider().overlay(Brand.hairline)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Label("Pressione olio e SGW", systemImage: "info.circle")
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.82))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar.")
+                                Text("Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone.")
+                            }
+                                .font(.system(size: 10, design: .rounded))
+                                .foregroundStyle(Brand.textDim)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.top, 8)
                     }
 
                     settingsSection(title: "STRUMENTI", icon: "wrench.and.screwdriver") {
@@ -1439,24 +1472,22 @@ private struct DiagnosticsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         if dpf.exhaustTemperaturePID != nil
                             || dpf.regenerationMode != nil
-                            || dpf.oilPressureStatusRaw != nil {
+                            || dpf.oilPressureStatusRaw != nil
+                            || dpf.engineRPM != nil
+                            || dpf.coolantTemperatureC != nil
+                            || dpf.turboBoostBar != nil {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("NUOVI SEGNALI ECU")
+                                Text("TELEMETRIA ECU")
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(.cyan)
                                 if let pid = dpf.exhaustTemperaturePID {
-                                    Text(
-                                        "Temperatura: PID \(String(format: "22%04X", pid))"
-                                        + " · \(dpf.exhaustTempC.map { String(format: "%.1f °C", $0) } ?? "—")"
-                                    )
+                                    Text("Temperatura scarico: PID \(String(format: "22%04X", pid)) · \(dpf.exhaustTempC.map { String(format: "%.1f °C", $0) } ?? "—")")
                                 }
+                                Text("Giri motore 010C: \(dpf.engineRPM.map { String(format: "%.0f rpm", $0) } ?? String(localized: "PID non disponibile"))")
+                                Text("Liquido motore 0105: \(dpf.coolantTemperatureC.map { String(format: "%.0f °C", $0) } ?? String(localized: "PID non disponibile"))")
+                                Text("Pressione turbo 010B/0133: \(dpf.turboBoostBar.map { String(format: "%.2f bar", $0) } ?? String(localized: "PID non disponibile"))")
                                 Text("Rigenerazione: \(regenerationModeText)")
-                                Text(
-                                    "Pressione olio: "
-                                    + (dpf.oilPressureStatusRaw.map {
-                                        "\($0) · \(dpf.oilPressureStatusText ?? "sconosciuta")"
-                                    } ?? "PID non disponibile")
-                                )
+                                Text("Stato pressione olio 22194D: \(oilPressureDiagnosticText)")
                             }
                             .font(.system(.caption2, design: .monospaced))
                             .padding(12)
@@ -1471,12 +1502,8 @@ private struct DiagnosticsView: View {
                                 Text("PID 2218E4 · ECU \(dpf.cloggingECUHeader ?? "—")")
                                 Text("raw \(raw) (0x\(String(raw, radix: 16, uppercase: true)))")
                                 Text("formula raw×1000/65535 = \(dpf.cloggingPercent.map { String(format: "%.3f%%", $0) } ?? "—")")
-                                Text(dpf.cloggingSourceVerified == true
-                                     ? "Header verificato Giulia/Stelvio 2.2D"
-                                     : "Header non ancora convalidato: confronto beta richiesto")
-                                    .foregroundStyle(
-                                        dpf.cloggingSourceVerified == true ? .green : .orange
-                                    )
+                                Text("Modello veicolo non identificato automaticamente")
+                                    .foregroundStyle(.secondary)
                             }
                             .font(.system(.caption2, design: .monospaced))
                             .padding(12)
@@ -1518,11 +1545,20 @@ private struct DiagnosticsView: View {
     }
 
     private var regenerationModeText: String {
-        guard let mode = dpf.regenerationMode else { return "PID non disponibile" }
-        switch mode {
-        case .none: return "0 · nessuna"
-        case .passive: return "1 · passiva"
-        case .active: return "2 · attiva"
+        guard let mode = dpf.regenerationMode else {
+            return String(localized: "PID non disponibile")
         }
+        switch mode {
+        case .none: return String(localized: "0 · nessuna")
+        case .passive: return String(localized: "1 · passiva")
+        case .active: return String(localized: "2 · attiva")
+        }
+    }
+
+    private var oilPressureDiagnosticText: String {
+        guard let raw = dpf.oilPressureStatusRaw else {
+            return String(localized: "PID non disponibile")
+        }
+        return "\(raw) · \(dpf.oilPressureStatusText ?? String(localized: "Sconosciuto"))"
     }
 }

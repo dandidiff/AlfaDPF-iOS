@@ -11,6 +11,10 @@ enum BLECharacteristicPicker {
     static let vlinkService = CBUUID(string: "FFF0")
     static let vlinkNotify = CBUUID(string: "FFF1")
     static let vlinkWrite = CBUUID(string: "FFF2")
+    /// Common BLE UART layout used by Konnwei KW903 and HM-10-based adapters.
+    /// FFE1 is normally a single notify + write characteristic.
+    static let konnweiService = CBUUID(string: "FFE0")
+    static let konnweiData = CBUUID(string: "FFE1")
 
     struct Candidate: Equatable {
         var service: CBUUID
@@ -26,6 +30,13 @@ enum BLECharacteristicPicker {
             return (vlinkNotify, vlinkWrite)
         }
 
+        let konnwei = candidates.filter { $0.service == konnweiService }
+        if konnwei.contains(where: {
+            $0.characteristic == konnweiData && $0.canNotify && $0.canWrite
+        }) {
+            return (konnweiData, konnweiData)
+        }
+
         let services = Set(candidates.map(\.service))
         for service in services.sorted(by: { $0.uuidString < $1.uuidString }) {
             let inService = candidates.filter { $0.service == service }
@@ -34,6 +45,22 @@ enum BLECharacteristicPicker {
             return (notify.characteristic, write.characteristic)
         }
         return nil
+    }
+}
+
+/// Conservative advertisement filter for OBD BLE adapters. FFE0 by itself is
+/// deliberately insufficient because thousands of unrelated HM-10 devices use
+/// that service. A Konnwei must identify itself by brand or the confirmed BLE
+/// model token KW903 before we connect and inspect its GATT characteristics.
+enum BLEAdvertisementClassifier {
+    static func matches(name: String?, advertisedServices: [CBUUID]) -> Bool {
+        let label = (name ?? "").uppercased()
+        let namedAdapter = label.contains("VLINK")
+            || label.contains("OBD")
+            || label.contains("KONNWEI")
+            || label.contains("KW903")
+        return namedAdapter
+            || advertisedServices.contains(BLECharacteristicPicker.vlinkService)
     }
 }
 
@@ -175,9 +202,10 @@ actor BLEConnection: OBDTransport {
                                 advertisedServices: [CBUUID]) {
         guard shouldRun, self.peripheral == nil else { return }
         let label = (name ?? peripheral.name ?? "").uppercased()
-        let looksLikeELM = label.contains("VLINK") || label.contains("OBD")
-            || advertisedServices.contains(BLECharacteristicPicker.vlinkService)
-        guard looksLikeELM else { return }
+        guard BLEAdvertisementClassifier.matches(
+            name: label,
+            advertisedServices: advertisedServices
+        ) else { return }
 
         OBDLog.log("BLE: found '\(label.isEmpty ? "?" : label)', connecting")
         connect(peripheral, using: central)

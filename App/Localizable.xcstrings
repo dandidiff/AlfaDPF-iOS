@@ -22,6 +22,13 @@
             "value" : "ALPHA DPF"
           }
         }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ALPHA DPF"
+          }
+        }
       }
     },
     "Annulla connessione" : {
@@ -53,6 +60,13 @@
             "value" : "Open the app to reconnect"
           }
         }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri l’app per riconnettere"
+          }
+        }
       }
     },
     "Attendo i primi valori dalla centralina" : {
@@ -74,6 +88,13 @@
             "value" : "ACTIVE"
           }
         }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ATTIVA"
+          }
+        }
       }
     },
     "ATTIVA · %@%%" : {
@@ -82,6 +103,13 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ACTIVE · %@%%"
+          }
+        }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ATTIVA · %@%%"
           }
         }
       }
@@ -262,6 +290,13 @@
             "value" : "DPF data not updated"
           }
         }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dati DPF non aggiornati"
+          }
+        }
       }
     },
     "Dati non aggiornati" : {
@@ -272,6 +307,13 @@
             "value" : "Data not updated"
           }
         }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dati non aggiornati"
+          }
+        }
       }
     },
     "Dati non disponibili" : {
@@ -280,6 +322,13 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Data unavailable"
+          }
+        }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dati non disponibili"
           }
         }
       }
@@ -376,6 +425,13 @@
             "value" : "Diesel particulate filter"
           }
         }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filtro antiparticolato"
+          }
+        }
       }
     },
     "Fine" : {
@@ -467,6 +523,13 @@
             "value" : "ECU INDEX"
           }
         }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "INDICE ECU"
+          }
+        }
       }
     },
     "Indice ECU %@%%" : {
@@ -475,6 +538,13 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ECU index %@%%"
+          }
+        }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indice ECU %@%%"
           }
         }
       }
@@ -549,6 +619,13 @@
             "value" : "NOT UPDATED"
           }
         }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NON AGGIORNATO"
+          }
+        }
       }
     },
     "NON LIVE" : {
@@ -557,6 +634,13 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "NOT LIVE"
+          }
+        }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NON LIVE"
           }
         }
       }
@@ -577,6 +661,13 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Do not turn off the engine"
+          }
+        }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non spegnere il motore"
           }
         }
       }
@@ -698,6 +789,13 @@
             "value" : "REGEN"
           }
         }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RIGEN"
+          }
+        }
       }
     },
     "RIGENERAZIONE" : {
@@ -708,6 +806,13 @@
             "value" : "REGENERATION"
           }
         }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RIGENERAZIONE"
+          }
+        }
       }
     },
     "Rigenerazione attiva" : {
@@ -716,6 +821,13 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Active regeneration"
+          }
+        }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione attiva"
           }
         }
       }
@@ -776,6 +888,13 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF regeneration active"
+          }
+        }
+ ,
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione DPF attiva"
           }
         }
       }
@@ -868,6 +987,13 @@
     "standby" : {
       "localizations" : {
         "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "standby"
+          }
+        }
+ ,
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "standby"
@@ -1167,6 +1293,502 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Value from the last connection, not real time."
+          }
+        }
+      }
+    },
+    "DATI VEICOLO" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VEHICLE DATA"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DATI VEICOLO"
+          }
+        }
+      }
+    },
+    "STATO PRESSIONE OLIO" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OIL PRESSURE STATUS"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "STATO PRESSIONE OLIO"
+          }
+        }
+      }
+    },
+    "GIRI MOTORE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ENGINE RPM"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GIRI MOTORE"
+          }
+        }
+      }
+    },
+    "LIQUIDO MOTORE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ENGINE COOLANT"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LIQUIDO MOTORE"
+          }
+        }
+      }
+    },
+    "PRESSIONE TURBO" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TURBO BOOST"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PRESSIONE TURBO"
+          }
+        }
+      }
+    },
+    "Giri motore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine speed"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giri motore"
+          }
+        }
+      }
+    },
+    "Temperatura liquido motore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine coolant temperature"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura liquido motore"
+          }
+        }
+      }
+    },
+    "Pressione turbo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turbo pressure"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressione turbo"
+          }
+        }
+      }
+    },
+    "Pressione olio e SGW" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oil pressure and SGW"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressione olio e SGW"
+          }
+        }
+      }
+    },
+    "Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On compatible diesel engines, the available PID reports an ECU status, not a pressure value in bar."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar."
+          }
+        }
+      }
+    },
+    "Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With an SGW bypass already installed, advanced PIDs may become accessible if the ECU exposes them."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone."
+          }
+        }
+      }
+    },
+    "TELEMETRIA ECU" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ECU TELEMETRY"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TELEMETRIA ECU"
+          }
+        }
+      }
+    },
+    "Modello veicolo non identificato automaticamente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle model is not identified automatically"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modello veicolo non identificato automaticamente"
+          }
+        }
+      }
+    },
+    "PID non disponibile" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID unavailable"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID non disponibile"
+          }
+        }
+      }
+    },
+    "Giri motore 010C: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine RPM 010C: %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giri motore 010C: %@"
+          }
+        }
+      }
+    },
+    "Liquido motore 0105: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine coolant 0105: %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liquido motore 0105: %@"
+          }
+        }
+      }
+    },
+    "Pressione turbo 010B/0133: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turbo boost 010B/0133: %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressione turbo 010B/0133: %@"
+          }
+        }
+      }
+    },
+    "Stato pressione olio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oil pressure status"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato pressione olio"
+          }
+        }
+      }
+    },
+    "Assente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Absent"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assente"
+          }
+        }
+      }
+    },
+    "Non significativa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not significant"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non significativa"
+          }
+        }
+      }
+    },
+    "Normale" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normale"
+          }
+        }
+      }
+    },
+    "Stato %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato %@"
+          }
+        }
+      }
+    },
+    "Sconosciuto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sconosciuto"
+          }
+        }
+      }
+    },
+    "0 · nessuna" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0 · none"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0 · nessuna"
+          }
+        }
+      }
+    },
+    "1 · passiva" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 · passive"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 · passiva"
+          }
+        }
+      }
+    },
+    "2 · attiva" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2 · active"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2 · attiva"
+          }
+        }
+      }
+    },
+    "Temperatura scarico: PID %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exhaust temperature: PID %@ · %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura scarico: PID %@ · %@"
+          }
+        }
+      }
+    },
+    "Stato pressione olio 22194D: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oil pressure status 22194D: %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato pressione olio 22194D: %@"
+          }
+        }
+      }
+    },
+    "COLORE ACCENT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ACCENT COLOR"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "COLORE ACCENT"
+          }
+        }
+      }
+    },
+    "PAGINA PRINCIPALE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HOME PAGE"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PAGINA PRINCIPALE"
+          }
+        }
+      }
+    },
+    "STRUMENTI" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TOOLS"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "STRUMENTI"
           }
         }
       }

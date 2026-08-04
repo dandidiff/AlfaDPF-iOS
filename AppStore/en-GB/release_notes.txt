@@ -1,7 +1,10 @@
-Version 1.2 makes Bluetooth connections more reliable and easier to understand:
+Version 1.2 improves reliability, Live Activities and available data:
 
-• clear timeouts and messages when an adapter cannot be found or is incompatible;
+• redesigned Live Activity without the double border, fully localised in Italian and English;
+• new ECU data where supported: engine RPM, coolant temperature and turbo boost;
+• detection of Konnwei KW903 Bluetooth LE adapters and support for the FFE0/FFE1 profile;
+• smoother dashboard and more readable value transitions;
+• removed unreliable automatic vehicle-model identification;
+• clearer timeouts and messages when an adapter cannot be found or is incompatible;
 • tapping the Live Activity now opens the app and reconnects correctly;
-• regeneration notifications fully localised in Italian and English;
-• consistent Alpha DPF Monitor branding;
 • screen wake behaviour fixed during interruptions and reconnections.

@@ -38,6 +38,7 @@ actor DPFMonitor {
     }
 
     private let elm: ELM327
+    private let mode01: Mode01Reader
     private let alerts: AlertService
     private var pollTask: Task<Void, Never>?
 
@@ -48,6 +49,7 @@ actor DPFMonitor {
     private var lastSuccessfulReadAt: Date?
     private var lastSuccessfulCoreReadAt: Date?
     private var pidRetryAfter: [DPFPID: Date] = [:]
+    private var mode01RetryAfter: [UInt8: Date] = [:]
     private var preferredExhaustTemperaturePID: DPFPID?
 
     /// Number of consecutive polls where the regen-progress read failed.
@@ -57,6 +59,7 @@ actor DPFMonitor {
     private static let progressFailureThreshold = 3
     init(elm: ELM327, alerts: AlertService) {
         self.elm = elm
+        self.mode01 = Mode01Reader(connection: elm.connection)
         self.alerts = alerts
     }
 
@@ -211,6 +214,40 @@ actor DPFMonitor {
             break
         }
 
+        // Standard engine data comes strictly after the DPF transition
+        // detector. Most cycles add one request; the turbo slot adds MAP and
+        // barometric pressure so the displayed boost is not altitude-dependent.
+        // The explicit functional header also prevents Mode 01 from inheriting
+        // the previous physical Mode 22 ATSH context.
+        if let physicalHeader = lastGoodHeader,
+           let functionalHeader = Mode01Reader.functionalRequestHeader(
+               forPhysicalHeader: physicalHeader
+           ) {
+            switch cadenceSequence % 4 {
+            case 0, 2:
+                secondary.engineRPM = try? await readMode01(pid: 0x0C) {
+                    try await mode01.readRPM(header: functionalHeader)
+                }
+            case 1:
+                let manifold = try? await readMode01(pid: 0x0B) {
+                    try await mode01.readManifoldAbsolutePressure(header: functionalHeader)
+                }
+                let barometric = try? await readMode01(pid: 0x33) {
+                    try await mode01.readBarometricPressure(header: functionalHeader)
+                }
+                if let manifold, let barometric {
+                    secondary.turboBoostBar = Mode01Reader.turboBoostBar(
+                        manifoldAbsoluteKPa: manifold,
+                        barometricKPa: barometric
+                    )
+                }
+            default:
+                secondary.coolantTemperatureC = try? await readMode01(pid: 0x05) {
+                    try await mode01.readCoolantTemperature(header: functionalHeader)
+                }
+            }
+        }
+
         next = next.mergingFreshTelemetry(from: secondary)
         latest = next
 
@@ -344,6 +381,28 @@ actor DPFMonitor {
             )
         }
         return PIDReading(value: value, raw: raw, bytes: bytes, header: header)
+    }
+
+    private func readMode01(
+        pid: UInt8,
+        operation: () async throws -> Double
+    ) async throws -> Double {
+        if let retryAt = mode01RetryAfter[pid], retryAt > Date() {
+            throw OBDError.protocolError(
+                String(format: "Mode 01 PID %02X temporarily unavailable", pid)
+            )
+        }
+        do {
+            let value = try await operation()
+            mode01RetryAfter[pid] = nil
+            return value
+        } catch {
+            // Unsupported standard PIDs usually answer NO DATA immediately,
+            // while poor clones may consume their full timeout. Back off so a
+            // missing optional value cannot make every DPF cycle sluggish.
+            mode01RetryAfter[pid] = Date().addingTimeInterval(30)
+            throw error
+        }
     }
 
     // MARK: - Event detection

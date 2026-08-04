@@ -2,8 +2,9 @@
 
 Monitor DPF per Alfa Romeo / FCA diesel via adattatore ELM327 Bluetooth LE.
 La versione corrente è volutamente concentrata sui dati del filtro e sulla
-rilevazione affidabile della rigenerazione. La dashboard mostra anche la
-tensione di alimentazione reale restituita dall’adattatore tramite `ATRV`.
+rilevazione affidabile della rigenerazione. La dashboard mostra anche tensione
+batteria, giri motore, temperatura liquido e pressione turbo quando la
+centralina espone i relativi PID.
 
 Versione in sviluppo: **1.2 (build 10)**.
 
@@ -27,6 +28,16 @@ Con un Personal Team gratuito l'app e la Live Activity si possono installare
 sul proprio iPhone. La firma di una vera app-template CarPlay richiede invece
 un entitlement approvato da Apple; per questo il vecchio target CarPlay è stato
 rimosso dalla build finale.
+
+## Compatibilità adattatori
+
+La connessione iOS usa esclusivamente Bluetooth Low Energy tramite CoreBluetooth.
+Il profilo Konnwei KW903 BLE `FFE0`/`FFE1` è riconosciuto esplicitamente, insieme
+al profilo Vgate/Vlink `FFF0`/`FFF1`/`FFF2`. I modelli Konnwei Bluetooth Classic
+come KW902 non sono accessibili a una normale app iOS; il marchio Konnwei, da
+solo, non implica compatibilità. Un servizio generico `FFE0` senza un nome OBD,
+Konnwei o KW903 viene ignorato per evitare di collegarsi a periferiche HM-10 non
+OBD.
 
 ## Schermata auto e Live Activity
 
@@ -53,6 +64,8 @@ l'entitlement di una app CarPlay completa. Riferimenti Apple:
 - Il messaggio di autorizzazione Bluetooth è localizzato in
   `App/InfoPlist.xcstrings`.
 - Il widget mostra il marchio pubblico `ALPHA DPF` anche su Lock Screen.
+- Le stringhe della Live Activity hanno localizzazioni `it` ed `en` esplicite:
+  il bundle dell'estensione deve contenere entrambi gli `.lproj`.
 
 ## Test senza automobile
 
@@ -84,14 +97,21 @@ ALFADPF_AUTORUN_TEST=1
 ALFADPF_SCENARIO=regenInProgress
 ```
 
-## Perché i dati motore non vengono più letti
+## Dati motore senza interferire con il DPF
 
-La sessione principale non invia più i PID generici Mode 01. Sul setup reale,
-alternare Mode 01 e i PID Alfa Mode 22 poteva cambiare header/contesto ECU e
-far sparire a turno i dati motore o quelli DPF. Poiché il prodotto serve alla
-rigenerazione, la connessione finale preserva esclusivamente il polling DPF già
-validato. Il parser Mode 01 resta nel repository e nei test, ma non interviene
-nella sessione in auto.
+I PID critici DPF vengono sempre letti per primi. Soltanto dopo, la sessione
+invia un singolo PID standard Mode 01 per ciclo usando l'header motore già
+individuato e la stessa coda seriale ELM327. Un PID opzionale non supportato va
+in backoff per 30 secondi, così un clone lento non può bloccare ogni ciclo.
+
+- `010C` — giri motore, `(A·256+B)/4` rpm;
+- `0105` — temperatura liquido, `A−40` °C;
+- `010B` — pressione assoluta collettore, combinata con `0133` (pressione
+  barometrica) per mostrare il turbo relativo `(MAP−BARO)/100` bar.
+
+L'app non identifica automaticamente marca o modello: un header ECU descrive
+il destinatario diagnostico, non distingue in modo affidabile Stelvio, Giulia,
+500X o altri veicoli FCA.
 
 ## PID DPF
 
