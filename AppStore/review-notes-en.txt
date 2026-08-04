@@ -8,9 +8,13 @@ The production connection requires:
 The complete UI can be reviewed without external hardware:
 1. Launch the app.
 2. Tap the test-tube icon in the top bar.
-3. Tap “Esegui ciclo completo (8 secondi)”.
+3. Tap “Run full cycle (8 seconds)” (the Italian UI label is “Esegui ciclo completo (8 secondi)”).
 4. The app cycles through clean filter, high load, regeneration start, regeneration at 52%, and regeneration completion.
 5. If prompted, allow notifications to review the local start/end alerts and Live Activity.
+
+Notifications are localized (Italian and English): titles and bodies for
+regeneration start/finish and the test alert are translated, including the
+formatted DPF load and duration values.
 
 The waveform icon opens a local diagnostic log. The info icon opens the safety notice, privacy policy, and support links.
 

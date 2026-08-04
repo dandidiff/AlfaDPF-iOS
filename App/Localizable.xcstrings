@@ -14,9 +14,6 @@
     "%@%%" : {
 
     },
-    "ALFA DPF" : {
-
-    },
     "ALPHA DPF" : {
       "localizations" : {
         "en" : {
@@ -723,6 +720,56 @@
         }
       }
     },
+    "Rigenerazione completata — %d min." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration completed — %d min."
+          }
+        }
+      }
+    },
+    "Rigenerazione DPF iniziata" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF regeneration started"
+          }
+        }
+      }
+    },
+    "Rigenerazione DPF terminata" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF regeneration finished"
+          }
+        }
+      }
+    },
+    "Rigenerazione iniziata — DPF al %.0f%%. Non spegnere il motore." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration started — DPF at %.0f%%. Do not turn off the engine."
+          }
+        }
+      }
+    },
+    "Rigenerazione iniziata. Non spegnere il motore." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration started. Do not turn off the engine."
+          }
+        }
+      }
+    },
     "Rigenerazione DPF attiva" : {
       "localizations" : {
         "en" : {
@@ -912,12 +959,32 @@
         }
       }
     },
+    "Test a schermo bloccato: se Siri è abilitata, deve leggere questo avviso." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock-screen test: if Siri is enabled, it should read this alert."
+          }
+        }
+      }
+    },
     "Test avviso" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Test alert"
+          }
+        }
+      }
+    },
+    "Test avviso Alpha DPF Monitor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor test alert"
           }
         }
       }
@@ -969,6 +1036,126 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Last saved state, not real time"
+          }
+        }
+      }
+    },
+    "Accesso Bluetooth negato. Abilitalo nelle Impostazioni di iOS." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth access was denied. Enable it in iOS Settings."
+          }
+        }
+      }
+    },
+    "Bluetooth non è disponibile su questo dispositivo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth is not available on this device."
+          }
+        }
+      }
+    },
+    "Bluetooth è disattivato. Attivalo e riprova." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth is off. Turn it on and try again."
+          }
+        }
+      }
+    },
+    "Errore di comunicazione con l’adattatore OBD." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Communication error with the OBD adapter."
+          }
+        }
+      }
+    },
+    "Errore durante la connessione Bluetooth all’adattatore OBD." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth connection to the OBD adapter failed."
+          }
+        }
+      }
+    },
+    "Impossibile connettersi all’adattatore OBD. Riprova." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not connect to the OBD adapter. Try again."
+          }
+        }
+      }
+    },
+    "Impossibile inizializzare l’adattatore OBD. Riprova." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not initialise the OBD adapter. Try again."
+          }
+        }
+      }
+    },
+    "L’adattatore Bluetooth non espone una connessione ELM327 compatibile." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Bluetooth adapter does not expose a compatible ELM327 connection."
+          }
+        }
+      }
+    },
+    "L’adattatore OBD non ha risposto in tempo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The OBD adapter did not respond in time."
+          }
+        }
+      }
+    },
+    "L’adattatore OBD non è pronto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The OBD adapter is not ready."
+          }
+        }
+      }
+    },
+    "Nessuna connessione con l’adattatore OBD entro 30 secondi. Verifica che sia alimentato e vicino." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connection to the OBD adapter within 30 seconds. Check that it is powered and nearby."
+          }
+        }
+      }
+    },
+    "Telemetria OBD interrotta. Mostro l’ultimo stato valido." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD telemetry was interrupted. Showing the last valid state."
           }
         }
       }

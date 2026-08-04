@@ -25,7 +25,7 @@ L’app non richiede un account, non integra pubblicità o sistemi di analisi e 
 
 COMPATIBILITÀ E SICUREZZA
 
-La disponibilità dei dati dipende da veicolo, centralina e adattatore. L’app è progettata per specifici veicoli diesel Alfa Romeo/FCA compatibili con i PID supportati: verifica sempre la compatibilità del tuo modello.
+La disponibilità dei dati dipende da veicolo, centralina e adattatore. L’app è progettata per specifici veicoli diesel Alfa Romeo/FCA compatibili con i PID supportati, tra cui Giulia e Stelvio 2.2 diesel: verifica sempre la compatibilità del tuo modello prima dell’acquisto di un adattatore.
 
 Configura e consulta l’app soltanto a veicolo fermo. Alpha DPF Monitor fornisce indicazioni informative e non sostituisce una diagnosi professionale, la manutenzione o le istruzioni del costruttore.
 

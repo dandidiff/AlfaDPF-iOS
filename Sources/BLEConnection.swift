@@ -1,5 +1,5 @@
 import Foundation
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 
 /// Picks the GATT characteristics that carry the ELM327 byte stream.
 ///
@@ -51,7 +51,8 @@ actor BLEConnection: OBDTransport {
     private var notifyChar: CBCharacteristic?
     private var writeChar: CBCharacteristic?
     private(set) var state: State = .idle
-    private var readyContinuations: [CheckedContinuation<Void, Never>] = []
+    private let connectionTimeout: TimeInterval
+    private var readyContinuations: [CheckedContinuation<Void, Error>] = []
     /// Single ordered consumer of inbound notification packets. BLE replies
     /// can span several packets; feeding them through one stream guarantees
     /// `engine.ingest` sees bytes in arrival order (a per-packet `Task` would
@@ -61,18 +62,28 @@ actor BLEConnection: OBDTransport {
     /// advertisement. If it no longer exists, a short timeout falls back to
     /// the original broad scan so changing dongle remains automatic.
     private var fastReconnectTask: Task<Void, Never>?
+    /// Overall deadline for scan + connect + GATT discovery + notification
+    /// subscription. Without it, an absent or incompatible adapter can leave
+    /// the UI in "connecting" forever.
+    private var connectionTimeoutTask: Task<Void, Never>?
+    private var pendingCharacteristicDiscoveries = 0
     /// True between `start()` and `stop()` — gates auto-reconnect.
     private var shouldRun = false
     private static let lastPeripheralIdentifierKey = "lastBLEOBDPeripheralIdentifier.v1"
+
+    init(connectionTimeout: TimeInterval = 30) {
+        self.connectionTimeout = connectionTimeout
+    }
 
     func start() {
         shouldRun = true
         guard central == nil else { return }
         state = .scanning
-        let proxy = DelegateProxy(owner: self)
+        armConnectionTimeout()
+        let (stream, continuation) = AsyncStream<Data>.makeStream()
+        let proxy = DelegateProxy(owner: self, rxContinuation: continuation)
         // The continuation is yielded to synchronously from the (serial)
         // CoreBluetooth delegate queue, preserving packet order.
-        let stream = AsyncStream<Data> { proxy.rxContinuation = $0 }
         self.proxy = proxy
         rxDrainTask = Task { [engine] in
             for await data in stream { await engine.ingest(data) }
@@ -89,7 +100,11 @@ actor BLEConnection: OBDTransport {
         central?.stopScan()
         fastReconnectTask?.cancel()
         fastReconnectTask = nil
-        proxy?.rxContinuation?.finish()
+        connectionTimeoutTask?.cancel()
+        connectionTimeoutTask = nil
+        // AsyncStream continuations are thread-safe: a delegate callback that
+        // was already queued simply observes `.terminated` after this finish.
+        proxy?.finishRXStream()
         rxDrainTask?.cancel()
         rxDrainTask = nil
         central = nil
@@ -97,17 +112,20 @@ actor BLEConnection: OBDTransport {
         peripheral = nil
         notifyChar = nil
         writeChar = nil
+        pendingCharacteristicDiscoveries = 0
         await engine.reset()
-        resumeReadyContinuations()
         state = .idle
+        resumeReadyContinuations(throwing: CancellationError())
         OBDLog.log("BLE: stopped")
     }
 
-    func isReady() async {
+    func isReady() async throws {
         switch state {
         case .ready: return
+        case .failed(let error): throw error
+        case .idle: throw OBDError.notReady
         default:
-            await withCheckedContinuation { cont in
+            try await withCheckedThrowingContinuation { cont in
                 readyContinuations.append(cont)
             }
         }
@@ -140,10 +158,13 @@ actor BLEConnection: OBDTransport {
             }
         case .unauthorized:
             OBDLog.log("BLE: permission denied")
-            state = .failed(OBDError.protocolError("Bluetooth permission denied"))
+            failReadiness(with: OBDError.bluetoothUnauthorized)
         case .poweredOff:
             OBDLog.log("BLE: Bluetooth is off")
-            state = .failed(OBDError.protocolError("Bluetooth is off"))
+            failReadiness(with: OBDError.bluetoothPoweredOff)
+        case .unsupported:
+            OBDLog.log("BLE: unsupported on this device")
+            failReadiness(with: OBDError.bluetoothUnavailable)
         default:
             break
         }
@@ -163,7 +184,7 @@ actor BLEConnection: OBDTransport {
     }
 
     fileprivate func connected(_ peripheral: CBPeripheral) {
-        guard peripheral === self.peripheral, let proxy else { return }
+        guard shouldRun, peripheral === self.peripheral, let proxy else { return }
         fastReconnectTask?.cancel()
         fastReconnectTask = nil
         UserDefaults.standard.set(
@@ -175,15 +196,40 @@ actor BLEConnection: OBDTransport {
         peripheral.discoverServices(nil)
     }
 
-    fileprivate func servicesDiscovered(_ peripheral: CBPeripheral) {
-        guard peripheral === self.peripheral else { return }
-        for service in peripheral.services ?? [] {
+    fileprivate func servicesDiscovered(_ peripheral: CBPeripheral, error: Error?) {
+        guard shouldRun, peripheral === self.peripheral else { return }
+        if let error {
+            OBDLog.log("BLE: service discovery failed: \(error)")
+            failReadiness(with: OBDError.connectionFailed)
+            return
+        }
+        let services = peripheral.services ?? []
+        guard !services.isEmpty else {
+            OBDLog.log("BLE: adapter exposes no GATT services")
+            failReadiness(with: OBDError.incompatibleAdapter)
+            return
+        }
+        pendingCharacteristicDiscoveries = services.count
+        for service in services {
             peripheral.discoverCharacteristics(nil, for: service)
         }
     }
 
-    fileprivate func characteristicsDiscovered(_ peripheral: CBPeripheral) {
-        guard peripheral === self.peripheral, notifyChar == nil || writeChar == nil else { return }
+    fileprivate func characteristicsDiscovered(
+        _ peripheral: CBPeripheral,
+        service: CBService,
+        error: Error?
+    ) {
+        guard shouldRun,
+              peripheral === self.peripheral,
+              notifyChar == nil || writeChar == nil
+        else { return }
+        pendingCharacteristicDiscoveries = max(0, pendingCharacteristicDiscoveries - 1)
+        if let error {
+            OBDLog.log("BLE: characteristic discovery failed for \(service.uuid): \(error)")
+            failReadiness(with: OBDError.connectionFailed)
+            return
+        }
 
         let candidates = (peripheral.services ?? []).flatMap { service in
             (service.characteristics ?? []).map { chr in
@@ -195,7 +241,13 @@ actor BLEConnection: OBDTransport {
                 )
             }
         }
-        guard let picked = BLECharacteristicPicker.pick(from: candidates) else { return }
+        guard let picked = BLECharacteristicPicker.pick(from: candidates) else {
+            if pendingCharacteristicDiscoveries == 0 {
+                OBDLog.log("BLE: no compatible notify/write characteristic pair")
+                failReadiness(with: OBDError.incompatibleAdapter)
+            }
+            return
+        }
 
         let all = (peripheral.services ?? []).flatMap { $0.characteristics ?? [] }
         notifyChar = all.first { $0.uuid == picked.notify }
@@ -207,15 +259,22 @@ actor BLEConnection: OBDTransport {
     }
 
     fileprivate func notificationStateChanged(_ characteristic: CBCharacteristic, error: Error?) {
-        guard characteristic === notifyChar else { return }
+        guard shouldRun, characteristic === notifyChar else { return }
         if let error {
             OBDLog.log("BLE: subscribe failed: \(error)")
-            state = .failed(error)
+            failReadiness(with: OBDError.connectionFailed)
+            return
+        }
+        guard characteristic.isNotifying else {
+            OBDLog.log("BLE: adapter did not enable notifications")
+            failReadiness(with: OBDError.connectionFailed)
             return
         }
         OBDLog.log("BLE: ready")
         fastReconnectTask?.cancel()
         fastReconnectTask = nil
+        connectionTimeoutTask?.cancel()
+        connectionTimeoutTask = nil
         state = .ready
         resumeReadyContinuations()
     }
@@ -228,9 +287,14 @@ actor BLEConnection: OBDTransport {
         self.peripheral = nil
         notifyChar = nil
         writeChar = nil
+        pendingCharacteristicDiscoveries = 0
         await engine.failPendingRead(with: error ?? OBDError.protocolError("BLE disconnected"))
         guard shouldRun, let central else {
-            state = .idle
+            if case .failed = state {
+                // Preserve the useful readiness error until `stop()` resets it.
+            } else {
+                state = .idle
+            }
             return
         }
         // Dongle went away (ignition off, out of range) — go back to
@@ -295,6 +359,7 @@ actor BLEConnection: OBDTransport {
         connectionStartedAt = nil
         notifyChar = nil
         writeChar = nil
+        pendingCharacteristicDiscoveries = 0
         fastReconnectTask = nil
         startScan(central)
     }
@@ -307,8 +372,43 @@ actor BLEConnection: OBDTransport {
         central.scanForPeripherals(withServices: nil, options: nil)
     }
 
-    private func resumeReadyContinuations() {
-        readyContinuations.forEach { $0.resume() }
+    private func armConnectionTimeout() {
+        connectionTimeoutTask?.cancel()
+        let timeout = connectionTimeout
+        connectionTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(timeout))
+            guard !Task.isCancelled else { return }
+            await self?.connectionTimedOut()
+        }
+    }
+
+    private func connectionTimedOut() {
+        guard shouldRun else { return }
+        OBDLog.log("BLE: connection timed out after \(connectionTimeout) s")
+        failReadiness(with: OBDError.connectionTimeout)
+    }
+
+    private func failReadiness(with error: Error) {
+        guard shouldRun else { return }
+        shouldRun = false
+        connectionTimeoutTask?.cancel()
+        connectionTimeoutTask = nil
+        fastReconnectTask?.cancel()
+        fastReconnectTask = nil
+        central?.stopScan()
+        if let peripheral {
+            central?.cancelPeripheralConnection(peripheral)
+        }
+        state = .failed(error)
+        resumeReadyContinuations(throwing: error)
+    }
+
+    private func resumeReadyContinuations(throwing error: Error? = nil) {
+        if let error {
+            readyContinuations.forEach { $0.resume(throwing: error) }
+        } else {
+            readyContinuations.forEach { $0.resume() }
+        }
         readyContinuations.removeAll()
     }
 }
@@ -317,12 +417,16 @@ actor BLEConnection: OBDTransport {
 /// proxy trampolines them onto the actor.
 private final class DelegateProxy: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     private weak var owner: BLEConnection?
-    /// Set once by `BLEConnection.start()` before the central is created, so
-    /// no callback can race the assignment. `yield` is thread-safe.
-    var rxContinuation: AsyncStream<Data>.Continuation?
+    /// Immutable after construction; `yield` and `finish` are thread-safe.
+    private let rxContinuation: AsyncStream<Data>.Continuation
 
-    init(owner: BLEConnection) {
+    init(owner: BLEConnection, rxContinuation: AsyncStream<Data>.Continuation) {
         self.owner = owner
+        self.rxContinuation = rxContinuation
+    }
+
+    func finishRXStream() {
+        rxContinuation.finish()
     }
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
@@ -358,13 +462,15 @@ private final class DelegateProxy: NSObject, CBCentralManagerDelegate, CBPeriphe
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        Task { [owner] in await owner?.servicesDiscovered(peripheral) }
+        Task { [owner] in await owner?.servicesDiscovered(peripheral, error: error) }
     }
 
     func peripheral(_ peripheral: CBPeripheral,
                     didDiscoverCharacteristicsFor service: CBService,
                     error: Error?) {
-        Task { [owner] in await owner?.characteristicsDiscovered(peripheral) }
+        Task { [owner] in
+            await owner?.characteristicsDiscovered(peripheral, service: service, error: error)
+        }
     }
 
     func peripheral(_ peripheral: CBPeripheral,
@@ -379,7 +485,7 @@ private final class DelegateProxy: NSObject, CBCentralManagerDelegate, CBPeriphe
         // Yield synchronously on the (serial) delegate queue so the ordered
         // drain task in BLEConnection sees packets in arrival order.
         if let data = characteristic.value {
-            rxContinuation?.yield(data)
+            _ = rxContinuation.yield(data)
         }
     }
 }

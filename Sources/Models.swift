@@ -1,5 +1,57 @@
 import Foundation
 
+/// Lifecycle of the phone-side monitor session. Declared outside
+/// `MonitorSession` so the pure UI policy below (idle timer) is testable
+/// without UIKit.
+enum SessionStatus: Equatable, Sendable {
+    case idle
+    case connecting
+    case running
+    case simulating
+    case failed(String)
+
+    /// Whether the screen must stay awake while this status is current.
+    /// Connecting/running poll the ECU continuously and the dashboard must
+    /// stay live; every other state — including failures and telemetry
+    /// interruption — must release the idle timer so the display can sleep.
+    var keepsScreenAwake: Bool {
+        switch self {
+        case .connecting, .running: return true
+        case .idle, .simulating, .failed: return false
+        }
+    }
+}
+
+/// Canonical deep-link destinations. The Live Activity widget opens
+/// `alfadpf://monitor` when tapped; the root view maps every handled link to
+/// the single `.monitor` action so tapping a (possibly stale) activity always
+/// starts or reconnects the session.
+enum AppDeepLink: Equatable, Sendable {
+    case monitor
+
+    static let scheme = "alfadpf"
+    /// The one canonical destination, also referenced by the widget.
+    static let monitorURL = URL(string: "\(scheme)://monitor")!
+
+    /// Accepts the canonical `alfadpf://monitor` URL, the legacy
+    /// `alfadpf://connect` link and bare `alfadpf://` URLs. Unknown hosts and
+    /// foreign schemes are not handled.
+    static func parse(_ url: URL) -> AppDeepLink? {
+        guard url.scheme?.lowercased() == scheme else { return nil }
+        switch url.host?.lowercased() {
+        case "monitor", "connect":
+            return .monitor
+        case nil, "":
+            let path = url.path
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                .lowercased()
+            return path.isEmpty || path == "monitor" || path == "connect" ? .monitor : nil
+        default:
+            return nil
+        }
+    }
+}
+
 /// Regeneration state used by the UI and simulator. Real OBD sessions derive
 /// active regeneration from progress/temperature: 2218EC is documented as a
 /// forced-regeneration command state and the on-road logs prove it stays zero

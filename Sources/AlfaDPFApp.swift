@@ -200,9 +200,7 @@ struct PhoneRootView: View {
             session.persistCurrentState()
         }
         .onOpenURL { url in
-            guard url.scheme == "alfadpf",
-                  url.host == nil || url.host == "connect"
-            else { return }
+            guard AppDeepLink.parse(url) == .monitor else { return }
             session.start()
         }
         .onAppear(perform: applyDebugLaunchScenarioIfNeeded)

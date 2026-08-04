@@ -8,15 +8,13 @@ import UIKit
 @MainActor
 @Observable
 final class MonitorSession {
-    enum Status: Equatable {
-        case idle
-        case connecting
-        case running
-        case simulating
-        case failed(String)
-    }
+    typealias Status = SessionStatus
 
-    private(set) var status: Status = .idle
+    private(set) var status: Status = .idle {
+        didSet {
+            UIApplication.shared.isIdleTimerDisabled = status.keepsScreenAwake
+        }
+    }
     private(set) var dpf: DPFState
     private(set) var lastRegenEvent: String?
     private(set) var activeScenario: DPFSimulationScenario?
@@ -156,7 +154,6 @@ final class MonitorSession {
         lastRegenEvent = nil
         lastAcceptedPollSequence = 0
         reportedTelemetryInterruption = false
-        UIApplication.shared.isIdleTimerDisabled = true
 
         bootTask = Task { [weak self] in
             await previousMonitor?.stop()
@@ -176,7 +173,6 @@ final class MonitorSession {
         activeScenario = nil
         status = .idle
         hasLiveTelemetry = false
-        UIApplication.shared.isIdleTimerDisabled = false
 
         Task {
             await monitor?.stop()
@@ -213,7 +209,6 @@ final class MonitorSession {
         hasLiveTelemetry = false
         activeScenario = nil
         lastRegenEvent = "Ambiente di prova attivo"
-        UIApplication.shared.isIdleTimerDisabled = false
 
         Task {
             await monitor?.stop()
@@ -293,14 +288,32 @@ final class MonitorSession {
         // Notification settings and BLE discovery are independent. Running
         // them together removes an avoidable pause before scanning without
         // changing the adapter or ELM protocol sequence.
-        let alertSetupTask = Task { [alerts] in
-            await alerts.configure()
+        let alertSetupTask = Task { [weak self, alerts] in
+            let authorization = await alerts.configure()
+            guard !Task.isCancelled else { return }
+            self?.alertAuthorization = authorization
         }
 
         let obd = BLEConnection()
         self.obd = obd
         await obd.start()
-        await obd.isReady()
+        do {
+            try await obd.isReady()
+        } catch {
+            alertSetupTask.cancel()
+            guard !Task.isCancelled, !(error is CancellationError) else {
+                await obd.stop()
+                return
+            }
+            OBDLog.log("connection: BLE setup failed: \(error)")
+            status = .failed(Self.userMessage(
+                for: error,
+                fallback: "Impossibile connettersi all’adattatore OBD. Riprova."
+            ))
+            hasLiveTelemetry = false
+            await obd.stop()
+            return
+        }
         guard !Task.isCancelled else {
             await obd.stop()
             return
@@ -316,14 +329,17 @@ final class MonitorSession {
         do {
             try await elm.initializeSession()
         } catch {
+            alertSetupTask.cancel()
             guard !Task.isCancelled else { return }
-            status = .failed("Adapter init failed: \(error)")
+            OBDLog.log("connection: adapter initialization failed: \(error)")
+            status = .failed(Self.userMessage(
+                for: error,
+                fallback: "Impossibile inizializzare l’adattatore OBD. Riprova."
+            ))
             hasLiveTelemetry = false
-            UIApplication.shared.isIdleTimerDisabled = false
             await obd.stop()
             return
         }
-        alertAuthorization = await alertSetupTask.value
         guard !Task.isCancelled else {
             await obd.stop()
             return
@@ -386,7 +402,7 @@ final class MonitorSession {
         persistCurrentState()
         hasLiveTelemetry = false
         reportedTelemetryInterruption = true
-        status = .failed("Telemetria OBD interrotta. Mostro l’ultimo stato valido.")
+        status = .failed(String(localized: "Telemetria OBD interrotta. Mostro l’ultimo stato valido."))
         OBDLog.log("telemetry: no core DPF response for 8 s; preserving cached snapshot")
     }
 
@@ -402,6 +418,13 @@ final class MonitorSession {
     private func isFailed(_ status: Status) -> Bool {
         if case .failed = status { return true }
         return false
+    }
+
+    private static func userMessage(for error: Error, fallback: String.LocalizationValue) -> String {
+        if let obdError = error as? OBDError {
+            return obdError.localizedDescription
+        }
+        return String(localized: fallback)
     }
 
     private var skipAlertSetupForVisualTest: Bool {

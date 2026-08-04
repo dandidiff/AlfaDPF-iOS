@@ -5,8 +5,15 @@ La versione corrente è volutamente concentrata sui dati del filtro e sulla
 rilevazione affidabile della rigenerazione. La dashboard mostra anche la
 tensione di alimentazione reale restituita dall’adattatore tramite `ATRV`.
 
-Il nome pubblico della versione App Store è **Alpha DPF Monitor**. Informativa privacy
-e supporto sono pubblicati su
+Versione in sviluppo: **1.2 (build 10)**.
+
+Il nome pubblico della versione App Store è **Alpha DPF Monitor** — non “Alfa
+DPF”: “Alpha” è il marchio pubblico, scelto per restare distintivo senza usare
+ALFA come brand dell’app. La compatibilità con i veicoli Alfa Romeo/FCA è
+descritta nei testi, senza mai presentare l’app come affiliata. Le occorrenze
+di `AlfaDPF`/`alfadpf` nel repository sono identificatori interni (scheme,
+target, bundle ID, URL scheme) e non compaiono come marchio pubblico.
+Informativa privacy e supporto sono pubblicati su
 [dpf-monitor-support.etamburi.chatgpt.site](https://dpf-monitor-support.etamburi.chatgpt.site);
 i metadati di pubblicazione sono raccolti nella cartella `AppStore`.
 
@@ -37,6 +44,15 @@ l'entitlement di una app CarPlay completa. Riferimenti Apple:
 [CarPlay](https://developer.apple.com/carplay/),
 [ActivityKit](https://developer.apple.com/documentation/activitykit),
 [Live Activities](https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities).
+
+## Localizzazione (1.2)
+
+- Notifiche localizzate IT/EN: `AlertService` usa `String(localized:)` con
+  carico (`%.0f%%`) e durata (`%d min.`) formattati; le traduzioni stanno in
+  `App/Localizable.xcstrings`.
+- Il messaggio di autorizzazione Bluetooth è localizzato in
+  `App/InfoPlist.xcstrings`.
+- Il widget mostra il marchio pubblico `ALPHA DPF` anche su Lock Screen.
 
 ## Test senza automobile
 

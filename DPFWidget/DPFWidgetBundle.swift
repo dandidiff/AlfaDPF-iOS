@@ -106,7 +106,7 @@ private struct LockScreenDPFView: View {
             DPFStateIcon(state: context.state, isStale: context.isStale, diameter: 58)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("ALFA DPF")
+                Text(String(localized: "ALPHA DPF"))
                     .font(.caption2.weight(.heavy))
                     .tracking(1.7)
                     .foregroundStyle(.red)

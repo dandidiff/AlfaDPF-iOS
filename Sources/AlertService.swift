@@ -128,15 +128,15 @@ actor AlertService {
     func notifyRegenStarted(cloggingPercent: Double?) async {
         let body: String
         if let cloggingPercent {
-            body = String(
-                format: "Rigenerazione iniziata — DPF al %.0f%%. Non spegnere il motore.",
+            body = String.localizedStringWithFormat(
+                String(localized: "Rigenerazione iniziata — DPF al %.0f%%. Non spegnere il motore."),
                 cloggingPercent
             )
         } else {
-            body = "Rigenerazione iniziata. Non spegnere il motore."
+            body = String(localized: "Rigenerazione iniziata. Non spegnere il motore.")
         }
         await post(
-            title: "Rigenerazione DPF iniziata",
+            title: String(localized: "Rigenerazione DPF iniziata"),
             body: body
         )
     }
@@ -144,15 +144,18 @@ actor AlertService {
     func notifyRegenFinished(duration: TimeInterval) async {
         let min = max(1, Int((duration / 60).rounded()))
         await post(
-            title: "Rigenerazione DPF terminata",
-            body: "Rigenerazione completata — \(min) min."
+            title: String(localized: "Rigenerazione DPF terminata"),
+            body: String.localizedStringWithFormat(
+                String(localized: "Rigenerazione completata — %d min."),
+                min
+            )
         )
     }
 
     func notifyTest() async {
         await post(
-            title: "Test avviso Alpha DPF Monitor",
-            body: "Test a schermo bloccato: se Siri è abilitata, deve leggere questo avviso.",
+            title: String(localized: "Test avviso Alpha DPF Monitor"),
+            body: String(localized: "Test a schermo bloccato: se Siri è abilitata, deve leggere questo avviso."),
             delay: 5
         )
     }

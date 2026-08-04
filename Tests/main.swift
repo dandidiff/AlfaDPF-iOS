@@ -39,6 +39,47 @@ func expectThrows(_ name: String, _ body: () throws -> Void) {
     }
 }
 
+// MARK: - Session policies and deep links
+
+expect(AppDeepLink.monitorURL.absoluteString == "alfadpf://monitor",
+       "deep link: canonical URL remains stable")
+expect(AppDeepLink.parse(URL(string: "alfadpf://monitor")!) == .monitor,
+       "deep link: canonical monitor route")
+expect(AppDeepLink.parse(URL(string: "alfadpf://connect")!) == .monitor,
+       "deep link: legacy connect alias")
+expect(AppDeepLink.parse(URL(string: "alfadpf:")!) == .monitor,
+       "deep link: legacy bare scheme")
+expect(AppDeepLink.parse(URL(string: "alfadpf://unknown")!) == nil,
+       "deep link: rejects unknown destination")
+expect(AppDeepLink.parse(URL(string: "alfadpf:///unknown")!) == nil,
+       "deep link: rejects unknown path")
+expect(AppDeepLink.parse(URL(string: "https://monitor")!) == nil,
+       "deep link: rejects foreign scheme")
+
+expect(SessionStatus.connecting.keepsScreenAwake,
+       "idle timer: connecting keeps screen awake")
+expect(SessionStatus.running.keepsScreenAwake,
+       "idle timer: live session keeps screen awake")
+expect(!SessionStatus.idle.keepsScreenAwake
+       && !SessionStatus.simulating.keepsScreenAwake
+       && !SessionStatus.failed("test").keepsScreenAwake,
+       "idle timer: idle, simulation and failures release screen")
+
+for error in [
+    OBDError.notReady,
+    .protocolError("test"),
+    .timeout,
+    .connectionTimeout,
+    .bluetoothUnauthorized,
+    .bluetoothPoweredOff,
+    .bluetoothUnavailable,
+    .connectionFailed,
+    .incompatibleAdapter,
+] {
+    expect(!error.localizedDescription.isEmpty,
+           "OBD error: user-readable \(error)")
+}
+
 // MARK: - Mode 22 parsing
 
 // Single frame, 11-bit CAN header (3 hex chars!), spaces off (ATH1 + ATS0).
@@ -594,7 +635,10 @@ final class MockELMServer: @unchecked Sendable {
 
 // MARK: - Connection tests
 
-let port: UInt16 = 49217
+// Keep independent test processes from binding each other's mock servers
+// (reviewers and local CI often run this executable in parallel).
+let testPortBase = UInt16(20_000 + (ProcessInfo.processInfo.processIdentifier % 5_000) * 4)
+let port = testPortBase
 let server = try MockELMServer(port: port) { cmd in
     switch cmd {
     case "ATZ":    return "ATZ\rELM327 v1.5\r\r>"
@@ -606,7 +650,12 @@ let server = try MockELMServer(port: port) { cmd in
 
 let obd = OBDConnection(endpoint: .init(host: "127.0.0.1", port: port))
 await obd.start()
-await obd.isReady()
+do {
+    try await obd.isReady()
+} catch {
+    failures += 1
+    print("FAIL: conn readiness threw \(error)")
+}
 
 // Basic request/response with echo stripping.
 do {
@@ -659,7 +708,7 @@ await obd.stop()
 
 // Enhanced PIDs need the request addressed to a specific ECU via ATSH. Verify
 // the header is sent, in the same critical section, before the 22 request.
-let port2: UInt16 = 49218
+let port2 = testPortBase + 1
 let recorder = CommandRecorder()
 let server2 = try MockELMServer(port: port2) { cmd in
     recorder.record(cmd)
@@ -671,7 +720,12 @@ let server2 = try MockELMServer(port: port2) { cmd in
 _ = server2
 let obd2 = OBDConnection(endpoint: .init(host: "127.0.0.1", port: port2))
 await obd2.start()
-await obd2.isReady()
+do {
+    try await obd2.isReady()
+} catch {
+    failures += 1
+    print("FAIL: header connection readiness threw \(error)")
+}
 let elm2 = ELM327(connection: obd2)
 do {
     let bytes = try await elm2.readMode22(pid: 0x18E4, header: "18DA10F1")
@@ -713,6 +767,69 @@ do {
     print("FAIL: concurrent header test threw \(error)")
 }
 await obd2.stop()
+
+// An unreachable adapter must fail readiness instead of parking forever.
+let unavailable = OBDConnection(
+    endpoint: .init(host: "192.0.2.1", port: 1),
+    readinessTimeout: 0.4
+)
+await unavailable.start()
+do {
+    try await unavailable.isReady()
+    failures += 1
+    print("FAIL: readiness timeout expected, got ready")
+} catch let error as OBDError {
+    expect(error == .connectionTimeout,
+           "conn: readiness fails with typed overall timeout")
+} catch {
+    failures += 1
+    print("FAIL: readiness timeout returned unexpected error \(error)")
+}
+await unavailable.stop()
+
+// Stopping during setup must release every readiness waiter immediately.
+let cancelled = OBDConnection(
+    endpoint: .init(host: "192.0.2.1", port: 1),
+    readinessTimeout: 5
+)
+await cancelled.start()
+let readinessWaiter = Task { try await cancelled.isReady() }
+try? await Task.sleep(for: .milliseconds(100))
+await cancelled.stop()
+do {
+    try await readinessWaiter.value
+    failures += 1
+    print("FAIL: readiness cancellation expected, got ready")
+} catch is CancellationError {
+    print("PASS: conn: stop cancels pending readiness")
+} catch {
+    failures += 1
+    print("FAIL: readiness cancellation returned unexpected error \(error)")
+}
+
+// A timeout task that wakes as stop runs must not overwrite the final idle
+// state with a stale connectionTimeout failure.
+var stoppedConnectionsStayedIdle = true
+for _ in 0..<20 {
+    let racingStop = OBDConnection(
+        endpoint: .init(host: "192.0.2.1", port: 1),
+        readinessTimeout: 0.01
+    )
+    await racingStop.start()
+    try? await Task.sleep(for: .milliseconds(9))
+    await racingStop.stop()
+    try? await Task.sleep(for: .milliseconds(2))
+    do {
+        try await racingStop.isReady()
+        stoppedConnectionsStayedIdle = false
+    } catch let error as OBDError {
+        if error != .notReady { stoppedConnectionsStayedIdle = false }
+    } catch {
+        stoppedConnectionsStayedIdle = false
+    }
+}
+expect(stoppedConnectionsStayedIdle,
+       "conn: cancelled readiness deadline cannot overwrite stopped state")
 
 // MARK: - Summary
 

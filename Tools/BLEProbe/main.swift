@@ -24,20 +24,14 @@ func fmt(_ value: Double?, _ unit: String) -> String {
 log("Scanning for a Vlink/OBD dongle over BLE (30 s)…")
 let ble = BLEConnection()
 await ble.start()
-
-// `stop()` resumes `isReady()` waiters, so this acts as a scan timeout.
-let scanTimeout = Task {
-    try? await Task.sleep(nanoseconds: 30_000_000_000)
+do {
+    try await ble.isReady()
+} catch {
+    log("✗ \(error.localizedDescription)")
     await ble.stop()
-}
-await ble.isReady()
-scanTimeout.cancel()
-
-guard case .ready = await ble.state else {
-    log("✗ No dongle found. Check: dongle plugged in, ignition on, Bluetooth on,")
-    log("  and that the dongle is not already connected to another app/phone.")
     exit(1)
 }
+
 log("✓ Dongle connected.")
 
 let elm = ELM327(connection: ble)

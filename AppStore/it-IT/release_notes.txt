@@ -1,0 +1,7 @@
+La versione 1.2 rende la connessione Bluetooth più affidabile e chiara:
+
+• timeout e messaggi utili se l’adattatore non viene trovato o non è compatibile;
+• toccando la Live Activity l’app si apre e riconnette correttamente;
+• notifiche di rigenerazione completamente localizzate in italiano e inglese;
+• branding Alpha DPF Monitor uniforme;
+• correzioni alla gestione dello schermo durante interruzioni e riconnessioni.
