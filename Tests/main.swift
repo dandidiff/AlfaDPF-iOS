@@ -80,6 +80,32 @@ for error in [
            "OBD error: user-readable \(error)")
 }
 
+// MARK: - Optional project support
+
+expect(
+    ProjectSupport.donationURL.scheme == "https"
+        && ProjectSupport.donationURL.host == "ko-fi.com"
+        && ProjectSupport.donationURL.path == "/eddytamburi",
+    "support: public Ko-fi URL is exact and HTTPS"
+)
+let supportPromptSuite = "AlphaDPF.SupportPrompt.\(UUID().uuidString)"
+let supportPromptDefaults = UserDefaults(suiteName: supportPromptSuite)!
+var promptedTooEarly = false
+for _ in 1..<ProjectSupportPromptPolicy.launchThreshold {
+    if ProjectSupportPromptPolicy.registerLaunch(in: supportPromptDefaults) {
+        promptedTooEarly = true
+    }
+}
+expect(!promptedTooEarly, "support: first nine launches do not prompt")
+expect(ProjectSupportPromptPolicy.registerLaunch(in: supportPromptDefaults),
+       "support: tenth launch requests the optional prompt")
+expect(ProjectSupportPromptPolicy.registerLaunch(in: supportPromptDefaults),
+       "support: pending prompt survives until it is actually presented")
+ProjectSupportPromptPolicy.markPresented(in: supportPromptDefaults)
+expect(!ProjectSupportPromptPolicy.registerLaunch(in: supportPromptDefaults),
+       "support: prompt never nags again after presentation")
+supportPromptDefaults.removePersistentDomain(forName: supportPromptSuite)
+
 // MARK: - Mode 22 parsing
 
 // Single frame, 11-bit CAN header (3 hex chars!), spaces off (ATH1 + ATS0).
@@ -827,6 +853,32 @@ do {
 } catch {
     failures += 1
     print("FAIL: concurrent header test threw \(error)")
+}
+
+// Reproduce the real-device sequence: a physical Mode 22 read, a standard
+// functional Mode 01 read, then the same physical Mode 22 read again. The ELM
+// retains ATSH state, so both callers must provide their header explicitly.
+do {
+    let commandOffset = recorder.commands.count
+    let mode01 = Mode01Reader(connection: obd2)
+    let before = try await elm2.readMode22(pid: 0x18E4, header: "18DA01F1")
+    let rpm = try await mode01.readRPM(header: "18DB33F1")
+    let after = try await elm2.readMode22(pid: 0x18E4, header: "18DA01F1")
+    expect(before == [0x0C, 0xCD] && rpm == 801.5 && after == [0x0C, 0xCD],
+           "header: Mode 22 survives an interleaved functional Mode 01 read")
+
+    let sequence = Array(recorder.commands.dropFirst(commandOffset))
+    expect(
+        sequence == [
+            "ATSH18DA01F1", "2218E4",
+            "ATSH18DB33F1", "010C",
+            "ATSH18DA01F1", "2218E4",
+        ],
+        "header: physical context is restored after functional Mode 01"
+    )
+} catch {
+    failures += 1
+    print("FAIL: sequential Mode 22/01/22 header test threw \(error)")
 }
 await obd2.stop()
 

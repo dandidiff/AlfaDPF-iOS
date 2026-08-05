@@ -284,6 +284,33 @@ extension DPFState {
     }
 }
 
+/// Public destination for voluntary project support. The contribution never
+/// unlocks app content or functionality.
+enum ProjectSupport {
+    static let donationURL = URL(string: "https://ko-fi.com/eddytamburi")!
+}
+
+/// Persists the cold-launch threshold for the optional project-support prompt.
+/// Presentation is marked separately so a first-run system permission flow can
+/// delay the prompt without losing it.
+enum ProjectSupportPromptPolicy {
+    static let launchThreshold = 10
+    private static let launchCountKey = "projectSupportLaunchCount.v1"
+    private static let promptPresentedKey = "projectSupportPromptPresented.v1"
+
+    static func registerLaunch(in defaults: UserDefaults = .standard) -> Bool {
+        guard !defaults.bool(forKey: promptPresentedKey) else { return false }
+
+        let launchCount = defaults.integer(forKey: launchCountKey) + 1
+        defaults.set(launchCount, forKey: launchCountKey)
+        return launchCount >= launchThreshold
+    }
+
+    static func markPresented(in defaults: UserDefaults = .standard) {
+        defaults.set(true, forKey: promptPresentedKey)
+    }
+}
+
 /// Small local cache used only to restore the last real ECU snapshot. No
 /// simulated values are written and nothing leaves the device.
 enum DPFStateStore {

@@ -112,10 +112,13 @@ private extension View {
 
 struct PhoneRootView: View {
     @Bindable var session: MonitorSession
+    @Environment(\.openURL) private var openURL
     @State private var showSettings = false
     @State private var showTestLab = false
     @State private var showAbout = false
     @State private var showNotificationSetup = false
+    @State private var showProjectSupportPrompt = false
+    @State private var projectSupportPromptPending = false
     @State private var preparedLaunch = false
     @State private var appliedDebugLaunchScenario = false
 
@@ -145,7 +148,9 @@ struct PhoneRootView: View {
 
                     HeroGauge(
                         dpf: session.dpf,
-                        isCached: session.isShowingCachedTelemetry
+                        isCached: session.isShowingCachedTelemetry,
+                        isSessionActive: session.status == .running || session.status == .simulating,
+                        isAwaitingTelemetry: session.isAwaitingTelemetry
                     )
 
                     DPFDetailGrid(
@@ -184,14 +189,32 @@ struct PhoneRootView: View {
             }
             .interactiveDismissDisabled()
         }
+        .alert("Ti piace Alpha DPF Monitor?", isPresented: $showProjectSupportPrompt) {
+            Button("Sostieni con €4,99") {
+                openURL(ProjectSupport.donationURL)
+            }
+            Button("No, grazie", role: .cancel) {}
+        } message: {
+            Text("L’app è gratuita e resterà gratuita. Un contributo facoltativo di €4,99 aiuta a coprire i costi annuali e a mantenere vivo il progetto. Non sblocca funzioni e non cambia l’esperienza.")
+        }
         .task {
             guard !preparedLaunch else { return }
             preparedLaunch = true
+            let shouldShowSupportPrompt = ProjectSupportPromptPolicy.registerLaunch()
             if await session.prepareNotificationAuthorizationAtLaunch() {
+                projectSupportPromptPending = shouldShowSupportPrompt
                 showNotificationSetup = true
             } else {
                 session.startAutomaticallyIfNeeded()
+                if shouldShowSupportPrompt {
+                    presentProjectSupportPrompt()
+                }
             }
+        }
+        .onChange(of: showNotificationSetup) { _, isPresented in
+            guard !isPresented, projectSupportPromptPending else { return }
+            projectSupportPromptPending = false
+            presentProjectSupportPrompt()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             Task { await session.refreshNotificationAuthorization() }
@@ -204,6 +227,11 @@ struct PhoneRootView: View {
             session.start()
         }
         .onAppear(perform: applyDebugLaunchScenarioIfNeeded)
+    }
+
+    private func presentProjectSupportPrompt() {
+        ProjectSupportPromptPolicy.markPresented()
+        showProjectSupportPrompt = true
     }
 
     private func applyDebugLaunchScenarioIfNeeded() {
@@ -587,6 +615,8 @@ private struct StatusBadge: View {
 private struct HeroGauge: View {
     let dpf: DPFState
     let isCached: Bool
+    let isSessionActive: Bool
+    let isAwaitingTelemetry: Bool
 
     private var load: Double { dpf.cloggingPercent ?? 0 }
     private var hasData: Bool { dpf.cloggingPercent != nil }
@@ -608,7 +638,14 @@ private struct HeroGauge: View {
     }
 
     private var guidance: String {
-        guard hasData else { return "Connetti l'adattatore oppure usa il laboratorio test." }
+        guard hasData else {
+            guard isSessionActive else {
+                return "Connetti l'adattatore oppure usa il laboratorio test."
+            }
+            return isAwaitingTelemetry
+                ? "Attendo i primi valori dalla centralina"
+                : "Il PID carico DPF non è disponibile su questa centralina."
+        }
         if isCached { return "Valore dell’ultima connessione, non in tempo reale." }
         if dpf.effectiveRegenerationMode == .active {
             return "Continua a guidare e non spegnere il motore."
@@ -1049,6 +1086,7 @@ private struct ConnectionPanel: View {
 
 private struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @Bindable var session: MonitorSession
     @State private var showDiagnostics = false
     @State private var showTestLab = false
@@ -1168,6 +1206,24 @@ private struct SettingsView: View {
                             ) {
                                 showTestLab = true
                             }
+                        }
+                    }
+
+                    settingsSection(title: "SOSTIENI IL PROGETTO", icon: "heart.fill") {
+                        VStack(alignment: .leading, spacing: 0) {
+                            SettingsToolButton(
+                                title: "Contributo facoltativo · €4,99",
+                                symbol: "heart.circle.fill"
+                            ) {
+                                openURL(ProjectSupport.donationURL)
+                            }
+                            Divider().overlay(Brand.hairline)
+                            Text("L’app è gratuita e resterà gratuita. Un contributo facoltativo di €4,99 aiuta a coprire i costi annuali e a mantenere vivo il progetto. Non sblocca funzioni e non cambia l’esperienza.")
+                                .font(.system(size: 11, design: .rounded))
+                                .foregroundStyle(Brand.textDim)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.horizontal, 2)
+                                .padding(.vertical, 12)
                         }
                     }
                 }

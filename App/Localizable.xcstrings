@@ -14,6 +14,64 @@
     "%@%%" : {
 
     },
+    "0 · nessuna" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0 · none"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0 · nessuna"
+          }
+        }
+      }
+    },
+    "1 · passiva" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 · passive"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 · passiva"
+          }
+        }
+      }
+    },
+    "2 · attiva" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2 · active"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2 · attiva"
+          }
+        }
+      }
+    },
+    "Accesso Bluetooth negato. Abilitalo nelle Impostazioni di iOS." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth access was denied. Enable it in iOS Settings."
+          }
+        }
+      }
+    },
     "ALPHA DPF" : {
       "localizations" : {
         "en" : {
@@ -21,8 +79,7 @@
             "state" : "translated",
             "value" : "ALPHA DPF"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -59,12 +116,27 @@
             "state" : "translated",
             "value" : "Open the app to reconnect"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apri l’app per riconnettere"
+          }
+        }
+      }
+    },
+    "Assente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Absent"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assente"
           }
         }
       }
@@ -77,6 +149,12 @@
             "state" : "translated",
             "value" : "Waiting for the first ECU readings"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attendo i primi valori dalla centralina"
+          }
         }
       }
     },
@@ -87,8 +165,7 @@
             "state" : "translated",
             "value" : "ACTIVE"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -104,8 +181,7 @@
             "state" : "translated",
             "value" : "ACTIVE · %@%%"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -156,6 +232,26 @@
         }
       }
     },
+    "Bluetooth è disattivato. Attivalo e riprova." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth is off. Turn it on and try again."
+          }
+        }
+      }
+    },
+    "Bluetooth non è disponibile su questo dispositivo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth is not available on this device."
+          }
+        }
+      }
+    },
     "Carico critico" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -178,12 +274,45 @@
         }
       }
     },
+    "COLORE ACCENT" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ACCENT COLOR"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "COLORE ACCENT"
+          }
+        }
+      }
+    },
     "Completa gli avvisi" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Finish alert setup"
+          }
+        }
+      }
+    },
+    "Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With an SGW bypass already installed, advanced PIDs may become accessible if the ECU exposes them."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone."
           }
         }
       }
@@ -251,12 +380,46 @@
         }
       }
     },
+    "Connetti l'adattatore oppure usa il laboratorio test." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect the adapter or use the test lab."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connetti l'adattatore oppure usa il laboratorio test."
+          }
+        }
+      }
+    },
     "Continua nell’app" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Continue to app"
+          }
+        }
+      }
+    },
+    "Contributo facoltativo · €4,99" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Optional contribution · €4.99"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contributo facoltativo · €4,99"
           }
         }
       }
@@ -289,8 +452,7 @@
             "state" : "translated",
             "value" : "DPF data not updated"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -306,8 +468,7 @@
             "state" : "translated",
             "value" : "Data not updated"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -323,12 +484,28 @@
             "state" : "translated",
             "value" : "Data unavailable"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dati non disponibili"
+          }
+        }
+      }
+    },
+    "DATI VEICOLO" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VEHICLE DATA"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DATI VEICOLO"
           }
         }
       }
@@ -407,6 +584,26 @@
         }
       }
     },
+    "Errore di comunicazione con l’adattatore OBD." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Communication error with the OBD adapter."
+          }
+        }
+      }
+    },
+    "Errore durante la connessione Bluetooth all’adattatore OBD." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth connection to the OBD adapter failed."
+          }
+        }
+      }
+    },
     "Esegui ciclo completo (8 secondi)" : {
       "localizations" : {
         "en" : {
@@ -424,8 +621,7 @@
             "state" : "translated",
             "value" : "Diesel particulate filter"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -454,6 +650,55 @@
         }
       }
     },
+    "Giri motore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine speed"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giri motore"
+          }
+        }
+      }
+    },
+    "GIRI MOTORE" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ENGINE RPM"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GIRI MOTORE"
+          }
+        }
+      }
+    },
+    "Giri motore 010C: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine RPM 010C: %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giri motore 010C: %@"
+          }
+        }
+      }
+    },
     "Gli scenari usano la stessa logica della connessione reale: interfaccia, Live Activity e notifiche di inizio/fine rigenerazione." : {
       "localizations" : {
         "en" : {
@@ -465,6 +710,7 @@
       }
     },
     "Header non ancora convalidato: confronto beta richiesto" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -475,6 +721,7 @@
       }
     },
     "Header verificato Giulia/Stelvio 2.2D" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -491,6 +738,43 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The filter is in its normal operating range."
+          }
+        }
+      }
+    },
+    "Il PID carico DPF non è disponibile su questa centralina." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The DPF load PID is not available from this ECU."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il PID carico DPF non è disponibile su questa centralina."
+          }
+        }
+      }
+    },
+    "Impossibile connettersi all’adattatore OBD. Riprova." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not connect to the OBD adapter. Try again."
+          }
+        }
+      }
+    },
+    "Impossibile inizializzare l’adattatore OBD. Riprova." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not initialise the OBD adapter. Try again."
           }
         }
       }
@@ -522,8 +806,7 @@
             "state" : "translated",
             "value" : "ECU INDEX"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -539,8 +822,7 @@
             "state" : "translated",
             "value" : "ECU index %@%%"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -565,6 +847,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "About, safety and privacy"
+          }
+        }
+      }
+    },
+    "L’adattatore Bluetooth non espone una connessione ELM327 compatibile." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Bluetooth adapter does not expose a compatible ELM327 connection."
+          }
+        }
+      }
+    },
+    "L’adattatore OBD non è pronto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The OBD adapter is not ready."
+          }
+        }
+      }
+    },
+    "L’adattatore OBD non ha risposto in tempo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The OBD adapter did not respond in time."
+          }
+        }
+      }
+    },
+    "L’app è gratuita e resterà gratuita. Un contributo facoltativo di €4,99 aiuta a coprire i costi annuali e a mantenere vivo il progetto. Non sblocca funzioni e non cambia l’esperienza." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app is free and will stay free. An optional €4.99 contribution helps cover annual costs and keeps the project alive. It unlocks nothing and does not change the experience."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’app è gratuita e resterà gratuita. Un contributo facoltativo di €4,99 aiuta a coprire i costi annuali e a mantenere vivo il progetto. Non sblocca funzioni e non cambia l’esperienza."
           }
         }
       }
@@ -601,12 +929,87 @@
         }
       }
     },
+    "LIQUIDO MOTORE" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ENGINE COOLANT"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LIQUIDO MOTORE"
+          }
+        }
+      }
+    },
+    "Liquido motore 0105: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine coolant 0105: %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liquido motore 0105: %@"
+          }
+        }
+      }
+    },
+    "Modello veicolo non identificato automaticamente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vehicle model is not identified automatically"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modello veicolo non identificato automaticamente"
+          }
+        }
+      }
+    },
     "Monitor" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Monitor"
+          }
+        }
+      }
+    },
+    "Nessuna connessione con l’adattatore OBD entro 30 secondi. Verifica che sia alimentato e vicino." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connection to the OBD adapter within 30 seconds. Check that it is powered and nearby."
+          }
+        }
+      }
+    },
+    "No, grazie" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No, thanks"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No, grazie"
           }
         }
       }
@@ -618,8 +1021,7 @@
             "state" : "translated",
             "value" : "NOT UPDATED"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -635,8 +1037,7 @@
             "state" : "translated",
             "value" : "NOT LIVE"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -655,6 +1056,22 @@
         }
       }
     },
+    "Non significativa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not significant"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non significativa"
+          }
+        }
+      }
+    },
     "Non spegnere il motore" : {
       "localizations" : {
         "en" : {
@@ -662,8 +1079,7 @@
             "state" : "translated",
             "value" : "Do not turn off the engine"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -672,7 +1088,24 @@
         }
       }
     },
+    "Normale" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normale"
+          }
+        }
+      }
+    },
     "NUOVI SEGNALI ECU" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -688,6 +1121,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OBD disabled during testing"
+          }
+        }
+      }
+    },
+    "PAGINA PRINCIPALE" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HOME PAGE"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PAGINA PRINCIPALE"
           }
         }
       }
@@ -712,7 +1162,24 @@
         }
       }
     },
+    "PID non disponibile" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID unavailable"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID non disponibile"
+          }
+        }
+      }
+    },
     "Pressione olio" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -729,6 +1196,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OIL PRESSURE"
+          }
+        }
+      }
+    },
+    "Pressione olio e SGW" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oil pressure and SGW"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressione olio e SGW"
+          }
+        }
+      }
+    },
+    "Pressione turbo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turbo pressure"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressione turbo"
+          }
+        }
+      }
+    },
+    "PRESSIONE TURBO" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TURBO BOOST"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PRESSIONE TURBO"
+          }
+        }
+      }
+    },
+    "Pressione turbo 010B/0133: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turbo boost 010B/0133: %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressione turbo 010B/0133: %@"
           }
         }
       }
@@ -788,8 +1320,7 @@
             "state" : "translated",
             "value" : "REGEN"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -805,8 +1336,7 @@
             "state" : "translated",
             "value" : "REGENERATION"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -822,8 +1352,7 @@
             "state" : "translated",
             "value" : "Active regeneration"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
@@ -838,6 +1367,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration completed — %d min."
+          }
+        }
+      }
+    },
+    "Rigenerazione DPF attiva" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF regeneration active"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione DPF attiva"
           }
         }
       }
@@ -878,23 +1423,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration started. Do not turn off the engine."
-          }
-        }
-      }
-    },
-    "Rigenerazione DPF attiva" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DPF regeneration active"
-          }
-        }
- ,
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rigenerazione DPF attiva"
           }
         }
       }
@@ -984,6 +1512,55 @@
         }
       }
     },
+    "Sconosciuto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sconosciuto"
+          }
+        }
+      }
+    },
+    "Sostieni con €4,99" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Support with €4.99"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sostieni con €4,99"
+          }
+        }
+      }
+    },
+    "SOSTIENI IL PROGETTO" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SUPPORT THE PROJECT"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SOSTIENI IL PROGETTO"
+          }
+        }
+      }
+    },
     "standby" : {
       "localizations" : {
         "en" : {
@@ -991,12 +1568,76 @@
             "state" : "translated",
             "value" : "standby"
           }
-        }
- ,
+        },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "standby"
+          }
+        }
+      }
+    },
+    "Stato %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato %@"
+          }
+        }
+      }
+    },
+    "Stato pressione olio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oil pressure status"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato pressione olio"
+          }
+        }
+      }
+    },
+    "STATO PRESSIONE OLIO" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OIL PRESSURE STATUS"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "STATO PRESSIONE OLIO"
+          }
+        }
+      }
+    },
+    "Stato pressione olio 22194D: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oil pressure status 22194D: %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato pressione olio 22194D: %@"
           }
         }
       }
@@ -1034,12 +1675,103 @@
         }
       }
     },
+    "STRUMENTI" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TOOLS"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "STRUMENTI"
+          }
+        }
+      }
+    },
+    "Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On compatible diesel engines, the available PID reports an ECU status, not a pressure value in bar."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar."
+          }
+        }
+      }
+    },
+    "TELEMETRIA ECU" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ECU TELEMETRY"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TELEMETRIA ECU"
+          }
+        }
+      }
+    },
+    "Telemetria OBD interrotta. Mostro l’ultimo stato valido." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD telemetry was interrupted. Showing the last valid state."
+          }
+        }
+      }
+    },
     "Temperatura gas di scarico" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Exhaust gas temperature"
+          }
+        }
+      }
+    },
+    "Temperatura liquido motore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine coolant temperature"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura liquido motore"
+          }
+        }
+      }
+    },
+    "Temperatura scarico: PID %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exhaust temperature: PID %@ · %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura scarico: PID %@ · %@"
           }
         }
       }
@@ -1135,6 +1867,22 @@
         }
       }
     },
+    "Ti piace Alpha DPF Monitor?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enjoying Alpha DPF Monitor?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ti piace Alpha DPF Monitor?"
+          }
+        }
+      }
+    },
     "ULTIMA LETTURA CARICO DPF" : {
       "localizations" : {
         "en" : {
@@ -1166,126 +1914,6 @@
         }
       }
     },
-    "Accesso Bluetooth negato. Abilitalo nelle Impostazioni di iOS." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bluetooth access was denied. Enable it in iOS Settings."
-          }
-        }
-      }
-    },
-    "Bluetooth non è disponibile su questo dispositivo." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bluetooth is not available on this device."
-          }
-        }
-      }
-    },
-    "Bluetooth è disattivato. Attivalo e riprova." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bluetooth is off. Turn it on and try again."
-          }
-        }
-      }
-    },
-    "Errore di comunicazione con l’adattatore OBD." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Communication error with the OBD adapter."
-          }
-        }
-      }
-    },
-    "Errore durante la connessione Bluetooth all’adattatore OBD." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bluetooth connection to the OBD adapter failed."
-          }
-        }
-      }
-    },
-    "Impossibile connettersi all’adattatore OBD. Riprova." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Could not connect to the OBD adapter. Try again."
-          }
-        }
-      }
-    },
-    "Impossibile inizializzare l’adattatore OBD. Riprova." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Could not initialise the OBD adapter. Try again."
-          }
-        }
-      }
-    },
-    "L’adattatore Bluetooth non espone una connessione ELM327 compatibile." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The Bluetooth adapter does not expose a compatible ELM327 connection."
-          }
-        }
-      }
-    },
-    "L’adattatore OBD non ha risposto in tempo." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The OBD adapter did not respond in time."
-          }
-        }
-      }
-    },
-    "L’adattatore OBD non è pronto." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The OBD adapter is not ready."
-          }
-        }
-      }
-    },
-    "Nessuna connessione con l’adattatore OBD entro 30 secondi. Verifica che sia alimentato e vicino." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No connection to the OBD adapter within 30 seconds. Check that it is powered and nearby."
-          }
-        }
-      }
-    },
-    "Telemetria OBD interrotta. Mostro l’ultimo stato valido." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OBD telemetry was interrupted. Showing the last valid state."
-          }
-        }
-      }
-    },
     "Valore dell’ultima connessione, non in tempo reale." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1293,502 +1921,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Value from the last connection, not real time."
-          }
-        }
-      }
-    },
-    "DATI VEICOLO" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "VEHICLE DATA"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DATI VEICOLO"
-          }
-        }
-      }
-    },
-    "STATO PRESSIONE OLIO" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OIL PRESSURE STATUS"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "STATO PRESSIONE OLIO"
-          }
-        }
-      }
-    },
-    "GIRI MOTORE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ENGINE RPM"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GIRI MOTORE"
-          }
-        }
-      }
-    },
-    "LIQUIDO MOTORE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ENGINE COOLANT"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "LIQUIDO MOTORE"
-          }
-        }
-      }
-    },
-    "PRESSIONE TURBO" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "TURBO BOOST"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PRESSIONE TURBO"
-          }
-        }
-      }
-    },
-    "Giri motore" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine speed"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Giri motore"
-          }
-        }
-      }
-    },
-    "Temperatura liquido motore" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine coolant temperature"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temperatura liquido motore"
-          }
-        }
-      }
-    },
-    "Pressione turbo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Turbo pressure"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pressione turbo"
-          }
-        }
-      }
-    },
-    "Pressione olio e SGW" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Oil pressure and SGW"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pressione olio e SGW"
-          }
-        }
-      }
-    },
-    "Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On compatible diesel engines, the available PID reports an ECU status, not a pressure value in bar."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar."
-          }
-        }
-      }
-    },
-    "Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "With an SGW bypass already installed, advanced PIDs may become accessible if the ECU exposes them."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone."
-          }
-        }
-      }
-    },
-    "TELEMETRIA ECU" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ECU TELEMETRY"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "TELEMETRIA ECU"
-          }
-        }
-      }
-    },
-    "Modello veicolo non identificato automaticamente" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vehicle model is not identified automatically"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modello veicolo non identificato automaticamente"
-          }
-        }
-      }
-    },
-    "PID non disponibile" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PID unavailable"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PID non disponibile"
-          }
-        }
-      }
-    },
-    "Giri motore 010C: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine RPM 010C: %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Giri motore 010C: %@"
-          }
-        }
-      }
-    },
-    "Liquido motore 0105: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine coolant 0105: %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Liquido motore 0105: %@"
-          }
-        }
-      }
-    },
-    "Pressione turbo 010B/0133: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Turbo boost 010B/0133: %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pressione turbo 010B/0133: %@"
-          }
-        }
-      }
-    },
-    "Stato pressione olio" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Oil pressure status"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stato pressione olio"
-          }
-        }
-      }
-    },
-    "Assente" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Absent"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Assente"
-          }
-        }
-      }
-    },
-    "Non significativa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not significant"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Non significativa"
-          }
-        }
-      }
-    },
-    "Normale" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Normal"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Normale"
-          }
-        }
-      }
-    },
-    "Stato %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Status %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stato %@"
-          }
-        }
-      }
-    },
-    "Sconosciuto" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unknown"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sconosciuto"
-          }
-        }
-      }
-    },
-    "0 · nessuna" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "0 · none"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "0 · nessuna"
-          }
-        }
-      }
-    },
-    "1 · passiva" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 · passive"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 · passiva"
-          }
-        }
-      }
-    },
-    "2 · attiva" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "2 · active"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "2 · attiva"
-          }
-        }
-      }
-    },
-    "Temperatura scarico: PID %@ · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exhaust temperature: PID %@ · %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temperatura scarico: PID %@ · %@"
-          }
-        }
-      }
-    },
-    "Stato pressione olio 22194D: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Oil pressure status 22194D: %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stato pressione olio 22194D: %@"
-          }
-        }
-      }
-    },
-    "COLORE ACCENT" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ACCENT COLOR"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "COLORE ACCENT"
-          }
-        }
-      }
-    },
-    "PAGINA PRINCIPALE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "HOME PAGE"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PAGINA PRINCIPALE"
-          }
-        }
-      }
-    },
-    "STRUMENTI" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "TOOLS"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "STRUMENTI"
           }
         }
       }

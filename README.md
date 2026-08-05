@@ -18,6 +18,14 @@ Informativa privacy e supporto sono pubblicati su
 [dpf-monitor-support.etamburi.chatgpt.site](https://dpf-monitor-support.etamburi.chatgpt.site);
 i metadati di pubblicazione sono raccolti nella cartella `AppStore`.
 
+L’app è gratuita e ogni funzione resta disponibile senza pagamento. Un
+contributo volontario ai costi annuali può essere lasciato su
+[Ko-fi](https://ko-fi.com/eddytamburi); il link è disponibile anche nelle
+Impostazioni e non sblocca contenuti o servizi. Per la pubblicazione va usata
+la modalità Ko-fi Free con **Contributor disattivato** (0% Ko-fi sulle mance
+singole); non vanno collegati membership, ricompense digitali o contenuti per
+sostenitori.
+
 ## Cosa buildare
 
 Aprire **`AlfaDPF.xcodeproj`**, selezionare lo scheme **AlfaDPF**, scegliere
@@ -100,9 +108,11 @@ ALFADPF_SCENARIO=regenInProgress
 ## Dati motore senza interferire con il DPF
 
 I PID critici DPF vengono sempre letti per primi. Soltanto dopo, la sessione
-invia un singolo PID standard Mode 01 per ciclo usando l'header motore già
-individuato e la stessa coda seriale ELM327. Un PID opzionale non supportato va
-in backoff per 30 secondi, così un clone lento non può bloccare ogni ciclo.
+invia uno slot di telemetria standard Mode 01 usando un header funzionale
+esplicito e la stessa coda seriale ELM327; lo slot turbo invia sia MAP sia BARO.
+La richiesta Mode 22 successiva ripristina esplicitamente il proprio header
+fisico. Un PID opzionale non supportato va in backoff per 30 secondi, così un
+clone lento non può bloccare ogni ciclo.
 
 - `010C` — giri motore, `(A·256+B)/4` rpm;
 - `0105` — temperatura liquido, `A−40` °C;

@@ -18,6 +18,13 @@ formatted DPF load and duration values.
 
 The waveform icon opens a local diagnostic log. The info icon opens the safety notice, privacy policy, and support links.
 
+Optional project support:
+- Settings includes an external Ko-fi link for a suggested €4.99 monetary gift to the individual developer.
+- After the tenth app launch, the same optional request is shown once; declining it permanently dismisses the prompt.
+- The contribution unlocks no content, functionality, status, or service. The app remains fully functional and free whether or not the user contributes.
+- No payment SDK is embedded in the app; the HTTPS link opens the external Ko-fi page.
+- The linked page is used only for one-off gifts. No membership, recurring payment, shop item, commission, digital reward, or supporter-only content is connected to the app.
+
 The app does not collect data, use analytics or advertising, create user accounts, or send vehicle data to a server. Bluetooth is used only to communicate directly with the selected adapter.
 
 Safety: configure and use the app only while the vehicle is stationary. The app is informational and does not replace professional diagnostics or vehicle maintenance.

@@ -2,9 +2,9 @@ import Foundation
 import Observation
 import UIKit
 
-/// Phone-side coordinator. The real connection intentionally polls only the
-/// Alfa/FCA Mode 22 DPF monitor: mixing generic engine Mode 01 commands back
-/// into this session previously made the two ECU/header contexts interfere.
+/// Phone-side coordinator. The real connection prioritizes Alfa/FCA Mode 22
+/// DPF telemetry, then rotates optional standard Mode 01 engine data using an
+/// explicit functional header so the two ELM327 contexts cannot leak.
 @MainActor
 @Observable
 final class MonitorSession {

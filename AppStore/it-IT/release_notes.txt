@@ -7,4 +7,5 @@ La versione 1.2 migliora affidabilità, Live Activity e dati disponibili:
 • rimossa l’identificazione automatica inaffidabile del modello del veicolo;
 • timeout e messaggi più chiari quando l’adattatore non viene trovato o non è compatibile;
 • toccando la Live Activity l’app si apre e riconnette correttamente;
-• gestione dello schermo corretta durante interruzioni e riconnessioni.
+• gestione dello schermo corretta durante interruzioni e riconnessioni;
+• aggiunto nelle Impostazioni un link facoltativo per sostenere il progetto: l’app resta completamente gratuita.
