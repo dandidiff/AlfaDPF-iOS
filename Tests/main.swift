@@ -77,6 +77,19 @@ expect(CarPlayRefreshPolicy.interval >= .seconds(10),
        "carplay: periodic dashboard refresh respects Apple's 10-second minimum")
 expect(CarPlayNotificationTestPolicy.systemDeliveryDelay >= 10,
        "carplay notifications: system test leaves enough time to return Home")
+expect(DPFLoadAlertLevel.resolve(loadPercent: nil, regenerationMode: .none) == .unavailable,
+       "carplay colors: absent load stays neutral")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 84.9, regenerationMode: .none) == .low,
+       "carplay colors: low load is green")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 85, regenerationMode: .none) == .nearRegeneration
+       && DPFLoadAlertLevel.resolve(loadPercent: 95, regenerationMode: .none) == .nearRegeneration,
+       "carplay colors: 85 through 95 warns that regeneration is near")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 95.1, regenerationMode: .none) == .regenerationImminent,
+       "carplay colors: load above 95 warns that regeneration is imminent")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 30, regenerationMode: .active) == .activeRegeneration,
+       "carplay colors: active regeneration overrides the load band with blue")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 88, regenerationMode: .passive) == .nearRegeneration,
+       "carplay colors: passive regeneration preserves the load warning band")
 
 func carPlayNotificationState(
     authorization: AlertAuthorizationState.Authorization = .authorized,
@@ -136,6 +149,16 @@ expect(CarPlayNotificationRoute.production(carPlayAlertsEnabled: false) == .phon
 expect(CarPlayNotificationRoute.explicitTest == .carPlay,
        "carplay alerts: an explicit user test still exercises CarPlay delivery")
 carPlayAlertDefaults.removePersistentDomain(forName: "AlphaDPF.CarPlayAlertPreferenceTests")
+
+let drivingFocusSuite = "AlphaDPF.DrivingFocusGuidance.\(UUID().uuidString)"
+let drivingFocusDefaults = UserDefaults(suiteName: drivingFocusSuite)!
+drivingFocusDefaults.removePersistentDomain(forName: drivingFocusSuite)
+expect(DrivingFocusGuidancePreference.needsPresentation(from: drivingFocusDefaults),
+       "driving focus onboarding: new and existing users see the guidance once")
+DrivingFocusGuidancePreference.acknowledge(in: drivingFocusDefaults)
+expect(!DrivingFocusGuidancePreference.needsPresentation(from: drivingFocusDefaults),
+       "driving focus onboarding: acknowledgement persists")
+drivingFocusDefaults.removePersistentDomain(forName: drivingFocusSuite)
 
 var carPlayCurrentState = DPFState()
 carPlayCurrentState.cloggingPercent = 88

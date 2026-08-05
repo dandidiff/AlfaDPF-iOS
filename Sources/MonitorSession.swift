@@ -25,6 +25,7 @@ final class MonitorSession {
     private(set) var alertAuthorization: AlertAuthorizationState = .checking
     private(set) var hasLiveTelemetry = false
     private(set) var carPlayAlertsEnabled: Bool
+    private(set) var needsDrivingFocusGuidance: Bool
 
     var autoConnectEnabled: Bool {
         didSet {
@@ -108,6 +109,8 @@ final class MonitorSession {
         self.visibleDashboardMetrics = initialVisibleDashboardMetrics
         self.appAccent = initialAppAccent
         self.carPlayAlertsEnabled = initialCarPlayAlertsEnabled
+        self.needsDrivingFocusGuidance =
+            DrivingFocusGuidancePreference.needsPresentation(from: defaults)
         self.dpf = saved ?? DPFState()
         self.lastPersistedState = saved
     }
@@ -134,6 +137,7 @@ final class MonitorSession {
         }
         alertAuthorization = await alerts.currentAuthorizationState()
         return alertAuthorization.authorization == .notDetermined
+            || needsDrivingFocusGuidance
     }
 
     func requestNotificationAuthorization() async {
@@ -143,6 +147,11 @@ final class MonitorSession {
     func refreshNotificationAuthorization() async {
         guard !skipAlertSetupForVisualTest else { return }
         alertAuthorization = await alerts.currentAuthorizationState()
+    }
+
+    func acknowledgeDrivingFocusGuidance() {
+        DrivingFocusGuidancePreference.acknowledge(in: defaults)
+        needsDrivingFocusGuidance = false
     }
 
     func toggleCarPlayAlerts() async {

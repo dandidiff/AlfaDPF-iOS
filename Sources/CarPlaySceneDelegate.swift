@@ -7,10 +7,274 @@ private enum CarPlayDetailKind {
     case regeneration
     case distance
     case exhaust
-    case regenerationCount
     case oil
     case battery
-    case data
+}
+
+private enum CarPlayDashboardIcon {
+    case dpf
+    case regeneration
+    case distance
+    case exhaust
+    case oil
+    case battery
+
+    var symbolName: String? {
+        switch self {
+        case .dpf: return nil
+        case .regeneration: return "arrow.triangle.2.circlepath"
+        case .distance: return "road.lanes"
+        case .exhaust: return "thermometer.high"
+        case .oil: return "oilcan.fill"
+        case .battery: return "battery.75percent"
+        }
+    }
+}
+
+/// Draws every metric into the same square canvas. CarPlay otherwise scales
+/// each SF Symbol from its own intrinsic aspect ratio, which makes wide symbols
+/// look stretched and narrow symbols look much larger than their neighbours.
+/// The bezels and simple line work intentionally echo warning lamps and gauges
+/// from late-80s/90s instrument clusters while staying inside native templates.
+private enum CarPlayDashboardArtwork {
+    static let neutral = UIColor(white: 0.78, alpha: 1)
+    static let green = UIColor(red: 0.18, green: 0.88, blue: 0.38, alpha: 1)
+    static let yellow = UIColor(red: 1.00, green: 0.78, blue: 0.08, alpha: 1)
+    static let red = UIColor(red: 1.00, green: 0.20, blue: 0.18, alpha: 1)
+    static let blue = UIColor(red: 0.08, green: 0.58, blue: 1.00, alpha: 1)
+
+    static func dpfColor(for level: DPFLoadAlertLevel, isLive: Bool) -> UIColor {
+        let color: UIColor
+        switch level {
+        case .unavailable: color = neutral
+        case .low: color = green
+        case .nearRegeneration: color = yellow
+        case .regenerationImminent: color = red
+        case .activeRegeneration: color = blue
+        }
+        return color.withAlphaComponent(isLive ? 1 : 0.58)
+    }
+
+    static func regenerationColor(
+        for mode: DPFRegenerationMode,
+        isLive: Bool
+    ) -> UIColor {
+        let color: UIColor
+        switch mode {
+        case .active: color = blue
+        case .passive: color = yellow
+        case .none: color = neutral
+        }
+        let alpha: CGFloat = mode == .none ? 0.72 : (isLive ? 1 : 0.58)
+        return color.withAlphaComponent(alpha)
+    }
+
+    static func gridImage(
+        icon: CarPlayDashboardIcon,
+        accent: UIColor,
+        illuminated: Bool,
+        displayScale: CGFloat
+    ) -> UIImage {
+        let maximum: CGSize
+        if #available(iOS 26.0, *) {
+            maximum = CPGridTemplate.maximumGridButtonImageSize
+        } else {
+            // Before iOS 26 CarPlay exposes no grid-image size constant. A
+            // 80-point canvas stays inside the established slot while making
+            // the cluster artwork easier to read from the driver's seat.
+            maximum = CGSize(width: 80, height: 80)
+        }
+        let side = max(1, min(maximum.width, maximum.height))
+        let size = CGSize(width: side, height: side)
+        let format = UIGraphicsImageRendererFormat()
+        format.opaque = false
+        format.scale = max(displayScale, 1)
+
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { renderer in
+            let bounds = CGRect(origin: .zero, size: size)
+            switch icon {
+            case .dpf:
+                drawDPFLamp(in: bounds, color: accent, illuminated: illuminated)
+            case .regeneration:
+                drawRegenerationLamp(in: bounds, color: accent, illuminated: illuminated)
+            default:
+                drawMetricLamp(
+                    in: bounds,
+                    symbolName: icon.symbolName ?? "circle",
+                    color: accent
+                )
+            }
+            renderer.cgContext.setShadow(offset: .zero, blur: 0)
+        }
+        return image.withRenderingMode(.alwaysOriginal)
+    }
+
+    static func barImage(symbolName: String, displayScale: CGFloat) -> UIImage {
+        // A transparent square canvas gives both the bell and warning triangle
+        // identical optical bounds, with enough breathing room inside the
+        // rounded CarPlay navigation-bar button.
+        let size = CGSize(width: 30, height: 30)
+        let format = UIGraphicsImageRendererFormat()
+        format.opaque = false
+        format.scale = max(displayScale, 1)
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            drawSymbol(
+                named: symbolName,
+                in: CGRect(x: 6.5, y: 6.5, width: 17, height: 17),
+                color: .white,
+                weight: .semibold
+            )
+        }
+        return image.withRenderingMode(.alwaysTemplate)
+    }
+
+    private static func drawDPFLamp(
+        in bounds: CGRect,
+        color: UIColor,
+        illuminated: Bool
+    ) {
+        let side = min(bounds.width, bounds.height)
+        let ringRect = bounds.insetBy(dx: side * 0.035, dy: side * 0.035)
+        let ring = UIBezierPath(ovalIn: ringRect)
+        ring.lineWidth = max(3, side * 0.055)
+        color.withAlphaComponent(illuminated ? 0.16 : 0.08).setFill()
+        ring.fill()
+        if illuminated {
+            UIGraphicsGetCurrentContext()?.setShadow(
+                offset: .zero,
+                blur: side * 0.08,
+                color: color.withAlphaComponent(0.65).cgColor
+            )
+        }
+        color.setStroke()
+        ring.stroke()
+        UIGraphicsGetCurrentContext()?.setShadow(offset: .zero, blur: 0)
+
+        let filter = CGRect(
+            x: bounds.midX - side * 0.20,
+            y: bounds.midY - side * 0.18,
+            width: side * 0.40,
+            height: side * 0.36
+        )
+        let filterPath = UIBezierPath(
+            roundedRect: filter,
+            cornerRadius: side * 0.035
+        )
+        filterPath.lineWidth = max(2.2, side * 0.035)
+        filterPath.lineJoinStyle = .round
+        color.setStroke()
+        filterPath.stroke()
+
+        let pipe = UIBezierPath()
+        pipe.move(to: CGPoint(x: ringRect.minX + side * 0.07, y: bounds.midY))
+        pipe.addLine(to: CGPoint(x: filter.minX, y: bounds.midY))
+        pipe.move(to: CGPoint(x: filter.maxX, y: bounds.midY))
+        pipe.addLine(to: CGPoint(x: ringRect.maxX - side * 0.07, y: bounds.midY))
+        pipe.lineWidth = max(2.2, side * 0.035)
+        pipe.lineCapStyle = .round
+        pipe.stroke()
+
+        let dotRadius = side * 0.019
+        color.setFill()
+        for row in 0..<3 {
+            for column in 0..<3 {
+                let center = CGPoint(
+                    x: filter.minX + filter.width * CGFloat(column + 1) / 4,
+                    y: filter.minY + filter.height * CGFloat(row + 1) / 4
+                )
+                UIBezierPath(
+                    ovalIn: CGRect(
+                        x: center.x - dotRadius,
+                        y: center.y - dotRadius,
+                        width: dotRadius * 2,
+                        height: dotRadius * 2
+                    )
+                ).fill()
+            }
+        }
+    }
+
+    private static func drawRegenerationLamp(
+        in bounds: CGRect,
+        color: UIColor,
+        illuminated: Bool
+    ) {
+        let side = min(bounds.width, bounds.height)
+        let ringRect = bounds.insetBy(dx: side * 0.07, dy: side * 0.07)
+        let ring = UIBezierPath(ovalIn: ringRect)
+        ring.lineWidth = max(2.2, side * 0.034)
+        color.withAlphaComponent(illuminated ? 0.14 : 0.04).setFill()
+        ring.fill()
+        if illuminated {
+            UIGraphicsGetCurrentContext()?.setShadow(
+                offset: .zero,
+                blur: side * 0.075,
+                color: color.withAlphaComponent(0.60).cgColor
+            )
+        }
+        color.withAlphaComponent(illuminated ? 1 : 0.55).setStroke()
+        ring.stroke()
+        UIGraphicsGetCurrentContext()?.setShadow(offset: .zero, blur: 0)
+
+        drawSymbol(
+            named: "arrow.triangle.2.circlepath",
+            in: ringRect.insetBy(dx: side * 0.08, dy: side * 0.08),
+            color: color,
+            weight: .bold
+        )
+    }
+
+    private static func drawMetricLamp(
+        in bounds: CGRect,
+        symbolName: String,
+        color: UIColor
+    ) {
+        let side = min(bounds.width, bounds.height)
+        let bezelRect = bounds.insetBy(dx: side * 0.08, dy: side * 0.08)
+        let bezel = UIBezierPath(
+            roundedRect: bezelRect,
+            cornerRadius: side * 0.11
+        )
+        bezel.lineWidth = max(1.5, side * 0.024)
+        neutral.withAlphaComponent(0.28).setStroke()
+        bezel.stroke()
+
+        drawSymbol(
+            named: symbolName,
+            in: bezelRect.insetBy(dx: side * 0.065, dy: side * 0.065),
+            color: color,
+            weight: .medium
+        )
+    }
+
+    private static func drawSymbol(
+        named name: String,
+        in rect: CGRect,
+        color: UIColor,
+        weight: UIImage.SymbolWeight
+    ) {
+        let configuration = UIImage.SymbolConfiguration(
+            pointSize: rect.height,
+            weight: weight
+        )
+        guard let source = UIImage(systemName: name, withConfiguration: configuration) else {
+            return
+        }
+        let symbol = source.withTintColor(color, renderingMode: .alwaysOriginal)
+        symbol.draw(in: aspectFit(source.size, inside: rect))
+    }
+
+    private static func aspectFit(_ size: CGSize, inside rect: CGRect) -> CGRect {
+        guard size.width > 0, size.height > 0 else { return rect }
+        let scale = min(rect.width / size.width, rect.height / size.height)
+        let fitted = CGSize(width: size.width * scale, height: size.height * scale)
+        return CGRect(
+            x: rect.midX - fitted.width / 2,
+            y: rect.midY - fitted.height / 2,
+            width: fitted.width,
+            height: fitted.height
+        )
+    }
 }
 
 /// Native CarPlay driving-task scene. CarPlay and the phone share the same
@@ -97,7 +361,7 @@ final class CarPlaySceneDelegate: UIResponder,
 
     private func makeDashboardTemplate() -> CPGridTemplate {
         let template = CPGridTemplate(
-            title: String(localized: "Alpha DPF"),
+            title: dashboardTitle,
             gridButtons: makeGridButtons()
         )
         configureNavigationButtons(on: template)
@@ -106,6 +370,7 @@ final class CarPlaySceneDelegate: UIResponder,
 
     private func refreshDashboard() {
         guard let dashboardTemplate else { return }
+        dashboardTemplate.updateTitle(dashboardTitle)
         dashboardTemplate.updateGridButtons(makeGridButtons())
         configureNavigationButtons(on: dashboardTemplate)
         if let detailKind {
@@ -139,76 +404,115 @@ final class CarPlaySceneDelegate: UIResponder,
 
     private func makeGridButtons() -> [CPGridButton] {
         let dpf = session.carPlayDPFState
+        let isLive = session.status == .running && session.hasLiveTelemetry
+        let dpfColor = CarPlayDashboardArtwork.dpfColor(
+            for: dpf.loadAlertLevel,
+            isLive: isLive
+        )
+        let regenerationColor = CarPlayDashboardArtwork.regenerationColor(
+            for: dpf.effectiveRegenerationMode,
+            isLive: isLive
+        )
         return [
             makeMetricGridButton(
                 label: String(localized: "DPF"),
-                value: formatted(dpf.cloggingPercent, fractionDigits: 0, unit: "%"),
-                symbolName: "gauge",
+                value: compactFormatted(dpf.cloggingPercent, fractionDigits: 1, unit: "%"),
+                icon: .dpf,
+                accent: dpfColor,
+                illuminated: dpf.loadAlertLevel != .unavailable,
                 detailKind: .dpf
             ),
             makeMetricGridButton(
                 label: String(localized: "Regen"),
                 value: regenerationGridText(for: dpf),
-                symbolName: "arrow.triangle.2.circlepath",
+                icon: .regeneration,
+                accent: regenerationColor,
+                illuminated: dpf.effectiveRegenerationMode != .none,
                 detailKind: .regeneration
             ),
             makeMetricGridButton(
                 label: String(localized: "Dall’ultima"),
-                value: formatted(dpf.distanceSinceLastRegenKm, fractionDigits: 0, unit: "km"),
-                symbolName: "road.lanes",
+                value: compactFormatted(dpf.distanceSinceLastRegenKm, fractionDigits: 0, unit: "km"),
+                icon: .distance,
+                accent: CarPlayDashboardArtwork.neutral,
+                illuminated: false,
+                shortLabel: String(localized: "Ultima"),
                 detailKind: .distance
             ),
             makeMetricGridButton(
                 label: String(localized: "Scarico"),
-                value: formatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C"),
-                symbolName: "thermometer.medium",
+                value: compactFormatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C"),
+                icon: .exhaust,
+                accent: CarPlayDashboardArtwork.neutral,
+                illuminated: false,
                 detailKind: .exhaust
-            ),
-            makeMetricGridButton(
-                label: String(localized: "Rigenerazioni"),
-                value: formatted(dpf.totalRegenCount, fractionDigits: 0),
-                symbolName: "number.circle",
-                detailKind: .regenerationCount
             ),
             makeMetricGridButton(
                 label: String(localized: "Olio"),
                 value: dpf.oilPressureStatusText ?? "—",
-                symbolName: "oilcan",
+                icon: .oil,
+                accent: CarPlayDashboardArtwork.neutral,
+                illuminated: false,
                 detailKind: .oil
             ),
             makeMetricGridButton(
                 label: String(localized: "Batteria"),
-                value: formatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V"),
-                symbolName: "battery.100",
+                value: compactFormatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V"),
+                icon: .battery,
+                accent: CarPlayDashboardArtwork.neutral,
+                illuminated: false,
                 detailKind: .battery
             ),
-            makeMetricGridButton(
-                label: String(localized: "Dati"),
-                value: telemetryGridText(for: dpf),
-                symbolName: "clock",
-                detailKind: .data
-            ),
         ]
+    }
+
+    private var dashboardTitle: String {
+        let base = String(localized: "Alpha DPF")
+        guard session.carPlayDPFState.hasTelemetry else { return base }
+        let status = session.status == .running && session.hasLiveTelemetry
+            ? String(localized: "Live")
+            : String(localized: "Salvati")
+        return "\(base) · \(status)"
+    }
+
+    private var carDisplayScale: CGFloat {
+        interfaceController?.carTraitCollection.displayScale ?? 2
     }
 
     private func makeMetricGridButton(
         label: String,
         value: String,
-        symbolName: String,
+        icon: CarPlayDashboardIcon,
+        accent: UIColor,
+        illuminated: Bool,
+        shortLabel: String? = nil,
         detailKind: CarPlayDetailKind
     ) -> CPGridButton {
-        CPGridButton(
-            titleVariants: ["\(label) \(value)", label],
-            image: symbolImage(named: symbolName)
+        let titleVariants: [String]
+        if let shortLabel {
+            // On compact dashboards CarPlay chooses the first variant that
+            // fits. Keep the reading ahead of the descriptive fallback so the
+            // distance can never disappear merely because the label is long.
+            titleVariants = [
+                "\(shortLabel) · \(value)",
+                value,
+                label,
+            ]
+        } else {
+            titleVariants = ["\(label) · \(value)", "\(label) \(value)", label]
+        }
+
+        return CPGridButton(
+            titleVariants: titleVariants,
+            image: CarPlayDashboardArtwork.gridImage(
+                icon: icon,
+                accent: accent,
+                illuminated: illuminated,
+                displayScale: carDisplayScale
+            )
         ) { [weak self] _ in
             self?.showDetails(detailKind)
         }
-    }
-
-    private func symbolImage(named name: String) -> UIImage {
-        let configuration = UIImage.SymbolConfiguration(pointSize: 42, weight: .medium)
-        return UIImage(systemName: name, withConfiguration: configuration)
-            ?? UIImage(systemName: "circle", withConfiguration: configuration)!
     }
 
     private func regenerationGridText(for dpf: DPFState) -> String {
@@ -218,17 +522,8 @@ final class CarPlaySceneDelegate: UIResponder,
         case .passive:
             return String(localized: "Passiva")
         case .active:
-            return formatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%")
+            return compactFormatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%")
         }
-    }
-
-    private func telemetryGridText(for dpf: DPFState) -> String {
-        guard dpf.hasTelemetry else { return "—" }
-        let time = dpf.timestamp.formatted(date: .omitted, time: .shortened)
-        if session.status == .running && session.hasLiveTelemetry {
-            return "\(String(localized: "Live")) \(time)"
-        }
-        return "\(String(localized: "Salvati")) \(time)"
     }
 
     private func makeInformationItems(for detailKind: CarPlayDetailKind) -> [CPInformationItem] {
@@ -247,7 +542,7 @@ final class CarPlaySceneDelegate: UIResponder,
             return [
                 CPInformationItem(
                     title: String(localized: "Carico DPF"),
-                    detail: formatted(dpf.cloggingPercent, fractionDigits: 0, unit: "%")
+                    detail: formatted(dpf.cloggingPercent, fractionDigits: 1, unit: "%")
                 ),
                 CPInformationItem(
                     title: String(localized: "Distanza dall’ultima rigenerazione"),
@@ -299,18 +594,6 @@ final class CarPlaySceneDelegate: UIResponder,
                 ),
                 updated,
             ]
-        case .regenerationCount:
-            return [
-                CPInformationItem(
-                    title: String(localized: "Rigenerazioni totali"),
-                    detail: formatted(dpf.totalRegenCount, fractionDigits: 0)
-                ),
-                CPInformationItem(
-                    title: String(localized: "Distanza dall’ultima rigenerazione"),
-                    detail: formatted(dpf.distanceSinceLastRegenKm, fractionDigits: 1, unit: "km")
-                ),
-                updated,
-            ]
         case .oil:
             return [
                 CPInformationItem(
@@ -324,26 +607,6 @@ final class CarPlaySceneDelegate: UIResponder,
                 CPInformationItem(
                     title: String(localized: "Tensione batteria"),
                     detail: formatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V")
-                ),
-                updated,
-            ]
-        case .data:
-            return [
-                CPInformationItem(
-                    title: String(localized: "Stato connessione"),
-                    detail: connectionStatusText
-                ),
-                CPInformationItem(
-                    title: String(localized: "Origine dati"),
-                    detail: session.status == .running && session.hasLiveTelemetry
-                        ? String(localized: "Live")
-                        : (dpf.hasTelemetry ? String(localized: "Salvati") : "—")
-                ),
-                CPInformationItem(
-                    title: String(localized: "Avvisi CarPlay"),
-                    detail: session.carPlayAlertsEnabled
-                        ? String(localized: "Attivi")
-                        : String(localized: "Disattivati")
                 ),
                 updated,
             ]
@@ -380,7 +643,12 @@ final class CarPlaySceneDelegate: UIResponder,
 
     private func makeAlertToggleBarButton() -> CPBarButton {
         let symbol = session.carPlayAlertsEnabled ? "bell.fill" : "bell.slash.fill"
-        let button = CPBarButton(image: symbolImage(named: symbol)) { [weak self] _ in
+        let button = CPBarButton(
+            image: CarPlayDashboardArtwork.barImage(
+                symbolName: symbol,
+                displayScale: carDisplayScale
+            )
+        ) { [weak self] _ in
             self?.toggleCarPlayAlerts()
         }
         button.buttonStyle = .rounded
@@ -391,7 +659,12 @@ final class CarPlaySceneDelegate: UIResponder,
         let symbol = session.alertAuthorization.carPlayNotificationIssues.isEmpty
             ? "ellipsis.circle"
             : "exclamationmark.triangle.fill"
-        let button = CPBarButton(image: symbolImage(named: symbol)) { [weak self] _ in
+        let button = CPBarButton(
+            image: CarPlayDashboardArtwork.barImage(
+                symbolName: symbol,
+                displayScale: carDisplayScale
+            )
+        ) { [weak self] _ in
             self?.showNotificationTestMenu()
         }
         button.buttonStyle = .rounded
@@ -431,10 +704,8 @@ final class CarPlaySceneDelegate: UIResponder,
         case .regeneration: return String(localized: "Rigenerazione")
         case .distance: return String(localized: "Distanza dall’ultima rigenerazione")
         case .exhaust: return String(localized: "Temperatura gas di scarico")
-        case .regenerationCount: return String(localized: "Rigenerazioni totali")
         case .oil: return String(localized: "Stato pressione olio")
         case .battery: return String(localized: "Tensione batteria")
-        case .data: return String(localized: "Ultimo aggiornamento")
         }
     }
 
@@ -656,6 +927,19 @@ final class CarPlaySceneDelegate: UIResponder,
         )
         guard let unit else { return number }
         return "\(number) \(unit)"
+    }
+
+    private func compactFormatted(
+        _ value: Double?,
+        fractionDigits: Int,
+        unit: String? = nil
+    ) -> String {
+        guard let value else { return "—" }
+        let number = value.formatted(
+            .number.precision(.fractionLength(fractionDigits))
+        )
+        guard let unit else { return number }
+        return "\(number)\(unit)"
     }
 
     private func presentRegenerationAlert(_ event: CarPlayRegenerationAlertEvent) {

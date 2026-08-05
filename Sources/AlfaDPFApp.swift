@@ -259,14 +259,35 @@ struct PhoneRootView: View {
     }
 }
 
+private enum NotificationSetupPage {
+    case permission
+    case notificationSettings
+    case drivingFocus
+}
+
 private struct NotificationSetupView: View {
     @Bindable var session: MonitorSession
     let onComplete: () -> Void
 
     @Environment(\.openURL) private var openURL
     @State private var isRequesting = false
-    @State private var showSettingsStep = false
+    @State private var page: NotificationSetupPage
     @Environment(\.appAccent) private var appAccent
+
+    init(session: MonitorSession, onComplete: @escaping () -> Void) {
+        self.session = session
+        self.onComplete = onComplete
+
+        let initialPage: NotificationSetupPage
+        if session.alertAuthorization.authorization == .notDetermined {
+            initialPage = .permission
+        } else if !session.alertAuthorization.canSendTimeSensitiveAlerts {
+            initialPage = .notificationSettings
+        } else {
+            initialPage = .drivingFocus
+        }
+        _page = State(initialValue: initialPage)
+    }
 
     var body: some View {
         ZStack {
@@ -275,19 +296,19 @@ private struct NotificationSetupView: View {
             VStack(spacing: 24) {
                 Spacer()
 
-                Image(systemName: showSettingsStep ? "gear.badge" : "bell.and.waves.left.and.right.fill")
+                Image(systemName: setupIcon)
                     .font(.system(size: 54, weight: .semibold))
-                    .foregroundStyle(showSettingsStep ? .orange : appAccent)
+                    .foregroundStyle(setupTint)
                     .frame(width: 112, height: 112)
                     .background(.ultraThinMaterial, in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.18)))
 
                 VStack(spacing: 12) {
-                    Text(showSettingsStep ? "Completa gli avvisi" : "Non perdere una rigenerazione")
+                    Text(title)
                         .font(.system(size: 29, weight: .bold, design: .rounded))
                         .multilineTextAlignment(.center)
 
-                    Text(LocalizedStringKey(explanation))
+                    Text(explanation)
                         .font(.system(size: 15, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.72))
                         .multilineTextAlignment(.center)
@@ -295,32 +316,46 @@ private struct NotificationSetupView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 13) {
-                    setupRow(
-                        symbol: "bell.fill",
-                        title: "Nel messaggio di iOS tocca “Consenti”",
-                        enabled: session.alertAuthorization.authorization == .authorized
-                    )
-                    setupRow(
-                        symbol: "exclamationmark.bubble.fill",
-                        title: "Mantieni attive le “Notifiche urgenti”",
-                        enabled: session.alertAuthorization.timeSensitiveEnabled
-                    )
-                    setupRow(
-                        symbol: "car.fill",
-                        title: "Per consentire gli annunci Siri quando supportati, attiva “Annuncia notifiche”",
-                        enabled: session.alertAuthorization.siriAnnouncementsEnabled
-                    )
-                    Text("In Full immersion › Alla guida abilita anche “Consenti notifiche urgenti”. iOS non permette all’app di verificarlo o attivarlo.")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(.orange.opacity(0.82))
-                        .fixedSize(horizontal: false, vertical: true)
+                    if page == .drivingFocus {
+                        setupRow(
+                            symbol: "gearshape.fill",
+                            title: "Apri Impostazioni › Full immersion › Guida",
+                            enabled: false
+                        )
+                        setupRow(
+                            symbol: "car.side.fill",
+                            title: "In “Durante la guida”, disattiva “Attiva con CarPlay” oppure scegli l’attivazione manuale",
+                            enabled: false
+                        )
+                        Text("Alpha DPF Monitor non può rilevare o modificare la Full immersion. Configurala prima di metterti alla guida.")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(.orange.opacity(0.86))
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        setupRow(
+                            symbol: "bell.fill",
+                            title: "Nel messaggio di iOS tocca “Consenti”",
+                            enabled: session.alertAuthorization.authorization == .authorized
+                        )
+                        setupRow(
+                            symbol: "exclamationmark.bubble.fill",
+                            title: "Mantieni attive le “Notifiche urgenti”",
+                            enabled: session.alertAuthorization.timeSensitiveEnabled
+                        )
+                        setupRow(
+                            symbol: "car.fill",
+                            title: "Per consentire gli annunci Siri quando supportati, attiva “Annuncia notifiche”",
+                            enabled: session.alertAuthorization.siriAnnouncementsEnabled
+                        )
+                    }
                 }
                 .padding(18)
                 .glassPanel(cornerRadius: 22)
 
                 Spacer()
 
-                if showSettingsStep {
+                switch page {
+                case .notificationSettings:
                     Button {
                         openNotificationSettings()
                     } label: {
@@ -332,19 +367,21 @@ private struct NotificationSetupView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.orange)
 
-                    Button("Continua nell’app", action: onComplete)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.72))
-                } else {
+                    Button("Continua nell’app") {
+                        page = .drivingFocus
+                    }
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.72))
+                case .permission:
                     Button {
                         isRequesting = true
                         Task {
                             await session.requestNotificationAuthorization()
                             isRequesting = false
                             if session.alertAuthorization.canSendTimeSensitiveAlerts {
-                                onComplete()
+                                page = .drivingFocus
                             } else {
-                                showSettingsStep = true
+                                page = .notificationSettings
                             }
                         }
                     } label: {
@@ -363,6 +400,18 @@ private struct NotificationSetupView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(appAccent)
                     .disabled(isRequesting)
+                case .drivingFocus:
+                    Button {
+                        session.acknowledgeDrivingFocusGuidance()
+                        onComplete()
+                    } label: {
+                        Label("Ho capito, continua", systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 17, weight: .semibold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(appAccent)
                 }
             }
             .foregroundStyle(.white)
@@ -371,14 +420,46 @@ private struct NotificationSetupView: View {
         }
     }
 
-    private var explanation: String {
-        if showSettingsStep {
-            return "iOS non permette ad Alpha DPF Monitor di cambiare queste preferenze al posto tuo. Controlla anche Full immersion › Alla guida."
+    private var explanation: LocalizedStringKey {
+        switch page {
+        case .permission:
+            return "Gli avvisi di rigenerazione sono informazioni sensibili al tempo. Ti guidiamo una volta sola; poi l’app tenterà automaticamente la connessione all’OBD."
+        case .notificationSettings:
+            return "iOS non permette ad Alpha DPF Monitor di cambiare queste preferenze al posto tuo."
+        case .drivingFocus:
+            return "Quando Guida è attiva, iOS silenzia o limita le notifiche delle app, anche su CarPlay."
         }
-        return "Gli avvisi di rigenerazione sono informazioni sensibili al tempo. Ti guidiamo una volta sola; poi l’app tenterà automaticamente la connessione all’OBD."
     }
 
-    private func setupRow(symbol: String, title: String, enabled: Bool) -> some View {
+    private var title: LocalizedStringKey {
+        switch page {
+        case .permission: return "Non perdere una rigenerazione"
+        case .notificationSettings: return "Completa gli avvisi"
+        case .drivingFocus: return "Full immersion Guida"
+        }
+    }
+
+    private var setupIcon: String {
+        switch page {
+        case .permission: return "bell.and.waves.left.and.right.fill"
+        case .notificationSettings: return "gear.badge"
+        case .drivingFocus: return "car.side.fill"
+        }
+    }
+
+    private var setupTint: Color {
+        switch page {
+        case .permission: return appAccent
+        case .notificationSettings: return .orange
+        case .drivingFocus: return .cyan
+        }
+    }
+
+    private func setupRow(
+        symbol: String,
+        title: LocalizedStringKey,
+        enabled: Bool
+    ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: enabled ? "checkmark.circle.fill" : symbol)
                 .foregroundStyle(enabled ? .green : .white.opacity(0.72))
@@ -446,7 +527,7 @@ private struct NotificationGuidanceCard: View {
             return "Abilita avvisi, schermo bloccato e suoni per Alpha DPF Monitor."
         }
         if !state.timeSensitiveEnabled {
-            return "Abilita anche “Consenti notifiche urgenti” nella Full immersion Alla guida."
+            return "In Impostazioni › Notifiche › Alpha DPF Monitor, abilita “Notifiche urgenti”."
         }
         return "Abilita “Annuncia notifiche” per Alpha DPF Monitor; l’app non può forzare la lettura."
     }

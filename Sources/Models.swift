@@ -62,6 +62,18 @@ enum CarPlayAlertPreference {
     }
 }
 
+enum DrivingFocusGuidancePreference {
+    static let defaultsKey = "drivingFocusGuidanceAcknowledged.v1"
+
+    static func needsPresentation(from defaults: UserDefaults) -> Bool {
+        !defaults.bool(forKey: defaultsKey)
+    }
+
+    static func acknowledge(in defaults: UserDefaults) {
+        defaults.set(true, forKey: defaultsKey)
+    }
+}
+
 enum CarPlayNotificationRoute: Equatable, Sendable {
     case carPlay
     case phoneOnly
@@ -240,6 +252,28 @@ enum DPFRegenerationMode: Int, Codable, Equatable, Sendable {
     case active = 2
 }
 
+/// Shared warning bands for the FCA DPF load index. Keeping the thresholds in
+/// the model prevents CarPlay artwork and future dashboard surfaces from
+/// silently assigning different meanings to the same ECU value.
+enum DPFLoadAlertLevel: Equatable, Sendable {
+    case unavailable
+    case low
+    case nearRegeneration
+    case regenerationImminent
+    case activeRegeneration
+
+    static func resolve(
+        loadPercent: Double?,
+        regenerationMode: DPFRegenerationMode
+    ) -> Self {
+        if regenerationMode == .active { return .activeRegeneration }
+        guard let loadPercent else { return .unavailable }
+        if loadPercent > 95 { return .regenerationImminent }
+        if loadPercent >= 85 { return .nearRegeneration }
+        return .low
+    }
+}
+
 /// Factory paint names offered on Stelvio across its model years. RGB values
 /// are screen-friendly approximations for the app accent, not paint formulas.
 enum StelvioAccent: String, CaseIterable, Codable, Identifiable, Sendable {
@@ -391,6 +425,13 @@ extension DPFState {
 
     var isRegenerating: Bool {
         effectiveRegenerationMode != .none
+    }
+
+    var loadAlertLevel: DPFLoadAlertLevel {
+        .resolve(
+            loadPercent: cloggingPercent,
+            regenerationMode: effectiveRegenerationMode
+        )
     }
 
     /// The diesel ECU's public diagnostic value is categorical. Showing a

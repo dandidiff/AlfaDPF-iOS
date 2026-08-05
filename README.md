@@ -48,14 +48,17 @@ OBD.
 
 ## CarPlay e Live Activity
 
-Collegando CarPlay, l'app mostra una dashboard `CPGridTemplate` con otto tile
-grandi e leggibili a colpo d'occhio:
+Collegando CarPlay, l'app mostra una dashboard `CPGridTemplate` con sei strumenti
+essenziali, grandi e leggibili a colpo d'occhio:
 
-- carico DPF, avanzamento e stato rigenerazione;
-- distanza dall'ultima rigenerazione e numero totale di rigenerazioni;
-- temperatura gas di scarico, stato pressione olio e tensione batteria;
-- ora e provenienza dell'ultimo aggiornamento (`Live` o `Salvati`), così un dato
-  memorizzato non viene spacciato per telemetria corrente.
+- carico DPF con spia verde, gialla, rossa o blu durante la rigenerazione attiva;
+- avanzamento e stato rigenerazione con indicatore illuminato quando in corso;
+- distanza dall'ultima rigenerazione, temperatura gas di scarico, stato pressione
+  olio e tensione batteria.
+
+Il titolo indica sempre se i dati sono `Live` o `Salvati`; conteggio totale,
+orario dell'ultimo aggiornamento e dettagli contestuali restano disponibili
+toccando gli strumenti, senza affollare la vista principale.
 
 Il controllo Connetti/Annulla/Disconnetti è compatto nella barra superiore. La
 campanella piena/barrata abilita o disabilita direttamente gli avvisi Alpha sul
@@ -129,11 +132,12 @@ poi `…` o il triangolo diagnostico:
    CarPlay**, banner, Time Sensitive o suoni sono disattivati.
 
 In **Impostazioni → Notifiche → Alpha DPF Monitor** devono essere consentiti
-CarPlay, Schermata di blocco, Time Sensitive e Suoni. Anche la modalità Full
-immersion Guida deve consentire gli avvisi dell'app. Attivare **Annuncia
-notifiche** dà a Siri la possibilità di leggerle, ma le app Driving Task non
-possono forzare la voce: Apple specifica che in generale questi avvisi non sono
-letti ad alta voce. Il comportamento garantito dall'app è banner più suono.
+CarPlay, Schermata di blocco, Notifiche urgenti e Suoni. La Full immersion Guida
+può silenziare le notifiche delle app anche su CarPlay: per ricevere i banner in
+modo affidabile, configurarla su attivazione manuale oppure disabilitare
+**Attiva con CarPlay** in **Impostazioni → Full immersion → Guida → Durante la
+guida**. Attivare **Annuncia notifiche** dà a Siri la possibilità di leggerle,
+ma le app Driving Task non possono forzare la voce.
 
 Ogni scenario può anche essere selezionato singolarmente. Per provare soltanto
 il canale di notifica usare **Prova solo banner e suono**. Il simulatore usa lo
