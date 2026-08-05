@@ -17,10 +17,16 @@
       "comment" : "Bundle name",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor"
+          }
+        },
         "it" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "AlfaDPF"
+            "value" : "Alpha DPF Monitor"
           }
         }
       }

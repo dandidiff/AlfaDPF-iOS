@@ -463,7 +463,7 @@ final class CarPlaySceneDelegate: UIResponder,
     }
 
     private var dashboardTitle: String {
-        let base = String(localized: "Alpha DPF")
+        let base = String(localized: "Alpha DPF Monitor")
         guard session.carPlayDPFState.hasTelemetry else { return base }
         let status = session.status == .running && session.hasLiveTelemetry
             ? String(localized: "Live")

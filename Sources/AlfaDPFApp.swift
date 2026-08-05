@@ -614,18 +614,15 @@ private struct HeaderBar: View {
     let status: MonitorSession.Status
     let onSettings: () -> Void
     let onAbout: () -> Void
-    @Environment(\.appAccent) private var appAccent
 
     var body: some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("ALPHA DPF")
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
-                    .tracking(3.6)
-                    .foregroundStyle(appAccent)
-                Text("Monitor")
-                    .font(.system(size: 29, weight: .bold, design: .rounded))
+                Text("Alpha DPF Monitor")
+                    .font(.system(size: 25, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
             }
 
             Spacer(minLength: 8)

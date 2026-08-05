@@ -105,7 +105,7 @@ Riferimenti Apple:
   `App/Localizable.xcstrings`.
 - Il messaggio di autorizzazione Bluetooth è localizzato in
   `App/InfoPlist.xcstrings`.
-- Il widget mostra il marchio pubblico `ALPHA DPF` anche su Lock Screen.
+- Il widget mostra il nome pubblico `Alpha DPF Monitor` anche su Lock Screen.
 - Le stringhe della Live Activity hanno localizzazioni `it` ed `en` esplicite:
   il bundle dell'estensione deve contenere entrambi gli `.lproj`.
 

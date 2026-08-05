@@ -106,10 +106,12 @@ private struct LockScreenDPFView: View {
             DPFStateIcon(state: context.state, isStale: context.isStale, diameter: 58)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(String(localized: "ALPHA DPF"))
+                Text(String(localized: "Alpha DPF Monitor"))
                     .font(.caption2.weight(.heavy))
-                    .tracking(1.7)
+                    .tracking(0.8)
                     .foregroundStyle(.red)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Text(context.isStale
                      ? String(localized: "Dati non aggiornati")
                      : (context.state.isRegenerating

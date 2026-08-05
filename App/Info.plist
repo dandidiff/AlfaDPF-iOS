@@ -51,7 +51,7 @@
 					<key>UISceneClassName</key>
 					<string>CPTemplateApplicationScene</string>
 					<key>UISceneConfigurationName</key>
-					<string>Alpha DPF CarPlay</string>
+					<string>Alpha DPF Monitor CarPlay</string>
 					<key>UISceneDelegateClassName</key>
 					<string>CarPlaySceneDelegate</string>
 				</dict>

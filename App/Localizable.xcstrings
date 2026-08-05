@@ -104,38 +104,6 @@
         }
       }
     },
-    "Alpha DPF" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alpha DPF"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alpha DPF"
-          }
-        }
-      }
-    },
-    "ALPHA DPF" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ALPHA DPF"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ALPHA DPF"
-          }
-        }
-      }
-    },
     "Alpha DPF Monitor" : {
       "extractionState" : "stale",
       "localizations" : {

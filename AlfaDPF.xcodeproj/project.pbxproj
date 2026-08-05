@@ -18,16 +18,16 @@
 		A1000001000000000000000B /* OBDTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000011000000000000000E /* OBDTransport.swift */; };
 		A1000001000000000000000C /* BLEConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000011000000000000000F /* BLEConnection.swift */; };
 		A1000001000000000000000D /* OBDLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000010 /* OBDLog.swift */; };
-		C10000010000000000000001 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000110000000000000001 /* CarPlaySceneDelegate.swift */; };
 		A1000001000000000000000E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000011 /* PrivacyInfo.xcprivacy */; };
 		A1000001000000000000000F /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000012 /* Localizable.xcstrings */; };
 		A10000010000000000000010 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000013 /* InfoPlist.xcstrings */; };
-		B10000010000000000000006 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000012 /* Localizable.xcstrings */; };
 		B10000010000000000000001 /* DPFActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000001 /* DPFActivityAttributes.swift */; };
 		B10000010000000000000002 /* DPFLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000002 /* DPFLiveActivityController.swift */; };
 		B10000010000000000000003 /* DPFWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000003 /* DPFWidgetBundle.swift */; };
 		B10000010000000000000004 /* DPFActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000110000000000000001 /* DPFActivityAttributes.swift */; };
 		B10000010000000000000005 /* DPFWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B10000110000000000000005 /* DPFWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B10000010000000000000006 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000012 /* Localizable.xcstrings */; };
+		C10000010000000000000001 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000110000000000000001 /* CarPlaySceneDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,7 +70,6 @@
 		A1000011000000000000000E /* OBDTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OBDTransport.swift; sourceTree = "<group>"; };
 		A1000011000000000000000F /* BLEConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEConnection.swift; sourceTree = "<group>"; };
 		A10000110000000000000010 /* OBDLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OBDLog.swift; sourceTree = "<group>"; };
-		C10000110000000000000001 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		A10000110000000000000011 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A10000110000000000000012 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		A10000110000000000000013 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
@@ -79,6 +78,7 @@
 		B10000110000000000000003 /* DPFWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DPFWidgetBundle.swift; sourceTree = "<group>"; };
 		B10000110000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10000110000000000000005 /* DPFWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DPFWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000110000000000000001 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -408,6 +408,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Alpha DPF Monitor";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -432,6 +434,8 @@
 				CURRENT_PROJECT_VERSION = 10;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Alpha DPF Monitor";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
