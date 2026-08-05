@@ -14,6 +14,4 @@ struct DPFActivityAttributes: ActivityAttributes {
         var exhaustTemperatureC: Int?
         var updatedAt: Date
     }
-
-    var vehicleName: String
 }

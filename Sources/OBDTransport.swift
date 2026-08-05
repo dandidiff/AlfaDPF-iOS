@@ -1,9 +1,38 @@
 import Foundation
 
-enum OBDError: Error {
+enum OBDError: Error, Equatable, Sendable, LocalizedError {
     case notReady
     case protocolError(String)
     case timeout
+    case connectionTimeout
+    case bluetoothUnauthorized
+    case bluetoothPoweredOff
+    case bluetoothUnavailable
+    case connectionFailed
+    case incompatibleAdapter
+
+    var errorDescription: String? {
+        switch self {
+        case .notReady:
+            return String(localized: "L’adattatore OBD non è pronto.")
+        case .protocolError:
+            return String(localized: "Errore di comunicazione con l’adattatore OBD.")
+        case .timeout:
+            return String(localized: "L’adattatore OBD non ha risposto in tempo.")
+        case .connectionTimeout:
+            return String(localized: "Nessuna connessione con l’adattatore OBD entro 30 secondi. Verifica che sia alimentato e vicino.")
+        case .bluetoothUnauthorized:
+            return String(localized: "Accesso Bluetooth negato. Abilitalo nelle Impostazioni di iOS.")
+        case .bluetoothPoweredOff:
+            return String(localized: "Bluetooth è disattivato. Attivalo e riprova.")
+        case .bluetoothUnavailable:
+            return String(localized: "Bluetooth non è disponibile su questo dispositivo.")
+        case .connectionFailed:
+            return String(localized: "Errore durante la connessione Bluetooth all’adattatore OBD.")
+        case .incompatibleAdapter:
+            return String(localized: "L’adattatore Bluetooth non espone una connessione ELM327 compatibile.")
+        }
+    }
 }
 
 /// A byte transport that speaks the ELM327 line protocol: ASCII commands
@@ -13,9 +42,10 @@ enum OBDError: Error {
 protocol OBDTransport: Actor {
     func start()
     func stop() async
-    /// Suspends until the transport is usable. Resumes early if `stop()` is
-    /// called; callers must check for cancellation afterwards.
-    func isReady() async
+    /// Suspends until the transport is usable. Throws a user-readable error
+    /// when setup fails or times out, and `CancellationError` when `stop()`
+    /// tears down a pending connection.
+    func isReady() async throws
     /// Sends `command` (without trailing `\r`), awaits the `>` prompt, returns
     /// the raw response body with the prompt and echo stripped.
     ///

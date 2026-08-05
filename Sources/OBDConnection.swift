@@ -4,9 +4,10 @@ import Network
 /// Wi-Fi TCP client for an ELM327-style OBD dongle.
 ///
 /// Typical dongle exposes a TCP server at 192.168.0.10:35000 once the phone
-/// joins its Wi-Fi. `connect()` retries forever with a fixed backoff; callers
-/// await `isReady()` before sending commands. The command/response framing
-/// lives in `ELMLineEngine`; this actor owns the socket and its lifecycle.
+/// joins its Wi-Fi. `start()` retries with a fixed backoff until the readiness
+/// deadline expires; callers await `isReady()` before sending commands. The
+/// command/response framing lives in `ELMLineEngine`; this actor owns the
+/// socket and its lifecycle.
 actor OBDConnection: OBDTransport {
     struct Endpoint {
         var host: String
@@ -17,38 +18,48 @@ actor OBDConnection: OBDTransport {
     enum State { case idle, connecting, ready, failed(Error) }
 
     private let endpoint: Endpoint
+    private let readinessTimeout: TimeInterval
     private let engine = ELMLineEngine()
     private var connection: NWConnection?
     private(set) var state: State = .idle
     private var reconnectTask: Task<Void, Never>?
-    private var readyContinuations: [CheckedContinuation<Void, Never>] = []
+    private var readinessTimeoutTask: Task<Void, Never>?
+    private var readinessTimeoutGeneration: UInt = 0
+    private var readyContinuations: [CheckedContinuation<Void, Error>] = []
 
-    init(endpoint: Endpoint = .defaultELM) {
+    init(endpoint: Endpoint = .defaultELM, readinessTimeout: TimeInterval = 30) {
         self.endpoint = endpoint
+        self.readinessTimeout = readinessTimeout
     }
 
-    /// Starts a reconnect loop. Returns immediately; await `isReady()` to
-    /// block until the socket is usable.
+    /// Starts a reconnect loop. Returns immediately; await `isReady()` until
+    /// the socket is usable or the overall readiness deadline expires.
     func start() {
         reconnectTask?.cancel()
+        state = .connecting
+        armReadinessTimeout()
         reconnectTask = Task { await reconnectLoop() }
     }
 
     func stop() async {
         reconnectTask?.cancel()
         reconnectTask = nil
+        cancelReadinessTimeout()
         connection?.cancel()
         connection = nil
         await engine.reset()
-        resumeReadyContinuations()
         state = .idle
+        resumeReadyContinuations(throwing: CancellationError())
     }
 
-    func isReady() async {
+    func isReady() async throws {
         switch state {
         case .ready: return
+        case .idle: throw OBDError.notReady
+        case .failed(let error) where error as? OBDError == .connectionTimeout:
+            throw error
         default:
-            await withCheckedContinuation { cont in
+            try await withCheckedThrowingContinuation { cont in
                 readyContinuations.append(cont)
             }
         }
@@ -122,6 +133,7 @@ actor OBDConnection: OBDTransport {
             // ELM327 wants a reset + a couple of AT lines before first use.
             // That's handled by ELM327 on top of this, not here.
             state = .ready
+            cancelReadinessTimeout()
             resumeReadyContinuations()
         case .failed(let err), .waiting(let err):
             await connectionLost(err, conn: conn)
@@ -135,6 +147,7 @@ actor OBDConnection: OBDTransport {
         state = .failed(error)
         conn.cancel()
         await engine.failPendingRead(with: error)
+        armReadinessTimeout()
     }
 
     private func receiveLoop(on conn: NWConnection) {
@@ -163,8 +176,54 @@ actor OBDConnection: OBDTransport {
         }
     }
 
-    private func resumeReadyContinuations() {
-        readyContinuations.forEach { $0.resume() }
+    private func armReadinessTimeout() {
+        guard readinessTimeoutTask == nil else { return }
+        readinessTimeoutGeneration &+= 1
+        let generation = readinessTimeoutGeneration
+        let timeout = readinessTimeout
+        readinessTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(timeout))
+            guard !Task.isCancelled else { return }
+            await self?.readinessTimedOut(generation: generation)
+        }
+    }
+
+    private func cancelReadinessTimeout() {
+        readinessTimeoutTask?.cancel()
+        readinessTimeoutTask = nil
+        readinessTimeoutGeneration &+= 1
+    }
+
+    private func readinessTimedOut(generation: UInt) {
+        // A cancelled timeout may already be queued on this actor. The
+        // generation prevents it from overwriting `.idle` after `stop()` or
+        // timing out a newer connection attempt.
+        guard generation == readinessTimeoutGeneration,
+              readinessTimeoutTask != nil,
+              state.isNotReady
+        else { return }
+        readinessTimeoutTask = nil
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        connection?.cancel()
+        connection = nil
+        state = .failed(OBDError.connectionTimeout)
+        resumeReadyContinuations(throwing: OBDError.connectionTimeout)
+    }
+
+    private func resumeReadyContinuations(throwing error: Error? = nil) {
+        if let error {
+            readyContinuations.forEach { $0.resume(throwing: error) }
+        } else {
+            readyContinuations.forEach { $0.resume() }
+        }
         readyContinuations.removeAll()
+    }
+}
+
+private extension OBDConnection.State {
+    var isNotReady: Bool {
+        if case .ready = self { return false }
+        return true
     }
 }

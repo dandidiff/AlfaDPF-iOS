@@ -39,6 +39,216 @@ func expectThrows(_ name: String, _ body: () throws -> Void) {
     }
 }
 
+// MARK: - Session policies and deep links
+
+expect(AppDeepLink.monitorURL.absoluteString == "alfadpf://monitor",
+       "deep link: canonical URL remains stable")
+expect(AppDeepLink.parse(URL(string: "alfadpf://monitor")!) == .monitor,
+       "deep link: canonical monitor route")
+expect(AppDeepLink.parse(URL(string: "alfadpf://connect")!) == .monitor,
+       "deep link: legacy connect alias")
+expect(AppDeepLink.parse(URL(string: "alfadpf:")!) == .monitor,
+       "deep link: legacy bare scheme")
+expect(AppDeepLink.parse(URL(string: "alfadpf://unknown")!) == nil,
+       "deep link: rejects unknown destination")
+expect(AppDeepLink.parse(URL(string: "alfadpf:///unknown")!) == nil,
+       "deep link: rejects unknown path")
+expect(AppDeepLink.parse(URL(string: "https://monitor")!) == nil,
+       "deep link: rejects foreign scheme")
+
+expect(SessionStatus.connecting.keepsScreenAwake,
+       "idle timer: connecting keeps screen awake")
+expect(SessionStatus.running.keepsScreenAwake,
+       "idle timer: live session keeps screen awake")
+expect(!SessionStatus.idle.keepsScreenAwake
+       && !SessionStatus.simulating.keepsScreenAwake
+       && !SessionStatus.failed("test").keepsScreenAwake,
+       "idle timer: idle, simulation and failures release screen")
+
+expect(SessionStatus.idle.carPlayConnectionAction == .connect
+       && SessionStatus.failed("test").carPlayConnectionAction == .connect
+       && SessionStatus.simulating.carPlayConnectionAction == .connect,
+       "carplay: idle, failed and simulation states offer connect")
+expect(SessionStatus.connecting.carPlayConnectionAction == .cancel,
+       "carplay: connecting state offers cancellation")
+expect(SessionStatus.running.carPlayConnectionAction == .disconnect,
+       "carplay: running state offers disconnect")
+expect(CarPlayRefreshPolicy.interval >= .seconds(10),
+       "carplay: periodic dashboard refresh respects Apple's 10-second minimum")
+expect(CarPlayNotificationTestPolicy.systemDeliveryDelay >= 10,
+       "carplay notifications: system test leaves enough time to return Home")
+expect(DPFLoadAlertLevel.resolve(loadPercent: nil, regenerationMode: .none) == .unavailable,
+       "carplay colors: absent load stays neutral")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 84.9, regenerationMode: .none) == .low,
+       "carplay colors: low load is green")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 85, regenerationMode: .none) == .nearRegeneration
+       && DPFLoadAlertLevel.resolve(loadPercent: 95, regenerationMode: .none) == .nearRegeneration,
+       "carplay colors: 85 through 95 warns that regeneration is near")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 95.1, regenerationMode: .none) == .regenerationImminent,
+       "carplay colors: load above 95 warns that regeneration is imminent")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 30, regenerationMode: .active) == .activeRegeneration,
+       "carplay colors: active regeneration overrides the load band with blue")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 88, regenerationMode: .passive) == .nearRegeneration,
+       "carplay colors: passive regeneration preserves the load warning band")
+
+func carPlayNotificationState(
+    authorization: AlertAuthorizationState.Authorization = .authorized,
+    timeSensitive: Bool = true,
+    carPlay: Bool = true,
+    alerts: Bool = true,
+    sound: Bool = true
+) -> AlertAuthorizationState {
+    AlertAuthorizationState(
+        authorization: authorization,
+        timeSensitiveEnabled: timeSensitive,
+        siriAnnouncementsEnabled: false,
+        carPlayEnabled: carPlay,
+        alertEnabled: alerts,
+        lockScreenEnabled: true,
+        soundEnabled: sound
+    )
+}
+
+expect(carPlayNotificationState().carPlayNotificationIssues.isEmpty,
+       "carplay notifications: fully enabled settings are ready")
+expect(carPlayNotificationState().canPresentSystemCarPlayAlert,
+       "carplay notifications: authorized visible CarPlay alerts can replace the CPAlert fallback")
+expect(!carPlayNotificationState(authorization: .denied).canPresentSystemCarPlayAlert
+       && !carPlayNotificationState(carPlay: false).canPresentSystemCarPlayAlert
+       && !carPlayNotificationState(alerts: false).canPresentSystemCarPlayAlert,
+       "carplay notifications: authorization, CarPlay and alert presentation are all required")
+expect(carPlayNotificationState(
+    authorization: .denied
+).carPlayNotificationIssues == [.permissionDenied],
+       "carplay notifications: denied authorization is diagnosed")
+expect(carPlayNotificationState(
+    authorization: .notDetermined
+).carPlayNotificationIssues == [.permissionRequired],
+       "carplay notifications: missing authorization is diagnosed")
+expect(carPlayNotificationState(
+    timeSensitive: false,
+    carPlay: false,
+    alerts: false,
+    sound: false
+).carPlayNotificationIssues == [
+    .carPlayDisabled,
+    .alertsDisabled,
+    .timeSensitiveDisabled,
+    .soundDisabled,
+],
+       "carplay notifications: every delivery and sound problem is exposed")
+
+let carPlayAlertDefaults = UserDefaults(suiteName: "AlphaDPF.CarPlayAlertPreferenceTests")!
+carPlayAlertDefaults.removePersistentDomain(forName: "AlphaDPF.CarPlayAlertPreferenceTests")
+expect(CarPlayAlertPreference.load(from: carPlayAlertDefaults),
+       "carplay alerts: delivery is enabled by default")
+carPlayAlertDefaults.set(false, forKey: CarPlayAlertPreference.defaultsKey)
+expect(!CarPlayAlertPreference.load(from: carPlayAlertDefaults),
+       "carplay alerts: disabled preference persists")
+carPlayAlertDefaults.set(true, forKey: CarPlayAlertPreference.defaultsKey)
+expect(CarPlayAlertPreference.load(from: carPlayAlertDefaults),
+       "carplay alerts: enabled preference persists")
+expect(CarPlayNotificationRoute.production(carPlayAlertsEnabled: true) == .carPlay,
+       "carplay alerts: enabled production events use the CarPlay category")
+expect(CarPlayNotificationRoute.production(carPlayAlertsEnabled: false) == .phoneOnly,
+       "carplay alerts: disabled production events remain phone-only")
+expect(CarPlayNotificationRoute.explicitTest == .carPlay,
+       "carplay alerts: an explicit user test still exercises CarPlay delivery")
+carPlayAlertDefaults.removePersistentDomain(forName: "AlphaDPF.CarPlayAlertPreferenceTests")
+
+let drivingFocusSuite = "AlphaDPF.DrivingFocusGuidance.\(UUID().uuidString)"
+let drivingFocusDefaults = UserDefaults(suiteName: drivingFocusSuite)!
+drivingFocusDefaults.removePersistentDomain(forName: drivingFocusSuite)
+expect(DrivingFocusGuidancePreference.needsPresentation(from: drivingFocusDefaults),
+       "driving focus onboarding: new and existing users see the guidance once")
+DrivingFocusGuidancePreference.acknowledge(in: drivingFocusDefaults)
+expect(!DrivingFocusGuidancePreference.needsPresentation(from: drivingFocusDefaults),
+       "driving focus onboarding: acknowledgement persists")
+drivingFocusDefaults.removePersistentDomain(forName: drivingFocusSuite)
+
+var carPlayCurrentState = DPFState()
+carPlayCurrentState.cloggingPercent = 88
+var carPlayPersistedState = DPFState()
+carPlayPersistedState.cloggingPercent = 42
+expect(CarPlayTelemetryPolicy.displayState(
+    current: carPlayCurrentState,
+    lastPersisted: carPlayPersistedState,
+    hasLiveTelemetry: true
+).cloggingPercent == 88,
+       "carplay telemetry: fresh real sample wins")
+expect(CarPlayTelemetryPolicy.displayState(
+    current: carPlayCurrentState,
+    lastPersisted: carPlayPersistedState,
+    hasLiveTelemetry: false
+).cloggingPercent == 42,
+       "carplay telemetry: cached real state hides non-live fixture")
+expect(!CarPlayTelemetryPolicy.displayState(
+    current: carPlayCurrentState,
+    lastPersisted: nil,
+    hasLiveTelemetry: false
+).hasTelemetry,
+       "carplay telemetry: no real state displays unavailable values")
+
+var carPlayAlertTracker = CarPlayRegenerationAlertTracker()
+expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: false) == nil,
+       "carplay alert: cached telemetry never creates an event")
+expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: true) == nil,
+       "carplay alert: first live sample arms without a false event")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == .started,
+       "carplay alert: inactive-to-active edge starts regeneration")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
+       "carplay alert: stable active state does not repeat")
+expect(carPlayAlertTracker.observe(isRegenerating: nil, telemetryIsLive: true) == nil,
+       "carplay alert: unknown regeneration sample does not emit a false finish")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
+       "carplay alert: recovery from unknown preserves the active edge")
+expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: true) == .finished,
+       "carplay alert: active-to-inactive edge finishes regeneration")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: false) == nil
+       && carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
+       "carplay alert: telemetry interruption rearms without a false event")
+
+for error in [
+    OBDError.notReady,
+    .protocolError("test"),
+    .timeout,
+    .connectionTimeout,
+    .bluetoothUnauthorized,
+    .bluetoothPoweredOff,
+    .bluetoothUnavailable,
+    .connectionFailed,
+    .incompatibleAdapter,
+] {
+    expect(!error.localizedDescription.isEmpty,
+           "OBD error: user-readable \(error)")
+}
+
+// MARK: - Optional project support
+
+expect(
+    ProjectSupport.donationURL.scheme == "https"
+        && ProjectSupport.donationURL.host == "ko-fi.com"
+        && ProjectSupport.donationURL.path == "/eddytamburi",
+    "support: public Ko-fi URL is exact and HTTPS"
+)
+let supportPromptSuite = "AlphaDPF.SupportPrompt.\(UUID().uuidString)"
+let supportPromptDefaults = UserDefaults(suiteName: supportPromptSuite)!
+var promptedTooEarly = false
+for _ in 1..<ProjectSupportPromptPolicy.launchThreshold {
+    if ProjectSupportPromptPolicy.registerLaunch(in: supportPromptDefaults) {
+        promptedTooEarly = true
+    }
+}
+expect(!promptedTooEarly, "support: first nine launches do not prompt")
+expect(ProjectSupportPromptPolicy.registerLaunch(in: supportPromptDefaults),
+       "support: tenth launch requests the optional prompt")
+expect(ProjectSupportPromptPolicy.registerLaunch(in: supportPromptDefaults),
+       "support: pending prompt survives until it is actually presented")
+ProjectSupportPromptPolicy.markPresented(in: supportPromptDefaults)
+expect(!ProjectSupportPromptPolicy.registerLaunch(in: supportPromptDefaults),
+       "support: prompt never nags again after presentation")
+supportPromptDefaults.removePersistentDomain(forName: supportPromptSuite)
+
 // MARK: - Mode 22 parsing
 
 // Single frame, 11-bit CAN header (3 hex chars!), spaces off (ATH1 + ATS0).
@@ -426,7 +636,7 @@ expect(
     "simulation: clean and unavailable fixtures"
 )
 
-// MARK: - Mode 01 parsing
+// MARK: - Mode 01 parser (not used by the live DPF session)
 
 expectBytes("mode01: 11-bit header, no spaces",
             { try Mode01Reader.parseMode01("7E804410C1AF8", expectedPID: 0x0C) },
@@ -469,6 +679,34 @@ do {
     print("FAIL: rpm decode threw \(error)")
 }
 
+do {
+    expect(try Mode01Reader.decodeCoolant([0x80]) == 88,
+           "decode: coolant 88 C")
+    expect(try Mode01Reader.decodePressureKPa([0x96]) == 150,
+           "decode: pressure 150 kPa")
+    expect(Mode01Reader.turboBoostBar(
+        manifoldAbsoluteKPa: 180,
+        barometricKPa: 98
+    ) == 0.82, "decode: turbo uses MAP minus barometric pressure")
+    expect(Mode01Reader.turboBoostBar(
+        manifoldAbsoluteKPa: 80,
+        barometricKPa: 98
+    ) == 0, "decode: turbo vacuum clamps to zero")
+    expect(Mode01Reader.turboBoostBar(
+        manifoldAbsoluteKPa: 100,
+        barometricKPa: 0
+    ) == nil, "decode: invalid barometric pressure is unavailable")
+    expect(Mode01Reader.functionalRequestHeader(forPhysicalHeader: "7E0") == "7DF",
+           "mode01: 11-bit physical header maps to functional header")
+    expect(Mode01Reader.functionalRequestHeader(forPhysicalHeader: "18da10f1") == "18DB33F1",
+           "mode01: 29-bit physical header maps to functional header")
+    expect(Mode01Reader.functionalRequestHeader(forPhysicalHeader: "ABCDEF") == nil,
+           "mode01: unknown header format is rejected")
+} catch {
+    failures += 1
+    print("FAIL: engine telemetry decode threw \(error)")
+}
+
 // MARK: - BLE characteristic picking
 
 typealias BLECandidate = BLECharacteristicPicker.Candidate
@@ -478,11 +716,39 @@ let chrWriteVlink = CBUUID(string: "FFF2")
 let svcOther = CBUUID(string: "ABC0")
 let chrOther1 = CBUUID(string: "ABC1")
 let chrOther2 = CBUUID(string: "ABC2")
+let svcKonnwei = CBUUID(string: "FFE0")
+let chrKonnweiData = CBUUID(string: "FFE1")
+
+expect(BLEAdvertisementClassifier.matches(name: "KONNWEI-KW903", advertisedServices: []),
+       "ble: Konnwei brand name accepted")
+expect(BLEAdvertisementClassifier.matches(name: "KW903", advertisedServices: []),
+       "ble: confirmed Konnwei BLE model accepted")
+expect(BLEAdvertisementClassifier.matches(name: "OBDPRO", advertisedServices: []),
+       "ble: existing OBD name accepted")
+expect(BLEAdvertisementClassifier.matches(name: nil, advertisedServices: [svcVlink]),
+       "ble: existing advertised FFF0 accepted")
+expect(!BLEAdvertisementClassifier.matches(name: "KW902", advertisedServices: []),
+       "ble: Konnwei Classic-only model not claimed")
+expect(!BLEAdvertisementClassifier.matches(name: "HMSoft", advertisedServices: [svcKonnwei]),
+       "ble: unrelated HM-10 FFE0 peripheral rejected")
+expect(!BLEAdvertisementClassifier.matches(name: nil, advertisedServices: []),
+       "ble: anonymous unrelated peripheral rejected")
+
+do {
+    // Konnwei KW903 commonly exposes one duplex FFE1 characteristic.
+    let picked = BLECharacteristicPicker.pick(from: [
+        BLECandidate(service: svcOther, characteristic: chrOther1, canNotify: true, canWrite: true),
+        BLECandidate(service: svcKonnwei, characteristic: chrKonnweiData, canNotify: true, canWrite: true),
+    ])
+    expect(picked?.notify == chrKonnweiData && picked?.write == chrKonnweiData,
+           "ble: Konnwei FFE0/FFE1 duplex layout preferred")
+}
 
 do {
     // The known Vlink layout wins even when another usable pair exists.
     let picked = BLECharacteristicPicker.pick(from: [
         BLECandidate(service: svcOther, characteristic: chrOther1, canNotify: true, canWrite: true),
+        BLECandidate(service: svcKonnwei, characteristic: chrKonnweiData, canNotify: true, canWrite: true),
         BLECandidate(service: svcVlink, characteristic: chrNotifyVlink, canNotify: true, canWrite: false),
         BLECandidate(service: svcVlink, characteristic: chrWriteVlink, canNotify: false, canWrite: true),
     ])
@@ -594,7 +860,10 @@ final class MockELMServer: @unchecked Sendable {
 
 // MARK: - Connection tests
 
-let port: UInt16 = 49217
+// Keep independent test processes from binding each other's mock servers
+// (reviewers and local CI often run this executable in parallel).
+let testPortBase = UInt16(20_000 + (ProcessInfo.processInfo.processIdentifier % 5_000) * 4)
+let port = testPortBase
 let server = try MockELMServer(port: port) { cmd in
     switch cmd {
     case "ATZ":    return "ATZ\rELM327 v1.5\r\r>"
@@ -606,7 +875,12 @@ let server = try MockELMServer(port: port) { cmd in
 
 let obd = OBDConnection(endpoint: .init(host: "127.0.0.1", port: port))
 await obd.start()
-await obd.isReady()
+do {
+    try await obd.isReady()
+} catch {
+    failures += 1
+    print("FAIL: conn readiness threw \(error)")
+}
 
 // Basic request/response with echo stripping.
 do {
@@ -659,7 +933,7 @@ await obd.stop()
 
 // Enhanced PIDs need the request addressed to a specific ECU via ATSH. Verify
 // the header is sent, in the same critical section, before the 22 request.
-let port2: UInt16 = 49218
+let port2 = testPortBase + 1
 let recorder = CommandRecorder()
 let server2 = try MockELMServer(port: port2) { cmd in
     recorder.record(cmd)
@@ -671,7 +945,12 @@ let server2 = try MockELMServer(port: port2) { cmd in
 _ = server2
 let obd2 = OBDConnection(endpoint: .init(host: "127.0.0.1", port: port2))
 await obd2.start()
-await obd2.isReady()
+do {
+    try await obd2.isReady()
+} catch {
+    failures += 1
+    print("FAIL: header connection readiness threw \(error)")
+}
 let elm2 = ELM327(connection: obd2)
 do {
     let bytes = try await elm2.readMode22(pid: 0x18E4, header: "18DA10F1")
@@ -712,7 +991,96 @@ do {
     failures += 1
     print("FAIL: concurrent header test threw \(error)")
 }
+
+// Reproduce the real-device sequence: a physical Mode 22 read, a standard
+// functional Mode 01 read, then the same physical Mode 22 read again. The ELM
+// retains ATSH state, so both callers must provide their header explicitly.
+do {
+    let commandOffset = recorder.commands.count
+    let mode01 = Mode01Reader(connection: obd2)
+    let before = try await elm2.readMode22(pid: 0x18E4, header: "18DA01F1")
+    let rpm = try await mode01.readRPM(header: "18DB33F1")
+    let after = try await elm2.readMode22(pid: 0x18E4, header: "18DA01F1")
+    expect(before == [0x0C, 0xCD] && rpm == 801.5 && after == [0x0C, 0xCD],
+           "header: Mode 22 survives an interleaved functional Mode 01 read")
+
+    let sequence = Array(recorder.commands.dropFirst(commandOffset))
+    expect(
+        sequence == [
+            "ATSH18DA01F1", "2218E4",
+            "ATSH18DB33F1", "010C",
+            "ATSH18DA01F1", "2218E4",
+        ],
+        "header: physical context is restored after functional Mode 01"
+    )
+} catch {
+    failures += 1
+    print("FAIL: sequential Mode 22/01/22 header test threw \(error)")
+}
 await obd2.stop()
+
+// An unreachable adapter must fail readiness instead of parking forever.
+let unavailable = OBDConnection(
+    endpoint: .init(host: "192.0.2.1", port: 1),
+    readinessTimeout: 0.4
+)
+await unavailable.start()
+do {
+    try await unavailable.isReady()
+    failures += 1
+    print("FAIL: readiness timeout expected, got ready")
+} catch let error as OBDError {
+    expect(error == .connectionTimeout,
+           "conn: readiness fails with typed overall timeout")
+} catch {
+    failures += 1
+    print("FAIL: readiness timeout returned unexpected error \(error)")
+}
+await unavailable.stop()
+
+// Stopping during setup must release every readiness waiter immediately.
+let cancelled = OBDConnection(
+    endpoint: .init(host: "192.0.2.1", port: 1),
+    readinessTimeout: 5
+)
+await cancelled.start()
+let readinessWaiter = Task { try await cancelled.isReady() }
+try? await Task.sleep(for: .milliseconds(100))
+await cancelled.stop()
+do {
+    try await readinessWaiter.value
+    failures += 1
+    print("FAIL: readiness cancellation expected, got ready")
+} catch is CancellationError {
+    print("PASS: conn: stop cancels pending readiness")
+} catch {
+    failures += 1
+    print("FAIL: readiness cancellation returned unexpected error \(error)")
+}
+
+// A timeout task that wakes as stop runs must not overwrite the final idle
+// state with a stale connectionTimeout failure.
+var stoppedConnectionsStayedIdle = true
+for _ in 0..<20 {
+    let racingStop = OBDConnection(
+        endpoint: .init(host: "192.0.2.1", port: 1),
+        readinessTimeout: 0.01
+    )
+    await racingStop.start()
+    try? await Task.sleep(for: .milliseconds(9))
+    await racingStop.stop()
+    try? await Task.sleep(for: .milliseconds(2))
+    do {
+        try await racingStop.isReady()
+        stoppedConnectionsStayedIdle = false
+    } catch let error as OBDError {
+        if error != .notReady { stoppedConnectionsStayedIdle = false }
+    } catch {
+        stoppedConnectionsStayedIdle = false
+    }
+}
+expect(stoppedConnectionsStayedIdle,
+       "conn: cancelled readiness deadline cannot overwrite stopped state")
 
 // MARK: - Summary
 

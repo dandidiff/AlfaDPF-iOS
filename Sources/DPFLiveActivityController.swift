@@ -46,7 +46,7 @@ final class DPFLiveActivityController {
                 await current.update(content)
             } else {
                 activity = try Activity.request(
-                    attributes: DPFActivityAttributes(vehicleName: "Alfa Romeo"),
+                    attributes: DPFActivityAttributes(),
                     content: content,
                     pushType: nil
                 )

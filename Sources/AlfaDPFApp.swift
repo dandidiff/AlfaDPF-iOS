@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 @main
 struct AlfaDPFApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var session = MonitorSession()
+    @State private var session = MonitorSession.shared
 
     var body: some Scene {
         WindowGroup {
@@ -112,10 +112,13 @@ private extension View {
 
 struct PhoneRootView: View {
     @Bindable var session: MonitorSession
+    @Environment(\.openURL) private var openURL
     @State private var showSettings = false
     @State private var showTestLab = false
     @State private var showAbout = false
     @State private var showNotificationSetup = false
+    @State private var showProjectSupportPrompt = false
+    @State private var projectSupportPromptPending = false
     @State private var preparedLaunch = false
     @State private var appliedDebugLaunchScenario = false
 
@@ -145,7 +148,9 @@ struct PhoneRootView: View {
 
                     HeroGauge(
                         dpf: session.dpf,
-                        isCached: session.isShowingCachedTelemetry
+                        isCached: session.isShowingCachedTelemetry,
+                        isSessionActive: session.status == .running || session.status == .simulating,
+                        isAwaitingTelemetry: session.isAwaitingTelemetry
                     )
 
                     DPFDetailGrid(
@@ -184,14 +189,32 @@ struct PhoneRootView: View {
             }
             .interactiveDismissDisabled()
         }
+        .alert("Ti piace Alpha DPF Monitor?", isPresented: $showProjectSupportPrompt) {
+            Button("Sostieni con €4,99") {
+                openURL(ProjectSupport.donationURL)
+            }
+            Button("No, grazie", role: .cancel) {}
+        } message: {
+            Text("L’app è gratuita e resterà gratuita. Un contributo facoltativo di €4,99 aiuta a coprire i costi annuali e a mantenere vivo il progetto. Non sblocca funzioni e non cambia l’esperienza.")
+        }
         .task {
             guard !preparedLaunch else { return }
             preparedLaunch = true
+            let shouldShowSupportPrompt = ProjectSupportPromptPolicy.registerLaunch()
             if await session.prepareNotificationAuthorizationAtLaunch() {
+                projectSupportPromptPending = shouldShowSupportPrompt
                 showNotificationSetup = true
             } else {
                 session.startAutomaticallyIfNeeded()
+                if shouldShowSupportPrompt {
+                    presentProjectSupportPrompt()
+                }
             }
+        }
+        .onChange(of: showNotificationSetup) { _, isPresented in
+            guard !isPresented, projectSupportPromptPending else { return }
+            projectSupportPromptPending = false
+            presentProjectSupportPrompt()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             Task { await session.refreshNotificationAuthorization() }
@@ -200,12 +223,15 @@ struct PhoneRootView: View {
             session.persistCurrentState()
         }
         .onOpenURL { url in
-            guard url.scheme == "alfadpf",
-                  url.host == nil || url.host == "connect"
-            else { return }
+            guard AppDeepLink.parse(url) == .monitor else { return }
             session.start()
         }
         .onAppear(perform: applyDebugLaunchScenarioIfNeeded)
+    }
+
+    private func presentProjectSupportPrompt() {
+        ProjectSupportPromptPolicy.markPresented()
+        showProjectSupportPrompt = true
     }
 
     private func applyDebugLaunchScenarioIfNeeded() {
@@ -233,14 +259,35 @@ struct PhoneRootView: View {
     }
 }
 
+private enum NotificationSetupPage {
+    case permission
+    case notificationSettings
+    case drivingFocus
+}
+
 private struct NotificationSetupView: View {
     @Bindable var session: MonitorSession
     let onComplete: () -> Void
 
     @Environment(\.openURL) private var openURL
     @State private var isRequesting = false
-    @State private var showSettingsStep = false
+    @State private var page: NotificationSetupPage
     @Environment(\.appAccent) private var appAccent
+
+    init(session: MonitorSession, onComplete: @escaping () -> Void) {
+        self.session = session
+        self.onComplete = onComplete
+
+        let initialPage: NotificationSetupPage
+        if session.alertAuthorization.authorization == .notDetermined {
+            initialPage = .permission
+        } else if !session.alertAuthorization.canSendTimeSensitiveAlerts {
+            initialPage = .notificationSettings
+        } else {
+            initialPage = .drivingFocus
+        }
+        _page = State(initialValue: initialPage)
+    }
 
     var body: some View {
         ZStack {
@@ -249,19 +296,19 @@ private struct NotificationSetupView: View {
             VStack(spacing: 24) {
                 Spacer()
 
-                Image(systemName: showSettingsStep ? "gear.badge" : "bell.and.waves.left.and.right.fill")
+                Image(systemName: setupIcon)
                     .font(.system(size: 54, weight: .semibold))
-                    .foregroundStyle(showSettingsStep ? .orange : appAccent)
+                    .foregroundStyle(setupTint)
                     .frame(width: 112, height: 112)
                     .background(.ultraThinMaterial, in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.18)))
 
                 VStack(spacing: 12) {
-                    Text(showSettingsStep ? "Completa gli avvisi" : "Non perdere una rigenerazione")
+                    Text(title)
                         .font(.system(size: 29, weight: .bold, design: .rounded))
                         .multilineTextAlignment(.center)
 
-                    Text(LocalizedStringKey(explanation))
+                    Text(explanation)
                         .font(.system(size: 15, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.72))
                         .multilineTextAlignment(.center)
@@ -269,32 +316,46 @@ private struct NotificationSetupView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 13) {
-                    setupRow(
-                        symbol: "bell.fill",
-                        title: "Nel messaggio di iOS tocca “Consenti”",
-                        enabled: session.alertAuthorization.authorization == .authorized
-                    )
-                    setupRow(
-                        symbol: "exclamationmark.bubble.fill",
-                        title: "Mantieni attive le “Notifiche urgenti”",
-                        enabled: session.alertAuthorization.timeSensitiveEnabled
-                    )
-                    setupRow(
-                        symbol: "car.fill",
-                        title: "Per la voce di Siri attiva “Annuncia notifiche”",
-                        enabled: session.alertAuthorization.siriAnnouncementsEnabled
-                    )
-                    Text("In Full immersion › Alla guida abilita anche “Consenti notifiche urgenti”. iOS non permette all’app di verificarlo o attivarlo.")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(.orange.opacity(0.82))
-                        .fixedSize(horizontal: false, vertical: true)
+                    if page == .drivingFocus {
+                        setupRow(
+                            symbol: "gearshape.fill",
+                            title: "Apri Impostazioni › Full immersion › Guida",
+                            enabled: false
+                        )
+                        setupRow(
+                            symbol: "car.side.fill",
+                            title: "In “Durante la guida”, disattiva “Attiva con CarPlay” oppure scegli l’attivazione manuale",
+                            enabled: false
+                        )
+                        Text("Alpha DPF Monitor non può rilevare o modificare la Full immersion. Configurala prima di metterti alla guida.")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(.orange.opacity(0.86))
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        setupRow(
+                            symbol: "bell.fill",
+                            title: "Nel messaggio di iOS tocca “Consenti”",
+                            enabled: session.alertAuthorization.authorization == .authorized
+                        )
+                        setupRow(
+                            symbol: "exclamationmark.bubble.fill",
+                            title: "Mantieni attive le “Notifiche urgenti”",
+                            enabled: session.alertAuthorization.timeSensitiveEnabled
+                        )
+                        setupRow(
+                            symbol: "car.fill",
+                            title: "Per consentire gli annunci Siri quando supportati, attiva “Annuncia notifiche”",
+                            enabled: session.alertAuthorization.siriAnnouncementsEnabled
+                        )
+                    }
                 }
                 .padding(18)
                 .glassPanel(cornerRadius: 22)
 
                 Spacer()
 
-                if showSettingsStep {
+                switch page {
+                case .notificationSettings:
                     Button {
                         openNotificationSettings()
                     } label: {
@@ -306,19 +367,21 @@ private struct NotificationSetupView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.orange)
 
-                    Button("Continua nell’app", action: onComplete)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.72))
-                } else {
+                    Button("Continua nell’app") {
+                        page = .drivingFocus
+                    }
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.72))
+                case .permission:
                     Button {
                         isRequesting = true
                         Task {
                             await session.requestNotificationAuthorization()
                             isRequesting = false
                             if session.alertAuthorization.canSendTimeSensitiveAlerts {
-                                onComplete()
+                                page = .drivingFocus
                             } else {
-                                showSettingsStep = true
+                                page = .notificationSettings
                             }
                         }
                     } label: {
@@ -337,6 +400,18 @@ private struct NotificationSetupView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(appAccent)
                     .disabled(isRequesting)
+                case .drivingFocus:
+                    Button {
+                        session.acknowledgeDrivingFocusGuidance()
+                        onComplete()
+                    } label: {
+                        Label("Ho capito, continua", systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 17, weight: .semibold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(appAccent)
                 }
             }
             .foregroundStyle(.white)
@@ -345,14 +420,46 @@ private struct NotificationSetupView: View {
         }
     }
 
-    private var explanation: String {
-        if showSettingsStep {
-            return "iOS non permette ad Alpha DPF Monitor di cambiare queste preferenze al posto tuo. Controlla anche Full immersion › Alla guida."
+    private var explanation: LocalizedStringKey {
+        switch page {
+        case .permission:
+            return "Gli avvisi di rigenerazione sono informazioni sensibili al tempo. Ti guidiamo una volta sola; poi l’app tenterà automaticamente la connessione all’OBD."
+        case .notificationSettings:
+            return "iOS non permette ad Alpha DPF Monitor di cambiare queste preferenze al posto tuo."
+        case .drivingFocus:
+            return "Quando Guida è attiva, iOS silenzia o limita le notifiche delle app, anche su CarPlay."
         }
-        return "Gli avvisi di rigenerazione sono informazioni sensibili al tempo. Ti guidiamo una volta sola; poi l’app tenterà automaticamente la connessione all’OBD."
     }
 
-    private func setupRow(symbol: String, title: String, enabled: Bool) -> some View {
+    private var title: LocalizedStringKey {
+        switch page {
+        case .permission: return "Non perdere una rigenerazione"
+        case .notificationSettings: return "Completa gli avvisi"
+        case .drivingFocus: return "Full immersion Guida"
+        }
+    }
+
+    private var setupIcon: String {
+        switch page {
+        case .permission: return "bell.and.waves.left.and.right.fill"
+        case .notificationSettings: return "gear.badge"
+        case .drivingFocus: return "car.side.fill"
+        }
+    }
+
+    private var setupTint: Color {
+        switch page {
+        case .permission: return appAccent
+        case .notificationSettings: return .orange
+        case .drivingFocus: return .cyan
+        }
+    }
+
+    private func setupRow(
+        symbol: String,
+        title: LocalizedStringKey,
+        enabled: Bool
+    ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: enabled ? "checkmark.circle.fill" : symbol)
                 .foregroundStyle(enabled ? .green : .white.opacity(0.72))
@@ -420,7 +527,7 @@ private struct NotificationGuidanceCard: View {
             return "Abilita avvisi, schermo bloccato e suoni per Alpha DPF Monitor."
         }
         if !state.timeSensitiveEnabled {
-            return "Abilita anche “Consenti notifiche urgenti” nella Full immersion Alla guida."
+            return "In Impostazioni › Notifiche › Alpha DPF Monitor, abilita “Notifiche urgenti”."
         }
         return "Abilita “Annuncia notifiche” per Alpha DPF Monitor; l’app non può forzare la lettura."
     }
@@ -507,18 +614,15 @@ private struct HeaderBar: View {
     let status: MonitorSession.Status
     let onSettings: () -> Void
     let onAbout: () -> Void
-    @Environment(\.appAccent) private var appAccent
 
     var body: some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("ALPHA DPF")
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
-                    .tracking(3.6)
-                    .foregroundStyle(appAccent)
-                Text("Monitor")
-                    .font(.system(size: 29, weight: .bold, design: .rounded))
+                Text("Alpha DPF Monitor")
+                    .font(.system(size: 25, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
             }
 
             Spacer(minLength: 8)
@@ -551,17 +655,14 @@ private struct RoundGlassButton: View {
 
 private struct StatusBadge: View {
     let status: MonitorSession.Status
-    @State private var pulse = false
 
     var body: some View {
         let info = display
         HStack(spacing: 7) {
             ZStack {
                 Circle()
-                    .fill(info.color.opacity(0.38))
+                    .fill(info.color.opacity(0.24))
                     .frame(width: 14, height: 14)
-                    .scaleEffect(pulse ? 1.7 : 1)
-                    .opacity(pulse ? 0 : 1)
                 Circle().fill(info.color).frame(width: 7, height: 7)
             }
             Text(LocalizedStringKey(info.label))
@@ -573,8 +674,6 @@ private struct StatusBadge: View {
         .padding(.vertical, 9)
         .background(.thinMaterial, in: Capsule())
         .overlay(Capsule().stroke(Brand.hairline, lineWidth: 0.7))
-        .onAppear(perform: syncPulse)
-        .onChange(of: status) { syncPulse() }
     }
 
     private var display: (label: String, color: Color) {
@@ -587,17 +686,6 @@ private struct StatusBadge: View {
         }
     }
 
-    private func syncPulse() {
-        let shouldPulse = status == .running || status == .simulating
-        if shouldPulse {
-            pulse = false
-            withAnimation(.easeOut(duration: 1.25).repeatForever(autoreverses: false)) {
-                pulse = true
-            }
-        } else {
-            withAnimation(.linear(duration: 0.1)) { pulse = false }
-        }
-    }
 }
 
 // MARK: - Main DPF gauge
@@ -605,6 +693,8 @@ private struct StatusBadge: View {
 private struct HeroGauge: View {
     let dpf: DPFState
     let isCached: Bool
+    let isSessionActive: Bool
+    let isAwaitingTelemetry: Bool
 
     private var load: Double { dpf.cloggingPercent ?? 0 }
     private var hasData: Bool { dpf.cloggingPercent != nil }
@@ -626,7 +716,14 @@ private struct HeroGauge: View {
     }
 
     private var guidance: String {
-        guard hasData else { return "Connetti l'adattatore oppure usa il laboratorio test." }
+        guard hasData else {
+            guard isSessionActive else {
+                return "Connetti l'adattatore oppure usa il laboratorio test."
+            }
+            return isAwaitingTelemetry
+                ? "Attendo i primi valori dalla centralina"
+                : "Il PID carico DPF non è disponibile su questa centralina."
+        }
         if isCached { return "Valore dell’ultima connessione, non in tempo reale." }
         if dpf.effectiveRegenerationMode == .active {
             return "Continua a guidare e non spegnere il motore."
@@ -665,7 +762,6 @@ private struct HeroGauge: View {
         }
         .padding(20)
         .glassPanel(cornerRadius: 30)
-        .saturation(isCached ? 0 : 1)
         .opacity(isCached ? 0.64 : 1)
     }
 
@@ -684,12 +780,14 @@ private struct HeroGauge: View {
                 )
                 .rotationEffect(.degrees(-90))
                 .shadow(color: tint.opacity(0.38), radius: 10)
-                .animation(.smooth(duration: 0.65), value: load)
+                .animation(.smooth(duration: 1.2), value: load)
 
             VStack(spacing: -2) {
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
                     Text(hasData ? String(format: "%.1f", load) : "—")
                         .font(.system(size: 49, weight: .bold, design: .rounded).monospacedDigit())
+                        .contentTransition(.numericText())
+                        .animation(.smooth(duration: 0.45), value: load)
                     if hasData {
                         Text("%")
                             .font(.system(size: 21, weight: .semibold, design: .rounded))
@@ -771,14 +869,13 @@ private struct DPFDetailGrid: View {
     var body: some View {
         if !visibleMetrics.isEmpty {
             VStack(alignment: .leading, spacing: 11) {
-                SectionLabel(text: "DETTAGLI DPF", icon: "aqi.medium")
+                SectionLabel(text: "DATI VEICOLO", icon: "car.side.fill")
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(DashboardMetric.allCases.filter(visibleMetrics.contains)) { metric in
                         card(for: metric)
                     }
                 }
             }
-            .saturation(isCached ? 0 : 1)
             .opacity(isCached ? 0.64 : 1)
         }
     }
@@ -821,7 +918,7 @@ private struct DPFDetailGrid: View {
         case .oilPressure:
             MetricCard(
                 icon: "oilcan.fill",
-                title: "PRESSIONE OLIO",
+                title: "STATO PRESSIONE OLIO",
                 value: dpf.oilPressureStatusText,
                 unit: "",
                 accent: oilPressureAccent
@@ -852,6 +949,7 @@ private struct DPFDetailGrid: View {
         default: return .gray
         }
     }
+
 }
 
 private struct SectionLabel: View {
@@ -894,6 +992,8 @@ private struct MetricCard: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
+                    .contentTransition(.numericText())
+                    .animation(.smooth(duration: 0.35), value: value)
                 if value != nil, !unit.isEmpty {
                     Text(unit)
                         .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -1033,6 +1133,7 @@ private struct ConnectionPanel: View {
 
 private struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @Bindable var session: MonitorSession
     @State private var showDiagnostics = false
     @State private var showTestLab = false
@@ -1120,6 +1221,21 @@ private struct SettingsView: View {
                                 }
                             }
                         }
+
+                        Divider().overlay(Brand.hairline)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Label("Pressione olio e SGW", systemImage: "info.circle")
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.82))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar.")
+                                Text("Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone.")
+                            }
+                                .font(.system(size: 10, design: .rounded))
+                                .foregroundStyle(Brand.textDim)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.top, 8)
                     }
 
                     settingsSection(title: "STRUMENTI", icon: "wrench.and.screwdriver") {
@@ -1137,6 +1253,24 @@ private struct SettingsView: View {
                             ) {
                                 showTestLab = true
                             }
+                        }
+                    }
+
+                    settingsSection(title: "SOSTIENI IL PROGETTO", icon: "heart.fill") {
+                        VStack(alignment: .leading, spacing: 0) {
+                            SettingsToolButton(
+                                title: "Contributo facoltativo · €4,99",
+                                symbol: "heart.circle.fill"
+                            ) {
+                                openURL(ProjectSupport.donationURL)
+                            }
+                            Divider().overlay(Brand.hairline)
+                            Text("L’app è gratuita e resterà gratuita. Un contributo facoltativo di €4,99 aiuta a coprire i costi annuali e a mantenere vivo il progetto. Non sblocca funzioni e non cambia l’esperienza.")
+                                .font(.system(size: 11, design: .rounded))
+                                .foregroundStyle(Brand.textDim)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.horizontal, 2)
+                                .padding(.vertical, 12)
                         }
                     }
                 }
@@ -1443,22 +1577,14 @@ private struct DiagnosticsView: View {
                             || dpf.regenerationMode != nil
                             || dpf.oilPressureStatusRaw != nil {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("NUOVI SEGNALI ECU")
+                                Text("TELEMETRIA ECU")
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(.cyan)
                                 if let pid = dpf.exhaustTemperaturePID {
-                                    Text(
-                                        "Temperatura: PID \(String(format: "22%04X", pid))"
-                                        + " · \(dpf.exhaustTempC.map { String(format: "%.1f °C", $0) } ?? "—")"
-                                    )
+                                    Text("Temperatura scarico: PID \(String(format: "22%04X", pid)) · \(dpf.exhaustTempC.map { String(format: "%.1f °C", $0) } ?? "—")")
                                 }
                                 Text("Rigenerazione: \(regenerationModeText)")
-                                Text(
-                                    "Pressione olio: "
-                                    + (dpf.oilPressureStatusRaw.map {
-                                        "\($0) · \(dpf.oilPressureStatusText ?? "sconosciuta")"
-                                    } ?? "PID non disponibile")
-                                )
+                                Text("Stato pressione olio 22194D: \(oilPressureDiagnosticText)")
                             }
                             .font(.system(.caption2, design: .monospaced))
                             .padding(12)
@@ -1473,12 +1599,8 @@ private struct DiagnosticsView: View {
                                 Text("PID 2218E4 · ECU \(dpf.cloggingECUHeader ?? "—")")
                                 Text("raw \(raw) (0x\(String(raw, radix: 16, uppercase: true)))")
                                 Text("formula raw×1000/65535 = \(dpf.cloggingPercent.map { String(format: "%.3f%%", $0) } ?? "—")")
-                                Text(dpf.cloggingSourceVerified == true
-                                     ? "Header verificato Giulia/Stelvio 2.2D"
-                                     : "Header non ancora convalidato: confronto beta richiesto")
-                                    .foregroundStyle(
-                                        dpf.cloggingSourceVerified == true ? .green : .orange
-                                    )
+                                Text("Modello veicolo non identificato automaticamente")
+                                    .foregroundStyle(.secondary)
                             }
                             .font(.system(.caption2, design: .monospaced))
                             .padding(12)
@@ -1520,11 +1642,20 @@ private struct DiagnosticsView: View {
     }
 
     private var regenerationModeText: String {
-        guard let mode = dpf.regenerationMode else { return "PID non disponibile" }
-        switch mode {
-        case .none: return "0 · nessuna"
-        case .passive: return "1 · passiva"
-        case .active: return "2 · attiva"
+        guard let mode = dpf.regenerationMode else {
+            return String(localized: "PID non disponibile")
         }
+        switch mode {
+        case .none: return String(localized: "0 · nessuna")
+        case .passive: return String(localized: "1 · passiva")
+        case .active: return String(localized: "2 · attiva")
+        }
+    }
+
+    private var oilPressureDiagnosticText: String {
+        guard let raw = dpf.oilPressureStatusRaw else {
+            return String(localized: "PID non disponibile")
+        }
+        return "\(raw) · \(dpf.oilPressureStatusText ?? String(localized: "Sconosciuto"))"
     }
 }

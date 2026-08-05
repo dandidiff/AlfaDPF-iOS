@@ -3,25 +3,29 @@ import Observation
 import UIKit
 
 /// Phone-side coordinator. The real connection intentionally polls only the
-/// Alfa/FCA Mode 22 DPF monitor: mixing generic engine Mode 01 commands back
-/// into this session previously made the two ECU/header contexts interfere.
+/// Alfa/FCA Mode 22 DPF monitor: mixing generic engine Mode 01 commands into
+/// this session makes the ECU/header contexts interfere on the real vehicle.
 @MainActor
 @Observable
 final class MonitorSession {
-    enum Status: Equatable {
-        case idle
-        case connecting
-        case running
-        case simulating
-        case failed(String)
-    }
+    /// Phone and CarPlay must control one BLE/ELM session. Creating a second
+    /// coordinator from the CarPlay scene would race the same adapter and ECU.
+    static let shared = MonitorSession()
 
-    private(set) var status: Status = .idle
+    typealias Status = SessionStatus
+
+    private(set) var status: Status = .idle {
+        didSet {
+            UIApplication.shared.isIdleTimerDisabled = status.keepsScreenAwake
+        }
+    }
     private(set) var dpf: DPFState
     private(set) var lastRegenEvent: String?
     private(set) var activeScenario: DPFSimulationScenario?
     private(set) var alertAuthorization: AlertAuthorizationState = .checking
     private(set) var hasLiveTelemetry = false
+    private(set) var carPlayAlertsEnabled: Bool
+    private(set) var needsDrivingFocusGuidance: Bool
 
     var autoConnectEnabled: Bool {
         didSet {
@@ -48,7 +52,7 @@ final class MonitorSession {
     private var pollTask: Task<Void, Never>?
     private var simulationTask: Task<Void, Never>?
     private var simulationTracker = RegenActivityTracker()
-    private let alerts = AlertService()
+    private let alerts: AlertService
     private let liveActivity = DPFLiveActivityController()
     private let defaults: UserDefaults
     private var lastPersistedState: DPFState?
@@ -58,6 +62,16 @@ final class MonitorSession {
     private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
     private static let batteryMetricMigrationDefaultsKey = "batteryMetricAdded.v1"
     private static let appAccentDefaultsKey = "appAccent.v1"
+
+    /// Secondary vehicle displays must never inherit a Test Lab fixture. Until
+    /// a fresh real sample arrives, expose only the last persisted ECU state.
+    var carPlayDPFState: DPFState {
+        CarPlayTelemetryPolicy.displayState(
+            current: dpf,
+            lastPersisted: lastPersistedState,
+            hasLiveTelemetry: hasLiveTelemetry
+        )
+    }
 
     init(defaults: UserDefaults = .standard) {
         let initialAutoConnectEnabled: Bool
@@ -72,12 +86,12 @@ final class MonitorSession {
             var visibleMetrics = Set(stored.compactMap(DashboardMetric.init(rawValue:)))
             if !defaults.bool(forKey: Self.batteryMetricMigrationDefaultsKey) {
                 visibleMetrics.insert(.batteryVoltage)
-                defaults.set(
-                    visibleMetrics.map(\.rawValue).sorted(),
-                    forKey: Self.dashboardMetricsDefaultsKey
-                )
                 defaults.set(true, forKey: Self.batteryMetricMigrationDefaultsKey)
             }
+            defaults.set(
+                visibleMetrics.map(\.rawValue).sorted(),
+                forKey: Self.dashboardMetricsDefaultsKey
+            )
             initialVisibleDashboardMetrics = visibleMetrics
         } else {
             initialVisibleDashboardMetrics = Set(DashboardMetric.allCases)
@@ -86,12 +100,17 @@ final class MonitorSession {
 
         let initialAppAccent = defaults.string(forKey: Self.appAccentDefaultsKey)
             .flatMap(StelvioAccent.init(rawValue:)) ?? .rossoAlfa
+        let initialCarPlayAlertsEnabled = CarPlayAlertPreference.load(from: defaults)
         let saved = DPFStateStore.load(from: defaults)
 
         self.defaults = defaults
+        self.alerts = AlertService(carPlayAlertsEnabled: initialCarPlayAlertsEnabled)
         self.autoConnectEnabled = initialAutoConnectEnabled
         self.visibleDashboardMetrics = initialVisibleDashboardMetrics
         self.appAccent = initialAppAccent
+        self.carPlayAlertsEnabled = initialCarPlayAlertsEnabled
+        self.needsDrivingFocusGuidance =
+            DrivingFocusGuidancePreference.needsPresentation(from: defaults)
         self.dpf = saved ?? DPFState()
         self.lastPersistedState = saved
     }
@@ -118,6 +137,7 @@ final class MonitorSession {
         }
         alertAuthorization = await alerts.currentAuthorizationState()
         return alertAuthorization.authorization == .notDetermined
+            || needsDrivingFocusGuidance
     }
 
     func requestNotificationAuthorization() async {
@@ -127,6 +147,19 @@ final class MonitorSession {
     func refreshNotificationAuthorization() async {
         guard !skipAlertSetupForVisualTest else { return }
         alertAuthorization = await alerts.currentAuthorizationState()
+    }
+
+    func acknowledgeDrivingFocusGuidance() {
+        DrivingFocusGuidancePreference.acknowledge(in: defaults)
+        needsDrivingFocusGuidance = false
+    }
+
+    func toggleCarPlayAlerts() async {
+        let enabled = !carPlayAlertsEnabled
+        await alerts.setCarPlayAlertsEnabled(enabled)
+        defaults.set(enabled, forKey: CarPlayAlertPreference.defaultsKey)
+        carPlayAlertsEnabled = enabled
+        OBDLog.log("CarPlay alerts: \(enabled ? "enabled" : "disabled")")
     }
 
     func startAutomaticallyIfNeeded() {
@@ -156,7 +189,6 @@ final class MonitorSession {
         lastRegenEvent = nil
         lastAcceptedPollSequence = 0
         reportedTelemetryInterruption = false
-        UIApplication.shared.isIdleTimerDisabled = true
 
         bootTask = Task { [weak self] in
             await previousMonitor?.stop()
@@ -176,7 +208,6 @@ final class MonitorSession {
         activeScenario = nil
         status = .idle
         hasLiveTelemetry = false
-        UIApplication.shared.isIdleTimerDisabled = false
 
         Task {
             await monitor?.stop()
@@ -191,6 +222,18 @@ final class MonitorSession {
             alertAuthorization = await alerts.configure()
             await alerts.notifyTest()
         }
+    }
+
+    /// Queues the CarPlay-specific system test and exposes the actual queueing
+    /// result to the vehicle UI instead of claiming success unconditionally.
+    func testCarPlaySystemNotification() async -> Bool {
+        let current = await alerts.currentAuthorizationState()
+        guard current.authorization == .authorized else {
+            alertAuthorization = current
+            return false
+        }
+        alertAuthorization = await alerts.configure()
+        return await alerts.notifyCarPlayTest()
     }
 
     func persistCurrentState() {
@@ -213,7 +256,6 @@ final class MonitorSession {
         hasLiveTelemetry = false
         activeScenario = nil
         lastRegenEvent = "Ambiente di prova attivo"
-        UIApplication.shared.isIdleTimerDisabled = false
 
         Task {
             await monitor?.stop()
@@ -293,14 +335,32 @@ final class MonitorSession {
         // Notification settings and BLE discovery are independent. Running
         // them together removes an avoidable pause before scanning without
         // changing the adapter or ELM protocol sequence.
-        let alertSetupTask = Task { [alerts] in
-            await alerts.configure()
+        let alertSetupTask = Task { [weak self, alerts] in
+            let authorization = await alerts.configure()
+            guard !Task.isCancelled else { return }
+            self?.alertAuthorization = authorization
         }
 
         let obd = BLEConnection()
         self.obd = obd
         await obd.start()
-        await obd.isReady()
+        do {
+            try await obd.isReady()
+        } catch {
+            alertSetupTask.cancel()
+            guard !Task.isCancelled, !(error is CancellationError) else {
+                await obd.stop()
+                return
+            }
+            OBDLog.log("connection: BLE setup failed: \(error)")
+            status = .failed(Self.userMessage(
+                for: error,
+                fallback: "Impossibile connettersi all’adattatore OBD. Riprova."
+            ))
+            hasLiveTelemetry = false
+            await obd.stop()
+            return
+        }
         guard !Task.isCancelled else {
             await obd.stop()
             return
@@ -316,14 +376,17 @@ final class MonitorSession {
         do {
             try await elm.initializeSession()
         } catch {
+            alertSetupTask.cancel()
             guard !Task.isCancelled else { return }
-            status = .failed("Adapter init failed: \(error)")
+            OBDLog.log("connection: adapter initialization failed: \(error)")
+            status = .failed(Self.userMessage(
+                for: error,
+                fallback: "Impossibile inizializzare l’adattatore OBD. Riprova."
+            ))
             hasLiveTelemetry = false
-            UIApplication.shared.isIdleTimerDisabled = false
             await obd.stop()
             return
         }
-        alertAuthorization = await alertSetupTask.value
         guard !Task.isCancelled else {
             await obd.stop()
             return
@@ -386,7 +449,7 @@ final class MonitorSession {
         persistCurrentState()
         hasLiveTelemetry = false
         reportedTelemetryInterruption = true
-        status = .failed("Telemetria OBD interrotta. Mostro l’ultimo stato valido.")
+        status = .failed(String(localized: "Telemetria OBD interrotta. Mostro l’ultimo stato valido."))
         OBDLog.log("telemetry: no core DPF response for 8 s; preserving cached snapshot")
     }
 
@@ -402,6 +465,13 @@ final class MonitorSession {
     private func isFailed(_ status: Status) -> Bool {
         if case .failed = status { return true }
         return false
+    }
+
+    private static func userMessage(for error: Error, fallback: String.LocalizationValue) -> String {
+        if let obdError = error as? OBDError {
+            return obdError.localizedDescription
+        }
+        return String(localized: fallback)
     }
 
     private var skipAlertSetupForVisualTest: Bool {

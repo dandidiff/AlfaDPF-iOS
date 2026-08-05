@@ -1,5 +1,256 @@
 import Foundation
 
+/// Lifecycle of the phone-side monitor session. Declared outside
+/// `MonitorSession` so the pure UI policy below (idle timer) is testable
+/// without UIKit.
+enum SessionStatus: Equatable, Sendable {
+    case idle
+    case connecting
+    case running
+    case simulating
+    case failed(String)
+
+    /// Whether the screen must stay awake while this status is current.
+    /// Connecting/running poll the ECU continuously and the dashboard must
+    /// stay live; every other state — including failures and telemetry
+    /// interruption — must release the idle timer so the display can sleep.
+    var keepsScreenAwake: Bool {
+        switch self {
+        case .connecting, .running: return true
+        case .idle, .simulating, .failed: return false
+        }
+    }
+
+    /// The single safe connection action exposed by the CarPlay dashboard.
+    /// A simulation is phone-only, so selecting Connect replaces it with a
+    /// real OBD session rather than displaying synthetic data in the vehicle.
+    var carPlayConnectionAction: CarPlayConnectionAction {
+        switch self {
+        case .idle, .simulating, .failed: return .connect
+        case .connecting: return .cancel
+        case .running: return .disconnect
+        }
+    }
+}
+
+enum CarPlayConnectionAction: Equatable, Sendable {
+    case connect
+    case cancel
+    case disconnect
+}
+
+/// Apple limits periodic data-item refreshes in Driving Task apps to no more
+/// than once every ten seconds. Keep this policy shared with tests so a future
+/// UI change cannot silently reintroduce a non-compliant real-time refresh.
+enum CarPlayRefreshPolicy {
+    static let interval: Duration = .seconds(10)
+}
+
+enum CarPlayNotificationTestPolicy {
+    /// Gives the driver time to leave the app and return to CarPlay Home. A
+    /// system notification tested while its own app is foreground may be
+    /// visually suppressed by the system.
+    static let systemDeliveryDelay: TimeInterval = 10
+}
+
+enum CarPlayAlertPreference {
+    static let defaultsKey = "carPlayAlertsEnabled.v1"
+
+    static func load(from defaults: UserDefaults) -> Bool {
+        guard defaults.object(forKey: defaultsKey) != nil else { return true }
+        return defaults.bool(forKey: defaultsKey)
+    }
+}
+
+enum DrivingFocusGuidancePreference {
+    static let defaultsKey = "drivingFocusGuidanceAcknowledged.v1"
+
+    static func needsPresentation(from defaults: UserDefaults) -> Bool {
+        !defaults.bool(forKey: defaultsKey)
+    }
+
+    static func acknowledge(in defaults: UserDefaults) {
+        defaults.set(true, forKey: defaultsKey)
+    }
+}
+
+enum CarPlayNotificationRoute: Equatable, Sendable {
+    case carPlay
+    case phoneOnly
+
+    static func production(carPlayAlertsEnabled: Bool) -> Self {
+        carPlayAlertsEnabled ? .carPlay : .phoneOnly
+    }
+
+    /// Explicit tests bypass the local mute because the user requested this
+    /// one delivery specifically to verify the CarPlay notification path.
+    static let explicitTest: Self = .carPlay
+}
+
+enum CarPlayNotificationIssue: Equatable, Sendable {
+    case checking
+    case permissionRequired
+    case permissionDenied
+    case carPlayDisabled
+    case alertsDisabled
+    case timeSensitiveDisabled
+    case soundDisabled
+}
+
+struct AlertAuthorizationState: Equatable, Sendable {
+    enum Authorization: Equatable, Sendable {
+        case checking
+        case notDetermined
+        case denied
+        case authorized
+    }
+
+    var authorization: Authorization
+    var timeSensitiveEnabled: Bool
+    var siriAnnouncementsEnabled: Bool
+    var carPlayEnabled: Bool
+    var alertEnabled: Bool
+    var lockScreenEnabled: Bool
+    var soundEnabled: Bool
+
+    static let checking = AlertAuthorizationState(
+        authorization: .checking,
+        timeSensitiveEnabled: false,
+        siriAnnouncementsEnabled: false,
+        carPlayEnabled: false,
+        alertEnabled: false,
+        lockScreenEnabled: false,
+        soundEnabled: false
+    )
+
+    var canSendTimeSensitiveAlerts: Bool {
+        authorization == .authorized
+            && timeSensitiveEnabled
+            && alertEnabled
+            && lockScreenEnabled
+            && soundEnabled
+    }
+
+    /// Whether a queued system notification can replace the in-app CPAlert.
+    /// `carPlayEnabled` alone is insufficient: iOS can accept the request while
+    /// suppressing its presentation when authorization or alerts are disabled.
+    var canPresentSystemCarPlayAlert: Bool {
+        authorization == .authorized
+            && carPlayEnabled
+            && alertEnabled
+    }
+
+    var needsSettingsAttention: Bool {
+        switch authorization {
+        case .denied:
+            return true
+        case .authorized:
+            return !timeSensitiveEnabled
+                || !siriAnnouncementsEnabled
+                || !alertEnabled
+                || !lockScreenEnabled
+                || !soundEnabled
+        case .checking, .notDetermined:
+            return false
+        }
+    }
+
+    /// Exact CarPlay delivery problems. Time Sensitive and sound settings are
+    /// warnings rather than authorization blockers, but explain a quiet test.
+    var carPlayNotificationIssues: [CarPlayNotificationIssue] {
+        switch authorization {
+        case .checking:
+            return [.checking]
+        case .notDetermined:
+            return [.permissionRequired]
+        case .denied:
+            return [.permissionDenied]
+        case .authorized:
+            var issues: [CarPlayNotificationIssue] = []
+            if !carPlayEnabled { issues.append(.carPlayDisabled) }
+            if !alertEnabled { issues.append(.alertsDisabled) }
+            if !timeSensitiveEnabled { issues.append(.timeSensitiveDisabled) }
+            if !soundEnabled { issues.append(.soundDisabled) }
+            return issues
+        }
+    }
+}
+
+enum CarPlayTelemetryPolicy {
+    static func displayState(
+        current: DPFState,
+        lastPersisted: DPFState?,
+        hasLiveTelemetry: Bool
+    ) -> DPFState {
+        hasLiveTelemetry ? current : (lastPersisted ?? DPFState())
+    }
+}
+
+enum CarPlayRegenerationAlertEvent: Equatable, Sendable {
+    case started
+    case finished
+}
+
+/// Emits CarPlay modal alerts only on known edges observed while telemetry is
+/// live. A temporarily unknown regen state preserves the previous edge; a full
+/// telemetry interruption resets it so reconnection cannot replay stale data.
+struct CarPlayRegenerationAlertTracker: Equatable, Sendable {
+    private var previousIsRegenerating: Bool?
+
+    mutating func observe(
+        isRegenerating: Bool?,
+        telemetryIsLive: Bool
+    ) -> CarPlayRegenerationAlertEvent? {
+        guard telemetryIsLive else {
+            previousIsRegenerating = nil
+            return nil
+        }
+
+        // A failed progress read is not a completed regeneration. Keep the
+        // last known edge so recovery cannot emit a duplicate start either.
+        guard let isRegenerating else { return nil }
+
+        guard let previousIsRegenerating else {
+            self.previousIsRegenerating = isRegenerating
+            return nil
+        }
+
+        self.previousIsRegenerating = isRegenerating
+        guard previousIsRegenerating != isRegenerating else { return nil }
+        return isRegenerating ? .started : .finished
+    }
+}
+
+/// Canonical deep-link destinations. The Live Activity widget opens
+/// `alfadpf://monitor` when tapped; the root view maps every handled link to
+/// the single `.monitor` action so tapping a (possibly stale) activity always
+/// starts or reconnects the session.
+enum AppDeepLink: Equatable, Sendable {
+    case monitor
+
+    static let scheme = "alfadpf"
+    /// The one canonical destination, also referenced by the widget.
+    static let monitorURL = URL(string: "\(scheme)://monitor")!
+
+    /// Accepts the canonical `alfadpf://monitor` URL, the legacy
+    /// `alfadpf://connect` link and bare `alfadpf://` URLs. Unknown hosts and
+    /// foreign schemes are not handled.
+    static func parse(_ url: URL) -> AppDeepLink? {
+        guard url.scheme?.lowercased() == scheme else { return nil }
+        switch url.host?.lowercased() {
+        case "monitor", "connect":
+            return .monitor
+        case nil, "":
+            let path = url.path
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                .lowercased()
+            return path.isEmpty || path == "monitor" || path == "connect" ? .monitor : nil
+        default:
+            return nil
+        }
+    }
+}
+
 /// Regeneration state used by the UI and simulator. Real OBD sessions derive
 /// active regeneration from progress/temperature: 2218EC is documented as a
 /// forced-regeneration command state and the on-road logs prove it stays zero
@@ -8,6 +259,28 @@ enum DPFRegenerationMode: Int, Codable, Equatable, Sendable {
     case none = 0
     case passive = 1
     case active = 2
+}
+
+/// Shared warning bands for the FCA DPF load index. Keeping the thresholds in
+/// the model prevents CarPlay artwork and future dashboard surfaces from
+/// silently assigning different meanings to the same ECU value.
+enum DPFLoadAlertLevel: Equatable, Sendable {
+    case unavailable
+    case low
+    case nearRegeneration
+    case regenerationImminent
+    case activeRegeneration
+
+    static func resolve(
+        loadPercent: Double?,
+        regenerationMode: DPFRegenerationMode
+    ) -> Self {
+        if regenerationMode == .active { return .activeRegeneration }
+        guard let loadPercent else { return .unavailable }
+        if loadPercent > 95 { return .regenerationImminent }
+        if loadPercent >= 85 { return .nearRegeneration }
+        return .low
+    }
 }
 
 /// Factory paint names offered on Stelvio across its model years. RGB values
@@ -101,7 +374,7 @@ enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
         case .exhaustTemperature: return String(localized: "Temperatura gas di scarico")
         case .regenerationProgress: return String(localized: "Avanzamento rigenerazione")
         case .totalRegenerations: return String(localized: "Rigenerazioni totali")
-        case .oilPressure: return String(localized: "Pressione olio")
+        case .oilPressure: return String(localized: "Stato pressione olio")
         case .batteryVoltage: return String(localized: "Tensione batteria")
         }
     }
@@ -163,16 +436,27 @@ extension DPFState {
         effectiveRegenerationMode != .none
     }
 
+    var loadAlertLevel: DPFLoadAlertLevel {
+        .resolve(
+            loadPercent: cloggingPercent,
+            regenerationMode: effectiveRegenerationMode
+        )
+    }
+
     /// The diesel ECU's public diagnostic value is categorical. Showing a
     /// made-up number in bar would be less useful than reporting its real
     /// state and leaving unknown variants explicit.
     var oilPressureStatusText: String? {
         guard let oilPressureStatusRaw else { return nil }
         switch oilPressureStatusRaw {
-        case 0: return "Assente"
-        case 1: return "Non significativa"
-        case 2: return "Normale"
-        default: return "Stato \(oilPressureStatusRaw)"
+        case 0: return String(localized: "Assente")
+        case 1: return String(localized: "Non significativa")
+        case 2: return String(localized: "Normale")
+        default:
+            return String(
+                format: String(localized: "Stato %@"),
+                String(oilPressureStatusRaw)
+            )
         }
     }
 
@@ -206,6 +490,33 @@ extension DPFState {
             merged.timestamp = fresh.timestamp
         }
         return merged
+    }
+}
+
+/// Public destination for voluntary project support. The contribution never
+/// unlocks app content or functionality.
+enum ProjectSupport {
+    static let donationURL = URL(string: "https://ko-fi.com/eddytamburi")!
+}
+
+/// Persists the cold-launch threshold for the optional project-support prompt.
+/// Presentation is marked separately so a first-run system permission flow can
+/// delay the prompt without losing it.
+enum ProjectSupportPromptPolicy {
+    static let launchThreshold = 10
+    private static let launchCountKey = "projectSupportLaunchCount.v1"
+    private static let promptPresentedKey = "projectSupportPromptPresented.v1"
+
+    static func registerLaunch(in defaults: UserDefaults = .standard) -> Bool {
+        guard !defaults.bool(forKey: promptPresentedKey) else { return false }
+
+        let launchCount = defaults.integer(forKey: launchCountKey) + 1
+        defaults.set(launchCount, forKey: launchCountKey)
+        return launchCount >= launchThreshold
+    }
+
+    static func markPresented(in defaults: UserDefaults = .standard) {
+        defaults.set(true, forKey: promptPresentedKey)
     }
 }
 
@@ -285,6 +596,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 totalRegenCount: 291,
                 regenActive: false,
                 regenerationMode: DPFRegenerationMode.none,
+                oilPressureStatusRaw: 2,
                 batteryVoltage: 12.6,
                 timestamp: timestamp
             )
@@ -297,6 +609,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 totalRegenCount: 291,
                 regenActive: false,
                 regenerationMode: DPFRegenerationMode.none,
+                oilPressureStatusRaw: 2,
                 batteryVoltage: 14.2,
                 timestamp: timestamp
             )
@@ -309,6 +622,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 totalRegenCount: 291,
                 regenActive: true,
                 regenerationMode: .active,
+                oilPressureStatusRaw: 2,
                 batteryVoltage: 14.1,
                 timestamp: timestamp
             )
@@ -321,6 +635,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 totalRegenCount: 291,
                 regenActive: true,
                 regenerationMode: .active,
+                oilPressureStatusRaw: 2,
                 batteryVoltage: 14.0,
                 timestamp: timestamp
             )
@@ -333,6 +648,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 totalRegenCount: 292,
                 regenActive: false,
                 regenerationMode: DPFRegenerationMode.none,
+                oilPressureStatusRaw: 2,
                 batteryVoltage: 13.9,
                 timestamp: timestamp
             )

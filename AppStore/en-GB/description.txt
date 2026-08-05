@@ -1,0 +1,36 @@
+Alpha DPF Monitor shows the essential diesel particulate filter (DPF) data for compatible vehicles, live.
+
+CONNECT AND CHECK
+
+Connect a compatible ELM327 adapter over Bluetooth Low Energy and see:
+
+• DPF load;
+• exhaust gas temperature;
+• regeneration status and progress;
+• distance since the last regeneration;
+• total number of regenerations;
+• battery voltage as measured by the adapter.
+
+REGENERATION, ALWAYS IN VIEW
+
+When a regeneration is detected, the app updates the dashboard, can show a Live Activity on the Lock Screen and in the Dynamic Island, and can send local notifications when regeneration starts and finishes — so you know not to switch the engine off.
+
+ON CARPLAY
+
+The dedicated CarPlay dashboard shows the essential DPF readings and their last update time. Start or stop the adapter connection directly from CarPlay and receive regeneration start/finish alerts, without creating a second diagnostic session.
+
+TRY IT WITHOUT A CAR
+
+The built-in Test Lab replays a complete regeneration cycle, so you can check the interface, notifications and Live Activity before you ever plug in.
+
+PRIVACY, KEPT SIMPLE
+
+The app requires no account, contains no advertising or analytics, and sends no data to external servers. Your preferences stay on your device.
+
+COMPATIBILITY AND SAFETY
+
+Data availability depends on the vehicle, ECU and adapter. The app is designed for specific Alfa Romeo and FCA diesel models that support the required PIDs — including Giulia and Stelvio 2.2 diesel. Always check your model’s compatibility before buying an adapter.
+
+Configure and use the app only while the vehicle is stationary. Alpha DPF Monitor provides informational readings and does not replace professional diagnostics, maintenance or the manufacturer’s instructions.
+
+Alpha DPF Monitor is an independent product and is not affiliated with, sponsored or endorsed by Alfa Romeo, Stellantis or any compatible vehicle manufacturer. All trademarks belong to their respective owners.
