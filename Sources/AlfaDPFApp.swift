@@ -307,7 +307,7 @@ private struct NotificationSetupView: View {
                     )
                     setupRow(
                         symbol: "car.fill",
-                        title: "Per la voce di Siri attiva “Annuncia notifiche”",
+                        title: "Per consentire gli annunci Siri quando supportati, attiva “Annuncia notifiche”",
                         enabled: session.alertAuthorization.siriAnnouncementsEnabled
                     )
                     Text("In Full immersion › Alla guida abilita anche “Consenti notifiche urgenti”. iOS non permette all’app di verificarlo o attivarlo.")

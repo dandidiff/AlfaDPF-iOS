@@ -58,8 +58,10 @@ grandi e leggibili a colpo d'occhio:
   memorizzato non viene spacciato per telemetria corrente.
 
 Il controllo Connetti/Annulla/Disconnetti è compatto nella barra superiore. La
-campanella apre la diagnostica notifiche e due test separati. Toccando una tile
-si apre un `CPInformationTemplate` di secondo livello con tutti i dettagli.
+campanella piena/barrata abilita o disabilita direttamente gli avvisi Alpha sul
+display CarPlay; il pulsante `…` (o il triangolo quando manca un permesso) apre
+la diagnostica e i due test separati. Toccando una tile si apre un
+`CPInformationTemplate` di secondo livello con i dettagli contestuali.
 
 Telefono e CarPlay usano lo stesso `MonitorSession`: esiste una sola connessione
 BLE, un solo `DPFMonitor` e una sola coda ELM. La dashboard CarPlay si aggiorna
@@ -72,7 +74,9 @@ Le notifiche di inizio/fine rigenerazione usano una categoria locale con
 `.allowInCarPlay` e livello time-sensitive su iOS 18.4 e successivi. Sulle
 versioni precedenti supportate, o se le notifiche CarPlay di sistema sono
 disattivate, la scena usa un `CPAlertTemplate` come fallback; quando sono attive
-non mostra un secondo alert duplicato.
+non mostra un secondo alert duplicato. Se l'utente disattiva la campanella,
+gli eventi restano notificabili sull'iPhone tramite una categoria separata ma
+non vengono presentati sul display CarPlay.
 
 ### Live Activity
 
@@ -115,7 +119,8 @@ Nell'app aprire **Impostazioni → Laboratorio DPF**, quindi:
 
 Per la prova reale collegare CarPlay e usare **Connetti** nella barra superiore.
 Verificare che gli stessi dati restino sincronizzati su iPhone e CarPlay, quindi
-toccare la campanella:
+verificare che la campanella cambi tra piena (avvisi ON) e barrata (OFF). Toccare
+poi `…` o il triangolo diagnostico:
 
 1. **Test alert CarPlay** deve mostrare immediatamente un alert nativo nell'app;
 2. **Test sistema · 10 s** accoda una notifica con la stessa categoria delle
@@ -125,9 +130,10 @@ toccare la campanella:
 
 In **Impostazioni → Notifiche → Alpha DPF Monitor** devono essere consentiti
 CarPlay, Schermata di blocco, Time Sensitive e Suoni. Anche la modalità Full
-immersion Guida deve consentire gli avvisi dell'app. CarPlay in generale non
-legge queste notifiche ad alta voce: il test corretto è banner più suono, non
-la lettura Siri.
+immersion Guida deve consentire gli avvisi dell'app. Attivare **Annuncia
+notifiche** dà a Siri la possibilità di leggerle, ma le app Driving Task non
+possono forzare la voce: Apple specifica che in generale questi avvisi non sono
+letti ad alta voce. Il comportamento garantito dall'app è banner più suono.
 
 Ogni scenario può anche essere selezionato singolarmente. Per provare soltanto
 il canale di notifica usare **Prova solo banner e suono**. Il simulatore usa lo

@@ -24,6 +24,7 @@ final class MonitorSession {
     private(set) var activeScenario: DPFSimulationScenario?
     private(set) var alertAuthorization: AlertAuthorizationState = .checking
     private(set) var hasLiveTelemetry = false
+    private(set) var carPlayAlertsEnabled: Bool
 
     var autoConnectEnabled: Bool {
         didSet {
@@ -50,7 +51,7 @@ final class MonitorSession {
     private var pollTask: Task<Void, Never>?
     private var simulationTask: Task<Void, Never>?
     private var simulationTracker = RegenActivityTracker()
-    private let alerts = AlertService()
+    private let alerts: AlertService
     private let liveActivity = DPFLiveActivityController()
     private let defaults: UserDefaults
     private var lastPersistedState: DPFState?
@@ -98,12 +99,15 @@ final class MonitorSession {
 
         let initialAppAccent = defaults.string(forKey: Self.appAccentDefaultsKey)
             .flatMap(StelvioAccent.init(rawValue:)) ?? .rossoAlfa
+        let initialCarPlayAlertsEnabled = CarPlayAlertPreference.load(from: defaults)
         let saved = DPFStateStore.load(from: defaults)
 
         self.defaults = defaults
+        self.alerts = AlertService(carPlayAlertsEnabled: initialCarPlayAlertsEnabled)
         self.autoConnectEnabled = initialAutoConnectEnabled
         self.visibleDashboardMetrics = initialVisibleDashboardMetrics
         self.appAccent = initialAppAccent
+        self.carPlayAlertsEnabled = initialCarPlayAlertsEnabled
         self.dpf = saved ?? DPFState()
         self.lastPersistedState = saved
     }
@@ -139,6 +143,14 @@ final class MonitorSession {
     func refreshNotificationAuthorization() async {
         guard !skipAlertSetupForVisualTest else { return }
         alertAuthorization = await alerts.currentAuthorizationState()
+    }
+
+    func toggleCarPlayAlerts() async {
+        let enabled = !carPlayAlertsEnabled
+        await alerts.setCarPlayAlertsEnabled(enabled)
+        defaults.set(enabled, forKey: CarPlayAlertPreference.defaultsKey)
+        carPlayAlertsEnabled = enabled
+        OBDLog.log("CarPlay alerts: \(enabled ? "enabled" : "disabled")")
     }
 
     func startAutomaticallyIfNeeded() {

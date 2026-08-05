@@ -119,6 +119,24 @@ expect(carPlayNotificationState(
 ],
        "carplay notifications: every delivery and sound problem is exposed")
 
+let carPlayAlertDefaults = UserDefaults(suiteName: "AlphaDPF.CarPlayAlertPreferenceTests")!
+carPlayAlertDefaults.removePersistentDomain(forName: "AlphaDPF.CarPlayAlertPreferenceTests")
+expect(CarPlayAlertPreference.load(from: carPlayAlertDefaults),
+       "carplay alerts: delivery is enabled by default")
+carPlayAlertDefaults.set(false, forKey: CarPlayAlertPreference.defaultsKey)
+expect(!CarPlayAlertPreference.load(from: carPlayAlertDefaults),
+       "carplay alerts: disabled preference persists")
+carPlayAlertDefaults.set(true, forKey: CarPlayAlertPreference.defaultsKey)
+expect(CarPlayAlertPreference.load(from: carPlayAlertDefaults),
+       "carplay alerts: enabled preference persists")
+expect(CarPlayNotificationRoute.production(carPlayAlertsEnabled: true) == .carPlay,
+       "carplay alerts: enabled production events use the CarPlay category")
+expect(CarPlayNotificationRoute.production(carPlayAlertsEnabled: false) == .phoneOnly,
+       "carplay alerts: disabled production events remain phone-only")
+expect(CarPlayNotificationRoute.explicitTest == .carPlay,
+       "carplay alerts: an explicit user test still exercises CarPlay delivery")
+carPlayAlertDefaults.removePersistentDomain(forName: "AlphaDPF.CarPlayAlertPreferenceTests")
+
 var carPlayCurrentState = DPFState()
 carPlayCurrentState.cloggingPercent = 88
 var carPlayPersistedState = DPFState()

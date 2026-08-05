@@ -53,6 +53,28 @@ enum CarPlayNotificationTestPolicy {
     static let systemDeliveryDelay: TimeInterval = 10
 }
 
+enum CarPlayAlertPreference {
+    static let defaultsKey = "carPlayAlertsEnabled.v1"
+
+    static func load(from defaults: UserDefaults) -> Bool {
+        guard defaults.object(forKey: defaultsKey) != nil else { return true }
+        return defaults.bool(forKey: defaultsKey)
+    }
+}
+
+enum CarPlayNotificationRoute: Equatable, Sendable {
+    case carPlay
+    case phoneOnly
+
+    static func production(carPlayAlertsEnabled: Bool) -> Self {
+        carPlayAlertsEnabled ? .carPlay : .phoneOnly
+    }
+
+    /// Explicit tests bypass the local mute because the user requested this
+    /// one delivery specifically to verify the CarPlay notification path.
+    static let explicitTest: Self = .carPlay
+}
+
 enum CarPlayNotificationIssue: Equatable, Sendable {
     case checking
     case permissionRequired

@@ -5,7 +5,17 @@ import UserNotifications
 /// delegate opts into foreground presentation, so the same banner and system
 /// sound work whether the app is visible or in the background.
 actor AlertService {
-    private static let regenCategoryIdentifier = "DPF_REGEN_ALERT"
+    private static let regenCarPlayCategoryIdentifier = "DPF_REGEN_ALERT"
+    private static let regenPhoneOnlyCategoryIdentifier = "DPF_REGEN_ALERT_PHONE_ONLY"
+    private var carPlayAlertsEnabled: Bool
+
+    init(carPlayAlertsEnabled: Bool = true) {
+        self.carPlayAlertsEnabled = carPlayAlertsEnabled
+    }
+
+    func setCarPlayAlertsEnabled(_ enabled: Bool) {
+        carPlayAlertsEnabled = enabled
+    }
 
     func currentAuthorizationState() async -> AlertAuthorizationState {
         let center = UNUserNotificationCenter.current()
@@ -46,13 +56,22 @@ actor AlertService {
     }
 
     private func registerCategory(on center: UNUserNotificationCenter) {
-        let regenCategory = UNNotificationCategory(
-            identifier: Self.regenCategoryIdentifier,
+        let regenCarPlayCategory = UNNotificationCategory(
+            identifier: Self.regenCarPlayCategoryIdentifier,
             actions: [],
             intentIdentifiers: [],
             options: [.allowInCarPlay]
         )
-        center.setNotificationCategories([regenCategory])
+        let regenPhoneOnlyCategory = UNNotificationCategory(
+            identifier: Self.regenPhoneOnlyCategoryIdentifier,
+            actions: [],
+            intentIdentifiers: [],
+            options: []
+        )
+        center.setNotificationCategories([
+            regenCarPlayCategory,
+            regenPhoneOnlyCategory,
+        ])
     }
 
     private func state(from settings: UNNotificationSettings) -> AlertAuthorizationState {
@@ -109,8 +128,9 @@ actor AlertService {
     func notifyTest() async {
         _ = await post(
             title: String(localized: "Test avviso Alpha DPF Monitor"),
-            body: String(localized: "Test a schermo bloccato: se Siri è abilitata, deve leggere questo avviso."),
-            delay: 5
+            body: String(localized: "Test a schermo bloccato: iOS decide se mostrare o annunciare questo avviso."),
+            delay: 5,
+            route: .explicitTest
         )
     }
 
@@ -120,14 +140,20 @@ actor AlertService {
         await post(
             title: String(localized: "Test notifica CarPlay"),
             body: String(localized: "Le notifiche di rigenerazione sono configurate correttamente."),
-            delay: CarPlayNotificationTestPolicy.systemDeliveryDelay
+            delay: CarPlayNotificationTestPolicy.systemDeliveryDelay,
+            route: .explicitTest
         )
     }
 
     // MARK: - Private
 
     @discardableResult
-    private func post(title: String, body: String, delay: TimeInterval? = nil) async -> Bool {
+    private func post(
+        title: String,
+        body: String,
+        delay: TimeInterval? = nil,
+        route: CarPlayNotificationRoute? = nil
+    ) async -> Bool {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         log(settings: settings)
 
@@ -135,7 +161,13 @@ actor AlertService {
         content.title = title
         content.body = body
         content.sound = .default
-        content.categoryIdentifier = Self.regenCategoryIdentifier
+        let resolvedRoute = route ?? .production(carPlayAlertsEnabled: carPlayAlertsEnabled)
+        switch resolvedRoute {
+        case .carPlay:
+            content.categoryIdentifier = Self.regenCarPlayCategoryIdentifier
+        case .phoneOnly:
+            content.categoryIdentifier = Self.regenPhoneOnlyCategoryIdentifier
+        }
         // A DPF regeneration is time-sensitive vehicle information: it should
         // arrive immediately and may break through Focus when the user allows
         // Time Sensitive notifications for Alpha DPF Monitor.

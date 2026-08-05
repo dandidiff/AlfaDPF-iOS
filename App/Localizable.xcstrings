@@ -1748,18 +1748,18 @@
         }
       }
     },
-    "Test a schermo bloccato: se Siri è abilitata, deve leggere questo avviso." : {
+    "Test a schermo bloccato: iOS decide se mostrare o annunciare questo avviso." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lock-screen test: if Siri is enabled, it should read this alert."
+            "value" : "Lock-screen test: iOS decides whether to show or announce this alert."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Test a schermo bloccato: se Siri è abilitata, deve leggere questo avviso."
+            "value" : "Test a schermo bloccato: iOS decide se mostrare o annunciare questo avviso."
           }
         }
       }
@@ -2696,6 +2696,102 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Test sistema · 10 s"
+          }
+        }
+      }
+    },
+    "Attivi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attivi"
+          }
+        }
+      }
+    },
+    "Avvisi Alpha su CarPlay attivi." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha alerts on CarPlay are on."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisi Alpha su CarPlay attivi."
+          }
+        }
+      }
+    },
+    "Avvisi Alpha su CarPlay disattivati." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha alerts on CarPlay are off."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisi Alpha su CarPlay disattivati."
+          }
+        }
+      }
+    },
+    "Avvisi CarPlay" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CarPlay alerts"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisi CarPlay"
+          }
+        }
+      }
+    },
+    "Disattivati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disattivati"
+          }
+        }
+      }
+    },
+    "Per consentire gli annunci Siri quando supportati, attiva “Annuncia notifiche”" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To allow Siri announcements when supported, enable “Announce Notifications”"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per consentire gli annunci Siri quando supportati, attiva “Annuncia notifiche”"
           }
         }
       }

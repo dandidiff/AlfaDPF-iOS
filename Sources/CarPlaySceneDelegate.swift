@@ -119,6 +119,10 @@ final class CarPlaySceneDelegate: UIResponder,
         )
         guard let event else { return }
 
+        // Keep tracking edges while muted so enabling alerts mid-regeneration
+        // cannot replay a stale start. Only presentation is suppressed.
+        guard session.carPlayAlertsEnabled else { return }
+
         // When system CarPlay notifications are enabled, AlertService already
         // delivers the native time-sensitive notification. Present an in-app
         // CPAlert only as a fallback, avoiding a duplicate alert on the car.
@@ -335,6 +339,12 @@ final class CarPlaySceneDelegate: UIResponder,
                         ? String(localized: "Live")
                         : (dpf.hasTelemetry ? String(localized: "Salvati") : "—")
                 ),
+                CPInformationItem(
+                    title: String(localized: "Avvisi CarPlay"),
+                    detail: session.carPlayAlertsEnabled
+                        ? String(localized: "Attivi")
+                        : String(localized: "Disattivati")
+                ),
                 updated,
             ]
         }
@@ -342,7 +352,10 @@ final class CarPlaySceneDelegate: UIResponder,
 
     private func configureNavigationButtons(on template: CPGridTemplate) {
         template.leadingNavigationBarButtons = [makeConnectionBarButton()]
-        template.trailingNavigationBarButtons = [makeNotificationBarButton()]
+        template.trailingNavigationBarButtons = [
+            makeAlertToggleBarButton(),
+            makeNotificationTestBarButton(),
+        ]
     }
 
     private func makeConnectionBarButton() -> CPBarButton {
@@ -365,15 +378,32 @@ final class CarPlaySceneDelegate: UIResponder,
         return button
     }
 
-    private func makeNotificationBarButton() -> CPBarButton {
+    private func makeAlertToggleBarButton() -> CPBarButton {
+        let symbol = session.carPlayAlertsEnabled ? "bell.fill" : "bell.slash.fill"
+        let button = CPBarButton(image: symbolImage(named: symbol)) { [weak self] _ in
+            self?.toggleCarPlayAlerts()
+        }
+        button.buttonStyle = .rounded
+        return button
+    }
+
+    private func makeNotificationTestBarButton() -> CPBarButton {
         let symbol = session.alertAuthorization.carPlayNotificationIssues.isEmpty
-            ? "bell.fill"
-            : "bell.slash.fill"
+            ? "ellipsis.circle"
+            : "exclamationmark.triangle.fill"
         let button = CPBarButton(image: symbolImage(named: symbol)) { [weak self] _ in
             self?.showNotificationTestMenu()
         }
         button.buttonStyle = .rounded
         return button
+    }
+
+    private func toggleCarPlayAlerts() {
+        Task { [weak self] in
+            guard let self else { return }
+            await session.toggleCarPlayAlerts()
+            refreshDashboard()
+        }
     }
 
     private func showDetails(_ kind: CarPlayDetailKind) {
@@ -468,8 +498,13 @@ final class CarPlaySceneDelegate: UIResponder,
     }
 
     private var notificationDiagnosticMessage: String {
+        let localStatus = session.carPlayAlertsEnabled
+            ? String(localized: "Avvisi Alpha su CarPlay attivi.")
+            : String(localized: "Avvisi Alpha su CarPlay disattivati.")
+
         guard #available(iOS 18.4, *) else {
-            return String(localized: "Le notifiche di sistema Driving Task richiedono iOS 18.4. Usa il test alert CarPlay.")
+            return localStatus + "\n"
+                + String(localized: "Le notifiche di sistema Driving Task richiedono iOS 18.4. Usa il test alert CarPlay.")
         }
 
         let issues = session.alertAuthorization.carPlayNotificationIssues
@@ -484,7 +519,7 @@ final class CarPlaySceneDelegate: UIResponder,
         let instruction = session.alertAuthorization.authorization == .authorized
             ? String(localized: "Per il test sistema, tocca il pulsante e torna subito alla Home CarPlay.")
             : String(localized: "Concedi prima il permesso notifiche dall’iPhone.")
-        return status + "\n" + instruction
+        return localStatus + "\n" + status + "\n" + instruction
     }
 
     private func notificationIssueText(_ issue: CarPlayNotificationIssue) -> String {
