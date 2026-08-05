@@ -393,7 +393,7 @@ final class CarPlaySceneDelegate: UIResponder,
 
     private var systemCarPlayNotificationsAreAvailable: Bool {
         if #available(iOS 18.4, *) {
-            return session.alertAuthorization.carPlayEnabled
+            return session.alertAuthorization.canPresentSystemCarPlayAlert
         }
         return false
     }

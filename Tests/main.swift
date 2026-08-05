@@ -111,6 +111,12 @@ func carPlayNotificationState(
 
 expect(carPlayNotificationState().carPlayNotificationIssues.isEmpty,
        "carplay notifications: fully enabled settings are ready")
+expect(carPlayNotificationState().canPresentSystemCarPlayAlert,
+       "carplay notifications: authorized visible CarPlay alerts can replace the CPAlert fallback")
+expect(!carPlayNotificationState(authorization: .denied).canPresentSystemCarPlayAlert
+       && !carPlayNotificationState(carPlay: false).canPresentSystemCarPlayAlert
+       && !carPlayNotificationState(alerts: false).canPresentSystemCarPlayAlert,
+       "carplay notifications: authorization, CarPlay and alert presentation are all required")
 expect(carPlayNotificationState(
     authorization: .denied
 ).carPlayNotificationIssues == [.permissionDenied],

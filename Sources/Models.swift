@@ -131,6 +131,15 @@ struct AlertAuthorizationState: Equatable, Sendable {
             && soundEnabled
     }
 
+    /// Whether a queued system notification can replace the in-app CPAlert.
+    /// `carPlayEnabled` alone is insufficient: iOS can accept the request while
+    /// suppressing its presentation when authorization or alerts are disabled.
+    var canPresentSystemCarPlayAlert: Bool {
+        authorization == .authorized
+            && carPlayEnabled
+            && alertEnabled
+    }
+
     var needsSettingsAttention: Bool {
         switch authorization {
         case .denied:
