@@ -79,7 +79,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
         let telemetryIsLive = session.status == .running && session.hasLiveTelemetry
         let event = regenerationAlertTracker.observe(
-            isRegenerating: session.dpf.isRegenerating,
+            isRegenerating: session.dpf.regenActive,
             telemetryIsLive: telemetryIsLive
         )
         guard let event else { return }

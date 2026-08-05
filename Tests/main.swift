@@ -108,6 +108,10 @@ expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) 
        "carplay alert: inactive-to-active edge starts regeneration")
 expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
        "carplay alert: stable active state does not repeat")
+expect(carPlayAlertTracker.observe(isRegenerating: nil, telemetryIsLive: true) == nil,
+       "carplay alert: unknown regeneration sample does not emit a false finish")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
+       "carplay alert: recovery from unknown preserves the active edge")
 expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: true) == .finished,
        "carplay alert: active-to-inactive edge finishes regeneration")
 expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: false) == nil

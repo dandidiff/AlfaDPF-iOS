@@ -61,20 +61,24 @@ enum CarPlayRegenerationAlertEvent: Equatable, Sendable {
     case finished
 }
 
-/// Emits CarPlay modal alerts only on edges observed while telemetry is live.
-/// Cached/initial values arm the tracker without producing a false alert, and
-/// an interruption resets it so reconnection cannot replay a stale event.
+/// Emits CarPlay modal alerts only on known edges observed while telemetry is
+/// live. A temporarily unknown regen state preserves the previous edge; a full
+/// telemetry interruption resets it so reconnection cannot replay stale data.
 struct CarPlayRegenerationAlertTracker: Equatable, Sendable {
     private var previousIsRegenerating: Bool?
 
     mutating func observe(
-        isRegenerating: Bool,
+        isRegenerating: Bool?,
         telemetryIsLive: Bool
     ) -> CarPlayRegenerationAlertEvent? {
         guard telemetryIsLive else {
             previousIsRegenerating = nil
             return nil
         }
+
+        // A failed progress read is not a completed regeneration. Keep the
+        // last known edge so recovery cannot emit a duplicate start either.
+        guard let isRegenerating else { return nil }
 
         guard let previousIsRegenerating else {
             self.previousIsRegenerating = isRegenerating
