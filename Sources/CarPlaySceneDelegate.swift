@@ -75,16 +75,12 @@ private enum CarPlayDashboardArtwork {
         illuminated: Bool,
         displayScale: CGFloat
     ) -> UIImage {
-        let maximum: CGSize
-        if #available(iOS 26.0, *) {
-            maximum = CPGridTemplate.maximumGridButtonImageSize
-        } else {
-            // Before iOS 26 CarPlay exposes no grid-image size constant. A
-            // 80-point canvas stays inside the established slot while making
-            // the cluster artwork easier to read from the driver's seat.
-            maximum = CGSize(width: 80, height: 80)
-        }
-        let side = max(1, min(maximum.width, maximum.height))
+        // Compile with the project's Xcode 16 / iOS 18 SDK as well as newer
+        // SDKs. Referencing iOS 26's maximumGridButtonImageSize behind an
+        // availability check still fails name lookup on an older SDK. The
+        // 80-point square is the established CarPlay grid slot used by the
+        // app and keeps every symbol consistently aspect-fitted.
+        let side: CGFloat = 80
         let size = CGSize(width: side, height: side)
         let format = UIGraphicsImageRendererFormat()
         format.opaque = false
