@@ -20,6 +20,196 @@ enum SessionStatus: Equatable, Sendable {
         case .idle, .simulating, .failed: return false
         }
     }
+
+    /// The single safe connection action exposed by the CarPlay dashboard.
+    /// A simulation is phone-only, so selecting Connect replaces it with a
+    /// real OBD session rather than displaying synthetic data in the vehicle.
+    var carPlayConnectionAction: CarPlayConnectionAction {
+        switch self {
+        case .idle, .simulating, .failed: return .connect
+        case .connecting: return .cancel
+        case .running: return .disconnect
+        }
+    }
+}
+
+enum CarPlayConnectionAction: Equatable, Sendable {
+    case connect
+    case cancel
+    case disconnect
+}
+
+/// Apple limits periodic data-item refreshes in Driving Task apps to no more
+/// than once every ten seconds. Keep this policy shared with tests so a future
+/// UI change cannot silently reintroduce a non-compliant real-time refresh.
+enum CarPlayRefreshPolicy {
+    static let interval: Duration = .seconds(10)
+}
+
+enum CarPlayNotificationTestPolicy {
+    /// Gives the driver time to leave the app and return to CarPlay Home. A
+    /// system notification tested while its own app is foreground may be
+    /// visually suppressed by the system.
+    static let systemDeliveryDelay: TimeInterval = 10
+}
+
+enum CarPlayAlertPreference {
+    static let defaultsKey = "carPlayAlertsEnabled.v1"
+
+    static func load(from defaults: UserDefaults) -> Bool {
+        guard defaults.object(forKey: defaultsKey) != nil else { return true }
+        return defaults.bool(forKey: defaultsKey)
+    }
+}
+
+enum DrivingFocusGuidancePreference {
+    static let defaultsKey = "drivingFocusGuidanceAcknowledged.v1"
+
+    static func needsPresentation(from defaults: UserDefaults) -> Bool {
+        !defaults.bool(forKey: defaultsKey)
+    }
+
+    static func acknowledge(in defaults: UserDefaults) {
+        defaults.set(true, forKey: defaultsKey)
+    }
+}
+
+enum CarPlayNotificationRoute: Equatable, Sendable {
+    case carPlay
+    case phoneOnly
+
+    static func production(carPlayAlertsEnabled: Bool) -> Self {
+        carPlayAlertsEnabled ? .carPlay : .phoneOnly
+    }
+
+    /// Explicit tests bypass the local mute because the user requested this
+    /// one delivery specifically to verify the CarPlay notification path.
+    static let explicitTest: Self = .carPlay
+}
+
+enum CarPlayNotificationIssue: Equatable, Sendable {
+    case checking
+    case permissionRequired
+    case permissionDenied
+    case carPlayDisabled
+    case alertsDisabled
+    case timeSensitiveDisabled
+    case soundDisabled
+}
+
+struct AlertAuthorizationState: Equatable, Sendable {
+    enum Authorization: Equatable, Sendable {
+        case checking
+        case notDetermined
+        case denied
+        case authorized
+    }
+
+    var authorization: Authorization
+    var timeSensitiveEnabled: Bool
+    var siriAnnouncementsEnabled: Bool
+    var carPlayEnabled: Bool
+    var alertEnabled: Bool
+    var lockScreenEnabled: Bool
+    var soundEnabled: Bool
+
+    static let checking = AlertAuthorizationState(
+        authorization: .checking,
+        timeSensitiveEnabled: false,
+        siriAnnouncementsEnabled: false,
+        carPlayEnabled: false,
+        alertEnabled: false,
+        lockScreenEnabled: false,
+        soundEnabled: false
+    )
+
+    var canSendTimeSensitiveAlerts: Bool {
+        authorization == .authorized
+            && timeSensitiveEnabled
+            && alertEnabled
+            && lockScreenEnabled
+            && soundEnabled
+    }
+
+    var needsSettingsAttention: Bool {
+        switch authorization {
+        case .denied:
+            return true
+        case .authorized:
+            return !timeSensitiveEnabled
+                || !siriAnnouncementsEnabled
+                || !alertEnabled
+                || !lockScreenEnabled
+                || !soundEnabled
+        case .checking, .notDetermined:
+            return false
+        }
+    }
+
+    /// Exact CarPlay delivery problems. Time Sensitive and sound settings are
+    /// warnings rather than authorization blockers, but explain a quiet test.
+    var carPlayNotificationIssues: [CarPlayNotificationIssue] {
+        switch authorization {
+        case .checking:
+            return [.checking]
+        case .notDetermined:
+            return [.permissionRequired]
+        case .denied:
+            return [.permissionDenied]
+        case .authorized:
+            var issues: [CarPlayNotificationIssue] = []
+            if !carPlayEnabled { issues.append(.carPlayDisabled) }
+            if !alertEnabled { issues.append(.alertsDisabled) }
+            if !timeSensitiveEnabled { issues.append(.timeSensitiveDisabled) }
+            if !soundEnabled { issues.append(.soundDisabled) }
+            return issues
+        }
+    }
+}
+
+enum CarPlayTelemetryPolicy {
+    static func displayState(
+        current: DPFState,
+        lastPersisted: DPFState?,
+        hasLiveTelemetry: Bool
+    ) -> DPFState {
+        hasLiveTelemetry ? current : (lastPersisted ?? DPFState())
+    }
+}
+
+enum CarPlayRegenerationAlertEvent: Equatable, Sendable {
+    case started
+    case finished
+}
+
+/// Emits CarPlay modal alerts only on known edges observed while telemetry is
+/// live. A temporarily unknown regen state preserves the previous edge; a full
+/// telemetry interruption resets it so reconnection cannot replay stale data.
+struct CarPlayRegenerationAlertTracker: Equatable, Sendable {
+    private var previousIsRegenerating: Bool?
+
+    mutating func observe(
+        isRegenerating: Bool?,
+        telemetryIsLive: Bool
+    ) -> CarPlayRegenerationAlertEvent? {
+        guard telemetryIsLive else {
+            previousIsRegenerating = nil
+            return nil
+        }
+
+        // A failed progress read is not a completed regeneration. Keep the
+        // last known edge so recovery cannot emit a duplicate start either.
+        guard let isRegenerating else { return nil }
+
+        guard let previousIsRegenerating else {
+            self.previousIsRegenerating = isRegenerating
+            return nil
+        }
+
+        self.previousIsRegenerating = isRegenerating
+        guard previousIsRegenerating != isRegenerating else { return nil }
+        return isRegenerating ? .started : .finished
+    }
 }
 
 /// Canonical deep-link destinations. The Live Activity widget opens
@@ -60,6 +250,28 @@ enum DPFRegenerationMode: Int, Codable, Equatable, Sendable {
     case none = 0
     case passive = 1
     case active = 2
+}
+
+/// Shared warning bands for the FCA DPF load index. Keeping the thresholds in
+/// the model prevents CarPlay artwork and future dashboard surfaces from
+/// silently assigning different meanings to the same ECU value.
+enum DPFLoadAlertLevel: Equatable, Sendable {
+    case unavailable
+    case low
+    case nearRegeneration
+    case regenerationImminent
+    case activeRegeneration
+
+    static func resolve(
+        loadPercent: Double?,
+        regenerationMode: DPFRegenerationMode
+    ) -> Self {
+        if regenerationMode == .active { return .activeRegeneration }
+        guard let loadPercent else { return .unavailable }
+        if loadPercent > 95 { return .regenerationImminent }
+        if loadPercent >= 85 { return .nearRegeneration }
+        return .low
+    }
 }
 
 /// Factory paint names offered on Stelvio across its model years. RGB values
@@ -213,6 +425,13 @@ extension DPFState {
 
     var isRegenerating: Bool {
         effectiveRegenerationMode != .none
+    }
+
+    var loadAlertLevel: DPFLoadAlertLevel {
+        .resolve(
+            loadPercent: cloggingPercent,
+            regenerationMode: effectiveRegenerationMode
+        )
     }
 
     /// The diesel ECU's public diagnostic value is categorical. Showing a

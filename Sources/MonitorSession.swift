@@ -8,6 +8,10 @@ import UIKit
 @MainActor
 @Observable
 final class MonitorSession {
+    /// Phone and CarPlay must control one BLE/ELM session. Creating a second
+    /// coordinator from the CarPlay scene would race the same adapter and ECU.
+    static let shared = MonitorSession()
+
     typealias Status = SessionStatus
 
     private(set) var status: Status = .idle {
@@ -20,6 +24,8 @@ final class MonitorSession {
     private(set) var activeScenario: DPFSimulationScenario?
     private(set) var alertAuthorization: AlertAuthorizationState = .checking
     private(set) var hasLiveTelemetry = false
+    private(set) var carPlayAlertsEnabled: Bool
+    private(set) var needsDrivingFocusGuidance: Bool
 
     var autoConnectEnabled: Bool {
         didSet {
@@ -46,7 +52,7 @@ final class MonitorSession {
     private var pollTask: Task<Void, Never>?
     private var simulationTask: Task<Void, Never>?
     private var simulationTracker = RegenActivityTracker()
-    private let alerts = AlertService()
+    private let alerts: AlertService
     private let liveActivity = DPFLiveActivityController()
     private let defaults: UserDefaults
     private var lastPersistedState: DPFState?
@@ -56,6 +62,16 @@ final class MonitorSession {
     private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
     private static let batteryMetricMigrationDefaultsKey = "batteryMetricAdded.v1"
     private static let appAccentDefaultsKey = "appAccent.v1"
+
+    /// Secondary vehicle displays must never inherit a Test Lab fixture. Until
+    /// a fresh real sample arrives, expose only the last persisted ECU state.
+    var carPlayDPFState: DPFState {
+        CarPlayTelemetryPolicy.displayState(
+            current: dpf,
+            lastPersisted: lastPersistedState,
+            hasLiveTelemetry: hasLiveTelemetry
+        )
+    }
 
     init(defaults: UserDefaults = .standard) {
         let initialAutoConnectEnabled: Bool
@@ -84,12 +100,17 @@ final class MonitorSession {
 
         let initialAppAccent = defaults.string(forKey: Self.appAccentDefaultsKey)
             .flatMap(StelvioAccent.init(rawValue:)) ?? .rossoAlfa
+        let initialCarPlayAlertsEnabled = CarPlayAlertPreference.load(from: defaults)
         let saved = DPFStateStore.load(from: defaults)
 
         self.defaults = defaults
+        self.alerts = AlertService(carPlayAlertsEnabled: initialCarPlayAlertsEnabled)
         self.autoConnectEnabled = initialAutoConnectEnabled
         self.visibleDashboardMetrics = initialVisibleDashboardMetrics
         self.appAccent = initialAppAccent
+        self.carPlayAlertsEnabled = initialCarPlayAlertsEnabled
+        self.needsDrivingFocusGuidance =
+            DrivingFocusGuidancePreference.needsPresentation(from: defaults)
         self.dpf = saved ?? DPFState()
         self.lastPersistedState = saved
     }
@@ -116,6 +137,7 @@ final class MonitorSession {
         }
         alertAuthorization = await alerts.currentAuthorizationState()
         return alertAuthorization.authorization == .notDetermined
+            || needsDrivingFocusGuidance
     }
 
     func requestNotificationAuthorization() async {
@@ -125,6 +147,19 @@ final class MonitorSession {
     func refreshNotificationAuthorization() async {
         guard !skipAlertSetupForVisualTest else { return }
         alertAuthorization = await alerts.currentAuthorizationState()
+    }
+
+    func acknowledgeDrivingFocusGuidance() {
+        DrivingFocusGuidancePreference.acknowledge(in: defaults)
+        needsDrivingFocusGuidance = false
+    }
+
+    func toggleCarPlayAlerts() async {
+        let enabled = !carPlayAlertsEnabled
+        await alerts.setCarPlayAlertsEnabled(enabled)
+        defaults.set(enabled, forKey: CarPlayAlertPreference.defaultsKey)
+        carPlayAlertsEnabled = enabled
+        OBDLog.log("CarPlay alerts: \(enabled ? "enabled" : "disabled")")
     }
 
     func startAutomaticallyIfNeeded() {
@@ -187,6 +222,18 @@ final class MonitorSession {
             alertAuthorization = await alerts.configure()
             await alerts.notifyTest()
         }
+    }
+
+    /// Queues the CarPlay-specific system test and exposes the actual queueing
+    /// result to the vehicle UI instead of claiming success unconditionally.
+    func testCarPlaySystemNotification() async -> Bool {
+        let current = await alerts.currentAuthorizationState()
+        guard current.authorization == .authorized else {
+            alertAuthorization = current
+            return false
+        }
+        alertAuthorization = await alerts.configure()
+        return await alerts.notifyCarPlayTest()
     }
 
     func persistCurrentState() {

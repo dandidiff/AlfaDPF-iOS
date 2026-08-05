@@ -39,6 +39,25 @@
 	<string>Si connette all'adattatore OBD-II Bluetooth per leggere i dati DPF in tempo reale.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>CPTemplateApplicationSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>CPTemplateApplicationScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>Alpha DPF CarPlay</string>
+					<key>UISceneDelegateClassName</key>
+					<string>CarPlaySceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>

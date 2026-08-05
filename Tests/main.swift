@@ -65,6 +65,143 @@ expect(!SessionStatus.idle.keepsScreenAwake
        && !SessionStatus.failed("test").keepsScreenAwake,
        "idle timer: idle, simulation and failures release screen")
 
+expect(SessionStatus.idle.carPlayConnectionAction == .connect
+       && SessionStatus.failed("test").carPlayConnectionAction == .connect
+       && SessionStatus.simulating.carPlayConnectionAction == .connect,
+       "carplay: idle, failed and simulation states offer connect")
+expect(SessionStatus.connecting.carPlayConnectionAction == .cancel,
+       "carplay: connecting state offers cancellation")
+expect(SessionStatus.running.carPlayConnectionAction == .disconnect,
+       "carplay: running state offers disconnect")
+expect(CarPlayRefreshPolicy.interval >= .seconds(10),
+       "carplay: periodic dashboard refresh respects Apple's 10-second minimum")
+expect(CarPlayNotificationTestPolicy.systemDeliveryDelay >= 10,
+       "carplay notifications: system test leaves enough time to return Home")
+expect(DPFLoadAlertLevel.resolve(loadPercent: nil, regenerationMode: .none) == .unavailable,
+       "carplay colors: absent load stays neutral")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 84.9, regenerationMode: .none) == .low,
+       "carplay colors: low load is green")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 85, regenerationMode: .none) == .nearRegeneration
+       && DPFLoadAlertLevel.resolve(loadPercent: 95, regenerationMode: .none) == .nearRegeneration,
+       "carplay colors: 85 through 95 warns that regeneration is near")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 95.1, regenerationMode: .none) == .regenerationImminent,
+       "carplay colors: load above 95 warns that regeneration is imminent")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 30, regenerationMode: .active) == .activeRegeneration,
+       "carplay colors: active regeneration overrides the load band with blue")
+expect(DPFLoadAlertLevel.resolve(loadPercent: 88, regenerationMode: .passive) == .nearRegeneration,
+       "carplay colors: passive regeneration preserves the load warning band")
+
+func carPlayNotificationState(
+    authorization: AlertAuthorizationState.Authorization = .authorized,
+    timeSensitive: Bool = true,
+    carPlay: Bool = true,
+    alerts: Bool = true,
+    sound: Bool = true
+) -> AlertAuthorizationState {
+    AlertAuthorizationState(
+        authorization: authorization,
+        timeSensitiveEnabled: timeSensitive,
+        siriAnnouncementsEnabled: false,
+        carPlayEnabled: carPlay,
+        alertEnabled: alerts,
+        lockScreenEnabled: true,
+        soundEnabled: sound
+    )
+}
+
+expect(carPlayNotificationState().carPlayNotificationIssues.isEmpty,
+       "carplay notifications: fully enabled settings are ready")
+expect(carPlayNotificationState(
+    authorization: .denied
+).carPlayNotificationIssues == [.permissionDenied],
+       "carplay notifications: denied authorization is diagnosed")
+expect(carPlayNotificationState(
+    authorization: .notDetermined
+).carPlayNotificationIssues == [.permissionRequired],
+       "carplay notifications: missing authorization is diagnosed")
+expect(carPlayNotificationState(
+    timeSensitive: false,
+    carPlay: false,
+    alerts: false,
+    sound: false
+).carPlayNotificationIssues == [
+    .carPlayDisabled,
+    .alertsDisabled,
+    .timeSensitiveDisabled,
+    .soundDisabled,
+],
+       "carplay notifications: every delivery and sound problem is exposed")
+
+let carPlayAlertDefaults = UserDefaults(suiteName: "AlphaDPF.CarPlayAlertPreferenceTests")!
+carPlayAlertDefaults.removePersistentDomain(forName: "AlphaDPF.CarPlayAlertPreferenceTests")
+expect(CarPlayAlertPreference.load(from: carPlayAlertDefaults),
+       "carplay alerts: delivery is enabled by default")
+carPlayAlertDefaults.set(false, forKey: CarPlayAlertPreference.defaultsKey)
+expect(!CarPlayAlertPreference.load(from: carPlayAlertDefaults),
+       "carplay alerts: disabled preference persists")
+carPlayAlertDefaults.set(true, forKey: CarPlayAlertPreference.defaultsKey)
+expect(CarPlayAlertPreference.load(from: carPlayAlertDefaults),
+       "carplay alerts: enabled preference persists")
+expect(CarPlayNotificationRoute.production(carPlayAlertsEnabled: true) == .carPlay,
+       "carplay alerts: enabled production events use the CarPlay category")
+expect(CarPlayNotificationRoute.production(carPlayAlertsEnabled: false) == .phoneOnly,
+       "carplay alerts: disabled production events remain phone-only")
+expect(CarPlayNotificationRoute.explicitTest == .carPlay,
+       "carplay alerts: an explicit user test still exercises CarPlay delivery")
+carPlayAlertDefaults.removePersistentDomain(forName: "AlphaDPF.CarPlayAlertPreferenceTests")
+
+let drivingFocusSuite = "AlphaDPF.DrivingFocusGuidance.\(UUID().uuidString)"
+let drivingFocusDefaults = UserDefaults(suiteName: drivingFocusSuite)!
+drivingFocusDefaults.removePersistentDomain(forName: drivingFocusSuite)
+expect(DrivingFocusGuidancePreference.needsPresentation(from: drivingFocusDefaults),
+       "driving focus onboarding: new and existing users see the guidance once")
+DrivingFocusGuidancePreference.acknowledge(in: drivingFocusDefaults)
+expect(!DrivingFocusGuidancePreference.needsPresentation(from: drivingFocusDefaults),
+       "driving focus onboarding: acknowledgement persists")
+drivingFocusDefaults.removePersistentDomain(forName: drivingFocusSuite)
+
+var carPlayCurrentState = DPFState()
+carPlayCurrentState.cloggingPercent = 88
+var carPlayPersistedState = DPFState()
+carPlayPersistedState.cloggingPercent = 42
+expect(CarPlayTelemetryPolicy.displayState(
+    current: carPlayCurrentState,
+    lastPersisted: carPlayPersistedState,
+    hasLiveTelemetry: true
+).cloggingPercent == 88,
+       "carplay telemetry: fresh real sample wins")
+expect(CarPlayTelemetryPolicy.displayState(
+    current: carPlayCurrentState,
+    lastPersisted: carPlayPersistedState,
+    hasLiveTelemetry: false
+).cloggingPercent == 42,
+       "carplay telemetry: cached real state hides non-live fixture")
+expect(!CarPlayTelemetryPolicy.displayState(
+    current: carPlayCurrentState,
+    lastPersisted: nil,
+    hasLiveTelemetry: false
+).hasTelemetry,
+       "carplay telemetry: no real state displays unavailable values")
+
+var carPlayAlertTracker = CarPlayRegenerationAlertTracker()
+expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: false) == nil,
+       "carplay alert: cached telemetry never creates an event")
+expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: true) == nil,
+       "carplay alert: first live sample arms without a false event")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == .started,
+       "carplay alert: inactive-to-active edge starts regeneration")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
+       "carplay alert: stable active state does not repeat")
+expect(carPlayAlertTracker.observe(isRegenerating: nil, telemetryIsLive: true) == nil,
+       "carplay alert: unknown regeneration sample does not emit a false finish")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
+       "carplay alert: recovery from unknown preserves the active edge")
+expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: true) == .finished,
+       "carplay alert: active-to-inactive edge finishes regeneration")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: false) == nil
+       && carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
+       "carplay alert: telemetry interruption rearms without a false event")
+
 for error in [
     OBDError.notReady,
     .protocolError("test"),

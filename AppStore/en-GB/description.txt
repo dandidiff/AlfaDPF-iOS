@@ -15,6 +15,10 @@ REGENERATION, ALWAYS IN VIEW
 
 When a regeneration is detected, the app updates the dashboard, can show a Live Activity on the Lock Screen and in the Dynamic Island, and can send local notifications when regeneration starts and finishes — so you know not to switch the engine off.
 
+ON CARPLAY
+
+The dedicated CarPlay dashboard shows the essential DPF readings and their last update time. Start or stop the adapter connection directly from CarPlay and receive regeneration start/finish alerts, without creating a second diagnostic session.
+
 TRY IT WITHOUT A CAR
 
 The built-in Test Lab replays a complete regeneration cycle, so you can check the interface, notifications and Live Activity before you ever plug in.
