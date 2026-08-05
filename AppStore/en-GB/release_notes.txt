@@ -1,7 +1,7 @@
 Version 1.2 improves reliability, Live Activities and available data:
 
 • redesigned Live Activity without the double border, fully localised in Italian and English;
-• new ECU data where supported: engine RPM, coolant temperature and turbo boost;
+• more reliable DPF polling, protected from interfering diagnostic requests;
 • detection of Konnwei KW903 Bluetooth LE adapters and support for the FFE0/FFE1 profile;
 • smoother dashboard and more readable value transitions;
 • removed unreliable automatic vehicle-model identification;

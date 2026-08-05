@@ -853,30 +853,6 @@ private struct DPFDetailGrid: View {
                 unit: "V",
                 accent: batteryVoltageAccent
             )
-        case .engineRPM:
-            MetricCard(
-                icon: "gauge.with.dots.needle.50percent",
-                title: "GIRI MOTORE",
-                value: dpf.engineRPM.map { String(format: "%.0f", $0) },
-                unit: "rpm",
-                accent: isCached ? .gray : .cyan
-            )
-        case .coolantTemperature:
-            MetricCard(
-                icon: "thermometer.medium",
-                title: "LIQUIDO MOTORE",
-                value: dpf.coolantTemperatureC.map { String(format: "%.0f", $0) },
-                unit: "°C",
-                accent: coolantTemperatureAccent
-            )
-        case .turboPressure:
-            MetricCard(
-                icon: "wind",
-                title: "PRESSIONE TURBO",
-                value: dpf.turboBoostBar.map { String(format: "%.2f", $0) },
-                unit: "bar",
-                accent: isCached ? .gray : .mint
-            )
         }
     }
 
@@ -896,13 +872,6 @@ private struct DPFDetailGrid: View {
         }
     }
 
-    private var coolantTemperatureAccent: Color {
-        guard !isCached, let temperature = dpf.coolantTemperatureC else { return .gray }
-        if temperature > 115 { return Brand.redBright }
-        if temperature > 105 { return .orange }
-        if temperature >= 70 { return .green }
-        return .cyan
-    }
 }
 
 private struct SectionLabel: View {
@@ -1528,10 +1497,7 @@ private struct DiagnosticsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         if dpf.exhaustTemperaturePID != nil
                             || dpf.regenerationMode != nil
-                            || dpf.oilPressureStatusRaw != nil
-                            || dpf.engineRPM != nil
-                            || dpf.coolantTemperatureC != nil
-                            || dpf.turboBoostBar != nil {
+                            || dpf.oilPressureStatusRaw != nil {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("TELEMETRIA ECU")
                                     .font(.caption2.weight(.bold))
@@ -1539,9 +1505,6 @@ private struct DiagnosticsView: View {
                                 if let pid = dpf.exhaustTemperaturePID {
                                     Text("Temperatura scarico: PID \(String(format: "22%04X", pid)) · \(dpf.exhaustTempC.map { String(format: "%.1f °C", $0) } ?? "—")")
                                 }
-                                Text("Giri motore 010C: \(dpf.engineRPM.map { String(format: "%.0f rpm", $0) } ?? String(localized: "PID non disponibile"))")
-                                Text("Liquido motore 0105: \(dpf.coolantTemperatureC.map { String(format: "%.0f °C", $0) } ?? String(localized: "PID non disponibile"))")
-                                Text("Pressione turbo 010B/0133: \(dpf.turboBoostBar.map { String(format: "%.2f bar", $0) } ?? String(localized: "PID non disponibile"))")
                                 Text("Rigenerazione: \(regenerationModeText)")
                                 Text("Stato pressione olio 22194D: \(oilPressureDiagnosticText)")
                             }

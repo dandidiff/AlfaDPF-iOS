@@ -144,9 +144,6 @@ enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
     case totalRegenerations
     case oilPressure
     case batteryVoltage
-    case engineRPM
-    case coolantTemperature
-    case turboPressure
 
     var id: String { rawValue }
 
@@ -158,9 +155,6 @@ enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
         case .totalRegenerations: return String(localized: "Rigenerazioni totali")
         case .oilPressure: return String(localized: "Stato pressione olio")
         case .batteryVoltage: return String(localized: "Tensione batteria")
-        case .engineRPM: return String(localized: "Giri motore")
-        case .coolantTemperature: return String(localized: "Temperatura liquido motore")
-        case .turboPressure: return String(localized: "Pressione turbo")
         }
     }
 }
@@ -183,13 +177,6 @@ struct DPFState: Codable, Equatable, Sendable {
     /// Supply voltage reported by the ELM327 (`ATRV`). This is the adapter's
     /// measured vehicle voltage, not an Alfa-specific ECU PID.
     var batteryVoltage: Double?
-    /// Standard SAE J1979 Mode 01 PID 0C.
-    var engineRPM: Double?
-    /// Standard SAE J1979 Mode 01 PID 05.
-    var coolantTemperatureC: Double?
-    /// Gauge pressure derived from standard Mode 01 PIDs 0B and 33 as
-    /// `(manifoldAbsolutePressureKPa - barometricPressureKPa) / 100` bar.
-    var turboBoostBar: Double?
     /// PID that supplied `exhaustTempC`, retained for diagnostics.
     var exhaustTemperaturePID: UInt16?
     /// Audit data for the load value. Persisting it makes an on-road
@@ -212,9 +199,6 @@ extension DPFState {
             || regenerationMode != nil
             || oilPressureStatusRaw != nil
             || batteryVoltage != nil
-            || engineRPM != nil
-            || coolantTemperatureC != nil
-            || turboBoostBar != nil
     }
 
     /// Prefer the dedicated ECU state when it reports a regeneration, while
@@ -263,9 +247,6 @@ extension DPFState {
         merged.oilPressureStatusRaw =
             fresh.oilPressureStatusRaw ?? oilPressureStatusRaw
         merged.batteryVoltage = fresh.batteryVoltage ?? batteryVoltage
-        merged.engineRPM = fresh.engineRPM ?? engineRPM
-        merged.coolantTemperatureC = fresh.coolantTemperatureC ?? coolantTemperatureC
-        merged.turboBoostBar = fresh.turboBoostBar ?? turboBoostBar
         if fresh.exhaustTempC != nil {
             merged.exhaustTemperaturePID = fresh.exhaustTemperaturePID
         }
@@ -389,9 +370,6 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 12.6,
-                engineRPM: 820,
-                coolantTemperatureC: 88,
-                turboBoostBar: 0.02,
                 timestamp: timestamp
             )
         case .loaded:
@@ -405,9 +383,6 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.2,
-                engineRPM: 1_250,
-                coolantTemperatureC: 92,
-                turboBoostBar: 0.28,
                 timestamp: timestamp
             )
         case .regenStarted:
@@ -421,9 +396,6 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: .active,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.1,
-                engineRPM: 1_900,
-                coolantTemperatureC: 94,
-                turboBoostBar: 1.12,
                 timestamp: timestamp
             )
         case .regenInProgress:
@@ -437,9 +409,6 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: .active,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.0,
-                engineRPM: 2_150,
-                coolantTemperatureC: 96,
-                turboBoostBar: 1.34,
                 timestamp: timestamp
             )
         case .regenFinished:
@@ -453,9 +422,6 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 13.9,
-                engineRPM: 1_450,
-                coolantTemperatureC: 95,
-                turboBoostBar: 0.42,
                 timestamp: timestamp
             )
         case .unavailable:
@@ -762,39 +728,5 @@ enum DPFPID: UInt16, Hashable, Sendable {
         case .distanceSinceRegenKm: return raw * 0.1
         case .oilPressureStatus:    return raw
         }
-    }
-}
-
-/// Keeps optional standard engine polling out of the ELM327 session until the
-/// two DPF signals used by the dashboard and regeneration detector have both
-/// answered repeatedly. This preserves the proven main-branch DPF-only startup
-/// path and suspends Mode 01 again after any unstable core poll.
-struct Mode01AdmissionPolicy: Equatable, Sendable {
-    let requiredStablePolls: Int
-    private(set) var consecutiveStablePolls = 0
-    private(set) var isEnabled = false
-
-    init(requiredStablePolls: Int = 3) {
-        precondition(requiredStablePolls > 0)
-        self.requiredStablePolls = requiredStablePolls
-    }
-
-    @discardableResult
-    mutating func observe(freshPIDs: Set<DPFPID>) -> Bool {
-        let hasStableDPFCore = freshPIDs.contains(.cloggingPercent)
-            && freshPIDs.contains(.regenProgressPercent)
-
-        guard hasStableDPFCore else {
-            consecutiveStablePolls = 0
-            isEnabled = false
-            return false
-        }
-
-        consecutiveStablePolls = min(
-            consecutiveStablePolls + 1,
-            requiredStablePolls
-        )
-        isEnabled = consecutiveStablePolls >= requiredStablePolls
-        return isEnabled
     }
 }

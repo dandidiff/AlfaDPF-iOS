@@ -2,9 +2,8 @@
 
 Monitor DPF per Alfa Romeo / FCA diesel via adattatore ELM327 Bluetooth LE.
 La versione corrente è volutamente concentrata sui dati del filtro e sulla
-rilevazione affidabile della rigenerazione. La dashboard mostra anche tensione
-batteria, giri motore, temperatura liquido e pressione turbo quando la
-centralina espone i relativi PID.
+rilevazione affidabile della rigenerazione. La dashboard mostra anche la
+tensione di alimentazione reale restituita dall’adattatore tramite `ATRV`.
 
 Versione in sviluppo: **1.2 (build 10)**.
 
@@ -105,22 +104,15 @@ ALFADPF_AUTORUN_TEST=1
 ALFADPF_SCENARIO=regenInProgress
 ```
 
-## Dati motore senza interferire con il DPF
+## Perché i dati motore non vengono letti
 
-I PID critici DPF vengono sempre letti per primi. La telemetria standard Mode 01
-resta disattivata finché carico filtro e avanzamento rigenerazione non rispondono
-entrambi per tre cicli consecutivi; se uno dei due diventa instabile, Mode 01
-viene sospeso di nuovo. Soltanto dopo questa stabilizzazione, la sessione invia
-uno slot Mode 01 usando un header funzionale esplicito e la stessa coda seriale
-ELM327; lo slot turbo invia sia MAP sia BARO. La richiesta Mode 22 successiva
-ripristina esplicitamente il proprio header fisico. Un PID opzionale non
-supportato va in backoff per 30 secondi, così un clone lento non può bloccare
-ogni ciclo.
-
-- `010C` — giri motore, `(A·256+B)/4` rpm;
-- `0105` — temperatura liquido, `A−40` °C;
-- `010B` — pressione assoluta collettore, combinata con `0133` (pressione
-  barometrica) per mostrare il turbo relativo `(MAP−BARO)/100` bar.
+La sessione principale non invia PID generici Mode 01. Due prove ripetibili sul
+veicolo reale hanno mostrato che, subito dopo `0105` o `010C`, i PID DPF Mode 22
+validi su `18DA10F1` passano a `NO DATA`; tornano disponibili soltanto dopo la
+sospensione del Mode 01. Poiché il prodotto serve al monitoraggio DPF, la
+connessione finale conserva esclusivamente il polling DPF già validato. Il
+parser Mode 01 resta nel repository e nei test, ma non interviene nella sessione
+in auto.
 
 L'app non identifica automaticamente marca o modello: un header ECU descrive
 il destinatario diagnostico, non distingue in modo affidabile Stelvio, Giulia,

@@ -264,9 +264,6 @@ expect(
 var newSignals = DPFState(timestamp: partialAt.addingTimeInterval(20))
 newSignals.regenerationMode = .passive
 newSignals.oilPressureStatusRaw = 2
-newSignals.engineRPM = 1_850
-newSignals.coolantTemperatureC = 93
-newSignals.turboBoostBar = 0.82
 newSignals.exhaustTempC = 601
 newSignals.exhaustTemperaturePID = DPFPID.postDPFTempC.rawValue
 let mergedNewSignals = mergedSnapshot.mergingFreshTelemetry(from: newSignals)
@@ -275,11 +272,8 @@ expect(
         && mergedNewSignals.isRegenerating
         && mergedNewSignals.oilPressureStatusText == "Normale"
         && mergedNewSignals.batteryVoltage == savedSnapshot.batteryVoltage
-        && mergedNewSignals.engineRPM == 1_850
-        && mergedNewSignals.coolantTemperatureC == 93
-        && mergedNewSignals.turboBoostBar == 0.82
         && mergedNewSignals.exhaustTemperaturePID == DPFPID.postDPFTempC.rawValue,
-    "snapshot: regen, oil and optional engine signals merge safely"
+    "snapshot: passive regen, oil state and temperature source merge safely"
 )
 var conflictingSignals = mergedNewSignals
 conflictingSignals.regenActive = true
@@ -499,29 +493,7 @@ expect(
     "simulation: clean and unavailable fixtures"
 )
 
-// MARK: - Mode 01 parsing
-
-var mode01Admission = Mode01AdmissionPolicy(requiredStablePolls: 3)
-expect(
-    !mode01Admission.observe(freshPIDs: [.exhaustTempC]),
-    "mode01 gate: exhaust-only telemetry keeps standard polling disabled"
-)
-expect(
-    !mode01Admission.observe(freshPIDs: [.cloggingPercent, .regenProgressPercent]),
-    "mode01 gate: first stable DPF core poll is not enough"
-)
-expect(
-    !mode01Admission.observe(freshPIDs: [.cloggingPercent, .regenProgressPercent]),
-    "mode01 gate: second stable DPF core poll is not enough"
-)
-expect(
-    mode01Admission.observe(freshPIDs: [.cloggingPercent, .regenProgressPercent]),
-    "mode01 gate: third stable DPF core poll enables standard polling"
-)
-expect(
-    !mode01Admission.observe(freshPIDs: [.cloggingPercent]),
-    "mode01 gate: an unstable DPF core poll suspends standard polling"
-)
+// MARK: - Mode 01 parser (not used by the live DPF session)
 
 expectBytes("mode01: 11-bit header, no spaces",
             { try Mode01Reader.parseMode01("7E804410C1AF8", expectedPID: 0x0C) },

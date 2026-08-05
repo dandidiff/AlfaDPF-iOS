@@ -1,7 +1,7 @@
 La versione 1.2 migliora affidabilità, Live Activity e dati disponibili:
 
 • Live Activity ridisegnata senza doppia cornice e completamente localizzata in italiano e inglese;
-• nuovi dati ECU, quando supportati: giri motore, temperatura liquido e pressione turbo;
+• polling DPF reso più affidabile e protetto da richieste diagnostiche interferenti;
 • rilevamento degli adattatori Konnwei KW903 Bluetooth LE e supporto del profilo FFE0/FFE1;
 • dashboard più fluida e valori con transizioni più leggibili;
 • rimossa l’identificazione automatica inaffidabile del modello del veicolo;

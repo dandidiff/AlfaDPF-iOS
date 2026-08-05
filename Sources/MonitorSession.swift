@@ -2,9 +2,9 @@ import Foundation
 import Observation
 import UIKit
 
-/// Phone-side coordinator. The real connection prioritizes Alfa/FCA Mode 22
-/// DPF telemetry, then rotates optional standard Mode 01 engine data using an
-/// explicit functional header so the two ELM327 contexts cannot leak.
+/// Phone-side coordinator. The real connection intentionally polls only the
+/// Alfa/FCA Mode 22 DPF monitor: mixing generic engine Mode 01 commands into
+/// this session makes the ECU/header contexts interfere on the real vehicle.
 @MainActor
 @Observable
 final class MonitorSession {
@@ -55,7 +55,6 @@ final class MonitorSession {
     private static let autoConnectDefaultsKey = "autoConnectEnabled.v1"
     private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
     private static let batteryMetricMigrationDefaultsKey = "batteryMetricAdded.v1"
-    private static let engineMetricsMigrationDefaultsKey = "engineMetricsAdded.v1"
     private static let appAccentDefaultsKey = "appAccent.v1"
 
     init(defaults: UserDefaults = .standard) {
@@ -73,10 +72,6 @@ final class MonitorSession {
                 visibleMetrics.insert(.batteryVoltage)
                 defaults.set(true, forKey: Self.batteryMetricMigrationDefaultsKey)
             }
-            if !defaults.bool(forKey: Self.engineMetricsMigrationDefaultsKey) {
-                visibleMetrics.formUnion([.engineRPM, .coolantTemperature, .turboPressure])
-                defaults.set(true, forKey: Self.engineMetricsMigrationDefaultsKey)
-            }
             defaults.set(
                 visibleMetrics.map(\.rawValue).sorted(),
                 forKey: Self.dashboardMetricsDefaultsKey
@@ -85,7 +80,6 @@ final class MonitorSession {
         } else {
             initialVisibleDashboardMetrics = Set(DashboardMetric.allCases)
             defaults.set(true, forKey: Self.batteryMetricMigrationDefaultsKey)
-            defaults.set(true, forKey: Self.engineMetricsMigrationDefaultsKey)
         }
 
         let initialAppAccent = defaults.string(forKey: Self.appAccentDefaultsKey)

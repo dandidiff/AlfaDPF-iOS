@@ -650,55 +650,6 @@
         }
       }
     },
-    "Giri motore" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine speed"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Giri motore"
-          }
-        }
-      }
-    },
-    "GIRI MOTORE" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ENGINE RPM"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "GIRI MOTORE"
-          }
-        }
-      }
-    },
-    "Giri motore 010C: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine RPM 010C: %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Giri motore 010C: %@"
-          }
-        }
-      }
-    },
     "Gli scenari usano la stessa logica della connessione reale: interfaccia, Live Activity e notifiche di inizio/fine rigenerazione." : {
       "localizations" : {
         "en" : {
@@ -925,39 +876,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reading DPF data…"
-          }
-        }
-      }
-    },
-    "LIQUIDO MOTORE" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ENGINE COOLANT"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "LIQUIDO MOTORE"
-          }
-        }
-      }
-    },
-    "Liquido motore 0105: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine coolant 0105: %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Liquido motore 0105: %@"
           }
         }
       }
@@ -1212,55 +1130,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pressione olio e SGW"
-          }
-        }
-      }
-    },
-    "Pressione turbo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Turbo pressure"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pressione turbo"
-          }
-        }
-      }
-    },
-    "PRESSIONE TURBO" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "TURBO BOOST"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PRESSIONE TURBO"
-          }
-        }
-      }
-    },
-    "Pressione turbo 010B/0133: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Turbo boost 010B/0133: %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pressione turbo 010B/0133: %@"
           }
         }
       }
@@ -1740,22 +1609,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Exhaust gas temperature"
-          }
-        }
-      }
-    },
-    "Temperatura liquido motore" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Engine coolant temperature"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temperatura liquido motore"
           }
         }
       }
