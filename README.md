@@ -48,14 +48,18 @@ OBD.
 
 ## CarPlay e Live Activity
 
-Collegando CarPlay, l'app mostra un `CPInformationTemplate` a due colonne con:
+Collegando CarPlay, l'app mostra una dashboard `CPGridTemplate` con otto tile
+grandi e leggibili a colpo d'occhio:
 
-- stato della connessione BLE/ECU e comando Connetti/Disconnetti;
 - carico DPF, avanzamento e stato rigenerazione;
 - distanza dall'ultima rigenerazione e numero totale di rigenerazioni;
 - temperatura gas di scarico, stato pressione olio e tensione batteria;
-- ora dell'ultimo aggiornamento, così un dato salvato non viene spacciato per
-  telemetria live.
+- ora e provenienza dell'ultimo aggiornamento (`Live` o `Salvati`), così un dato
+  memorizzato non viene spacciato per telemetria corrente.
+
+Il controllo Connetti/Annulla/Disconnetti è compatto nella barra superiore. La
+campanella apre la diagnostica notifiche e due test separati. Toccando una tile
+si apre un `CPInformationTemplate` di secondo livello con tutti i dettagli.
 
 Telefono e CarPlay usano lo stesso `MonitorSession`: esiste una sola connessione
 BLE, un solo `DPFMonitor` e una sola coda ELM. La dashboard CarPlay si aggiorna
@@ -109,12 +113,21 @@ Nell'app aprire **Impostazioni → Laboratorio DPF**, quindi:
 4. verificare banner e suono sia all'inizio sia alla fine;
 5. controllare contemporaneamente Live Activity e Dynamic Island.
 
-Per la prova reale collegare CarPlay e usare **Connetti** direttamente dalla
-dashboard dell'auto. Verificare che gli stessi dati restino sincronizzati su
-iPhone e CarPlay, quindi bloccare il telefono. Gli avvisi usano una categoria
-abilitata per CarPlay; in **Impostazioni → Notifiche → Alpha DPF Monitor** devono
-essere consentiti CarPlay, Schermata di blocco e Suoni. Anche la modalità Full
-immersion Guida deve consentire gli avvisi di Alpha DPF Monitor.
+Per la prova reale collegare CarPlay e usare **Connetti** nella barra superiore.
+Verificare che gli stessi dati restino sincronizzati su iPhone e CarPlay, quindi
+toccare la campanella:
+
+1. **Test alert CarPlay** deve mostrare immediatamente un alert nativo nell'app;
+2. **Test sistema · 10 s** accoda una notifica con la stessa categoria delle
+   rigenerazioni: tornare subito alla Home CarPlay per riceverla;
+3. il messaggio diagnostico indica esplicitamente se permesso, **Mostra in
+   CarPlay**, banner, Time Sensitive o suoni sono disattivati.
+
+In **Impostazioni → Notifiche → Alpha DPF Monitor** devono essere consentiti
+CarPlay, Schermata di blocco, Time Sensitive e Suoni. Anche la modalità Full
+immersion Guida deve consentire gli avvisi dell'app. CarPlay in generale non
+legge queste notifiche ad alta voce: il test corretto è banner più suono, non
+la lettura Siri.
 
 Ogni scenario può anche essere selezionato singolarmente. Per provare soltanto
 il canale di notifica usare **Prova solo banner e suono**. Il simulatore usa lo

@@ -203,6 +203,18 @@ final class MonitorSession {
         }
     }
 
+    /// Queues the CarPlay-specific system test and exposes the actual queueing
+    /// result to the vehicle UI instead of claiming success unconditionally.
+    func testCarPlaySystemNotification() async -> Bool {
+        let current = await alerts.currentAuthorizationState()
+        guard current.authorization == .authorized else {
+            alertAuthorization = current
+            return false
+        }
+        alertAuthorization = await alerts.configure()
+        return await alerts.notifyCarPlayTest()
+    }
+
     func persistCurrentState() {
         guard status != .simulating, dpf.hasTelemetry else { return }
         DPFStateStore.save(dpf, to: defaults)

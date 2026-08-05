@@ -75,6 +75,49 @@ expect(SessionStatus.running.carPlayConnectionAction == .disconnect,
        "carplay: running state offers disconnect")
 expect(CarPlayRefreshPolicy.interval >= .seconds(10),
        "carplay: periodic dashboard refresh respects Apple's 10-second minimum")
+expect(CarPlayNotificationTestPolicy.systemDeliveryDelay >= 10,
+       "carplay notifications: system test leaves enough time to return Home")
+
+func carPlayNotificationState(
+    authorization: AlertAuthorizationState.Authorization = .authorized,
+    timeSensitive: Bool = true,
+    carPlay: Bool = true,
+    alerts: Bool = true,
+    sound: Bool = true
+) -> AlertAuthorizationState {
+    AlertAuthorizationState(
+        authorization: authorization,
+        timeSensitiveEnabled: timeSensitive,
+        siriAnnouncementsEnabled: false,
+        carPlayEnabled: carPlay,
+        alertEnabled: alerts,
+        lockScreenEnabled: true,
+        soundEnabled: sound
+    )
+}
+
+expect(carPlayNotificationState().carPlayNotificationIssues.isEmpty,
+       "carplay notifications: fully enabled settings are ready")
+expect(carPlayNotificationState(
+    authorization: .denied
+).carPlayNotificationIssues == [.permissionDenied],
+       "carplay notifications: denied authorization is diagnosed")
+expect(carPlayNotificationState(
+    authorization: .notDetermined
+).carPlayNotificationIssues == [.permissionRequired],
+       "carplay notifications: missing authorization is diagnosed")
+expect(carPlayNotificationState(
+    timeSensitive: false,
+    carPlay: false,
+    alerts: false,
+    sound: false
+).carPlayNotificationIssues == [
+    .carPlayDisabled,
+    .alertsDisabled,
+    .timeSensitiveDisabled,
+    .soundDisabled,
+],
+       "carplay notifications: every delivery and sound problem is exposed")
 
 var carPlayCurrentState = DPFState()
 carPlayCurrentState.cloggingPercent = 88

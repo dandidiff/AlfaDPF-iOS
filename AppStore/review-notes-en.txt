@@ -18,11 +18,12 @@ formatted DPF load and duration values.
 
 CarPlay:
 - Apple approved the app for the CarPlay Driving Task category. The app uses the `com.apple.developer.carplay-driving-task` entitlement.
-- The native CarPlay scene uses `CPInformationTemplate`; it does not claim navigation, audio, charging, parking, or communication functionality.
-- Connect CarPlay and open Alpha DPF Monitor. The dashboard shows connection status and a Connect button. Tapping it starts the same BLE/ELM session used by the iPhone app; the CarPlay scene never creates a second adapter connection or diagnostic poller.
+- The native CarPlay scene uses a `CPGridTemplate` dashboard and a second-level `CPInformationTemplate`; it does not claim navigation, audio, charging, parking, or communication functionality.
+- Connect CarPlay and open Alpha DPF Monitor. The compact Connect/Cancel/Disconnect control in the navigation bar starts or stops the same BLE/ELM session used by the iPhone app; the CarPlay scene never creates a second adapter connection or diagnostic poller.
 - The dashboard shows only DPF load, distance since regeneration, exhaust temperature, regeneration progress/count/status, categorical oil-pressure status, battery voltage, and the last-update time. Missing or cached values are explicitly identified and never fabricated.
 - Periodic CarPlay data-item updates are limited to once every 10 seconds, as required by Apple's Driving Task guidelines. Connection-button state changes update immediately and do not trigger additional OBD requests.
 - On iOS 18.4 and later, regeneration start/finish notifications use a notification category with Allow in CarPlay. On earlier supported iOS versions, or when system CarPlay notifications are disabled, a `CPAlertTemplate` is used as a non-duplicating in-app fallback.
+- The bell button shows the current CarPlay notification settings, an immediate in-app `CPAlertTemplate` test, and a system-notification test delayed by 10 seconds so the reviewer can return to CarPlay Home before delivery.
 - The CarPlay UI can be opened without OBD hardware to review the disconnected/cached state. Live values require the compatible adapter and vehicle listed above.
 
 The waveform icon opens a local diagnostic log. The info icon opens the safety notice, privacy policy, and support links.

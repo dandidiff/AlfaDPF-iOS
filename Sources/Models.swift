@@ -46,6 +46,93 @@ enum CarPlayRefreshPolicy {
     static let interval: Duration = .seconds(10)
 }
 
+enum CarPlayNotificationTestPolicy {
+    /// Gives the driver time to leave the app and return to CarPlay Home. A
+    /// system notification tested while its own app is foreground may be
+    /// visually suppressed by the system.
+    static let systemDeliveryDelay: TimeInterval = 10
+}
+
+enum CarPlayNotificationIssue: Equatable, Sendable {
+    case checking
+    case permissionRequired
+    case permissionDenied
+    case carPlayDisabled
+    case alertsDisabled
+    case timeSensitiveDisabled
+    case soundDisabled
+}
+
+struct AlertAuthorizationState: Equatable, Sendable {
+    enum Authorization: Equatable, Sendable {
+        case checking
+        case notDetermined
+        case denied
+        case authorized
+    }
+
+    var authorization: Authorization
+    var timeSensitiveEnabled: Bool
+    var siriAnnouncementsEnabled: Bool
+    var carPlayEnabled: Bool
+    var alertEnabled: Bool
+    var lockScreenEnabled: Bool
+    var soundEnabled: Bool
+
+    static let checking = AlertAuthorizationState(
+        authorization: .checking,
+        timeSensitiveEnabled: false,
+        siriAnnouncementsEnabled: false,
+        carPlayEnabled: false,
+        alertEnabled: false,
+        lockScreenEnabled: false,
+        soundEnabled: false
+    )
+
+    var canSendTimeSensitiveAlerts: Bool {
+        authorization == .authorized
+            && timeSensitiveEnabled
+            && alertEnabled
+            && lockScreenEnabled
+            && soundEnabled
+    }
+
+    var needsSettingsAttention: Bool {
+        switch authorization {
+        case .denied:
+            return true
+        case .authorized:
+            return !timeSensitiveEnabled
+                || !siriAnnouncementsEnabled
+                || !alertEnabled
+                || !lockScreenEnabled
+                || !soundEnabled
+        case .checking, .notDetermined:
+            return false
+        }
+    }
+
+    /// Exact CarPlay delivery problems. Time Sensitive and sound settings are
+    /// warnings rather than authorization blockers, but explain a quiet test.
+    var carPlayNotificationIssues: [CarPlayNotificationIssue] {
+        switch authorization {
+        case .checking:
+            return [.checking]
+        case .notDetermined:
+            return [.permissionRequired]
+        case .denied:
+            return [.permissionDenied]
+        case .authorized:
+            var issues: [CarPlayNotificationIssue] = []
+            if !carPlayEnabled { issues.append(.carPlayDisabled) }
+            if !alertEnabled { issues.append(.alertsDisabled) }
+            if !timeSensitiveEnabled { issues.append(.timeSensitiveDisabled) }
+            if !soundEnabled { issues.append(.soundDisabled) }
+            return issues
+        }
+    }
+}
+
 enum CarPlayTelemetryPolicy {
     static func displayState(
         current: DPFState,

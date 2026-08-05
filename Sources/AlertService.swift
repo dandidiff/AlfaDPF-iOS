@@ -1,56 +1,6 @@
 import Foundation
 import UserNotifications
 
-struct AlertAuthorizationState: Equatable, Sendable {
-    enum Authorization: Equatable, Sendable {
-        case checking
-        case notDetermined
-        case denied
-        case authorized
-    }
-
-    var authorization: Authorization
-    var timeSensitiveEnabled: Bool
-    var siriAnnouncementsEnabled: Bool
-    var carPlayEnabled: Bool
-    var alertEnabled: Bool
-    var lockScreenEnabled: Bool
-    var soundEnabled: Bool
-
-    static let checking = AlertAuthorizationState(
-        authorization: .checking,
-        timeSensitiveEnabled: false,
-        siriAnnouncementsEnabled: false,
-        carPlayEnabled: false,
-        alertEnabled: false,
-        lockScreenEnabled: false,
-        soundEnabled: false
-    )
-
-    var canSendTimeSensitiveAlerts: Bool {
-        authorization == .authorized
-            && timeSensitiveEnabled
-            && alertEnabled
-            && lockScreenEnabled
-            && soundEnabled
-    }
-
-    var needsSettingsAttention: Bool {
-        switch authorization {
-        case .denied:
-            return true
-        case .authorized:
-            return !timeSensitiveEnabled
-                || !siriAnnouncementsEnabled
-                || !alertEnabled
-                || !lockScreenEnabled
-                || !soundEnabled
-        case .checking, .notDetermined:
-            return false
-        }
-    }
-}
-
 /// Handles regeneration alerts through iOS local notifications. The app
 /// delegate opts into foreground presentation, so the same banner and system
 /// sound work whether the app is visible or in the background.
@@ -69,7 +19,11 @@ actor AlertService {
         registerCategory(on: center)
 
         let currentSettings = await center.notificationSettings()
-        guard currentSettings.authorizationStatus == .notDetermined else {
+        // Existing users may have authorized notifications before CarPlay was
+        // added. Request the complete option set again so iOS can register the
+        // new `.carPlay` capability. This does not override a setting the user
+        // explicitly disabled; denied authorization still returns immediately.
+        guard currentSettings.authorizationStatus != .denied else {
             log(settings: currentSettings)
             return state(from: currentSettings)
         }
@@ -153,16 +107,27 @@ actor AlertService {
     }
 
     func notifyTest() async {
-        await post(
+        _ = await post(
             title: String(localized: "Test avviso Alpha DPF Monitor"),
             body: String(localized: "Test a schermo bloccato: se Siri è abilitata, deve leggere questo avviso."),
             delay: 5
         )
     }
 
+    /// Uses the exact regeneration category and interruption level, but gives
+    /// the driver time to return to CarPlay Home before system delivery.
+    func notifyCarPlayTest() async -> Bool {
+        await post(
+            title: String(localized: "Test notifica CarPlay"),
+            body: String(localized: "Le notifiche di rigenerazione sono configurate correttamente."),
+            delay: CarPlayNotificationTestPolicy.systemDeliveryDelay
+        )
+    }
+
     // MARK: - Private
 
-    private func post(title: String, body: String, delay: TimeInterval? = nil) async {
+    @discardableResult
+    private func post(title: String, body: String, delay: TimeInterval? = nil) async -> Bool {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         log(settings: settings)
 
@@ -189,8 +154,10 @@ actor AlertService {
                 "notification queued: \(title), "
                 + (delay.map { "delivery in \(Int($0)) s" } ?? "immediate delivery")
             )
+            return true
         } catch {
             OBDLog.log("notification failed: \(error.localizedDescription)")
+            return false
         }
     }
 

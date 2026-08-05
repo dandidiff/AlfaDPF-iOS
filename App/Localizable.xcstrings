@@ -1267,6 +1267,12 @@
             "state" : "translated",
             "value" : "Regeneration completed — %d min."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione completata — %d min."
+          }
         }
       }
     },
@@ -1309,6 +1315,12 @@
             "state" : "translated",
             "value" : "DPF regeneration finished"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione DPF terminata"
+          }
         }
       }
     },
@@ -1319,6 +1331,12 @@
             "state" : "translated",
             "value" : "Regeneration started — DPF at %.0f%%. Do not turn off the engine."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione iniziata — DPF al %.0f%%. Non spegnere il motore."
+          }
         }
       }
     },
@@ -1328,6 +1346,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration started. Do not turn off the engine."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione iniziata. Non spegnere il motore."
           }
         }
       }
@@ -1731,6 +1755,12 @@
             "state" : "translated",
             "value" : "Lock-screen test: if Siri is enabled, it should read this alert."
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test a schermo bloccato: se Siri è abilitata, deve leggere questo avviso."
+          }
         }
       }
     },
@@ -1750,6 +1780,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor test alert"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test avviso Alpha DPF Monitor"
           }
         }
       }
@@ -2132,6 +2168,566 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Value from the last connection, not real time."
+          }
+        }
+      }
+    },
+    "Alert CarPlay OK" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CarPlay alert OK"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alert CarPlay OK"
+          }
+        }
+      }
+    },
+    "Alert CarPlay visibile correttamente." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CarPlay alert displayed correctly."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alert CarPlay visibile correttamente."
+          }
+        }
+      }
+    },
+    "Alpha DPF" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF"
+          }
+        }
+      }
+    },
+    "Annulla" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annulla"
+          }
+        }
+      }
+    },
+    "Banner notifiche disattivati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notification banners are off"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Banner notifiche disattivati"
+          }
+        }
+      }
+    },
+    "Batteria" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Battery"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batteria"
+          }
+        }
+      }
+    },
+    "Chiudi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiudi"
+          }
+        }
+      }
+    },
+    "Concedi prima il permesso notifiche dall’iPhone." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grant notification permission on your iPhone first."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Concedi prima il permesso notifiche dall’iPhone."
+          }
+        }
+      }
+    },
+    "DPF" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF"
+          }
+        }
+      }
+    },
+    "Full immersion Guida può comunque silenziare l’avviso." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Driving Focus may still silence the alert."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full immersion Guida può comunque silenziare l’avviso."
+          }
+        }
+      }
+    },
+    "Dall’ultima" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Since last regen"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dall’ultima"
+          }
+        }
+      }
+    },
+    "Dati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dati"
+          }
+        }
+      }
+    },
+    "Origine dati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data source"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Origine dati"
+          }
+        }
+      }
+    },
+    "Impossibile accodare la notifica di test." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to queue the test notification."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile accodare la notifica di test."
+          }
+        }
+      }
+    },
+    "Le notifiche di rigenerazione sono configurate correttamente." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration notifications are configured correctly."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le notifiche di rigenerazione sono configurate correttamente."
+          }
+        }
+      }
+    },
+    "Le notifiche di sistema Driving Task richiedono iOS 18.4. Usa il test alert CarPlay." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System notifications for Driving Task apps require iOS 18.4. Use the CarPlay alert test."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le notifiche di sistema Driving Task richiedono iOS 18.4. Usa il test alert CarPlay."
+          }
+        }
+      }
+    },
+    "Live" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live"
+          }
+        }
+      }
+    },
+    "Mostra in CarPlay disattivato" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show in CarPlay is off"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra in CarPlay disattivato"
+          }
+        }
+      }
+    },
+    "Mostra in CarPlay, Time Sensitive e suoni sono attivi." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show in CarPlay, Time Sensitive notifications and sounds are on."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra in CarPlay, Time Sensitive e suoni sono attivi."
+          }
+        }
+      }
+    },
+    "Notifiche CarPlay" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CarPlay notifications"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifiche CarPlay"
+          }
+        }
+      }
+    },
+    "Olio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oil"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olio"
+          }
+        }
+      }
+    },
+    "Per il test sistema, tocca il pulsante e torna subito alla Home CarPlay." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For the system test, tap the button and immediately return to CarPlay Home."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per il test sistema, tocca il pulsante e torna subito alla Home CarPlay."
+          }
+        }
+      }
+    },
+    "Permesso notifiche negato" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notification permission denied"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permesso notifiche negato"
+          }
+        }
+      }
+    },
+    "Permesso notifiche non ancora concesso" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notification permission has not been granted yet"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permesso notifiche non ancora concesso"
+          }
+        }
+      }
+    },
+    "Regen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regen"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regen"
+          }
+        }
+      }
+    },
+    "Rigenerazioni" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regens"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazioni"
+          }
+        }
+      }
+    },
+    "Salvati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salvati"
+          }
+        }
+      }
+    },
+    "Scarico" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exhaust"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scarico"
+          }
+        }
+      }
+    },
+    "Suoni disattivati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sounds are off"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suoni disattivati"
+          }
+        }
+      }
+    },
+    "Test alert CarPlay" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test CarPlay alert"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test alert CarPlay"
+          }
+        }
+      }
+    },
+    "Test notifica CarPlay" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test CarPlay notification"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test notifica CarPlay"
+          }
+        }
+      }
+    },
+    "Test notifica non riuscito" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notification test failed"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test notifica non riuscito"
+          }
+        }
+      }
+    },
+    "Test sistema · 10 s" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System test · 10 sec"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test sistema · 10 s"
+          }
+        }
+      }
+    },
+    "Time Sensitive disattivate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time Sensitive notifications are off"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time Sensitive disattivate"
+          }
+        }
+      }
+    },
+    "Verifica impostazioni in corso" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking notification settings"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifica impostazioni in corso"
           }
         }
       }
