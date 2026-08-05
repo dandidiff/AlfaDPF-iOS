@@ -6,7 +6,10 @@ import UIKit
 /// `MonitorSession`, so every action controls one BLE adapter and one ECU poller.
 @MainActor
 @objc(CarPlaySceneDelegate)
-final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
+final class CarPlaySceneDelegate: UIResponder,
+    CPTemplateApplicationSceneDelegate,
+    CPInterfaceControllerDelegate
+{
     private weak var interfaceController: CPInterfaceController?
     private var dashboardTemplate: CPInformationTemplate?
     private var refreshTask: Task<Void, Never>?
@@ -20,6 +23,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         didConnect interfaceController: CPInterfaceController
     ) {
         self.interfaceController = interfaceController
+        interfaceController.delegate = self
         interfaceController.prefersDarkUserInterfaceStyle = true
 
         let template = makeDashboardTemplate()
@@ -40,6 +44,9 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         _ templateApplicationScene: CPTemplateApplicationScene,
         didDisconnectInterfaceController interfaceController: CPInterfaceController
     ) {
+        if interfaceController.delegate === self {
+            interfaceController.delegate = nil
+        }
         refreshTask?.cancel()
         refreshTask = nil
         dashboardTemplate = nil
@@ -47,6 +54,12 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         regenerationAlertTracker = CarPlayRegenerationAlertTracker()
         isPresentingAlert = false
         OBDLog.log("CarPlay: dashboard disconnected; phone session preserved")
+    }
+
+    func templateDidDisappear(_ aTemplate: CPTemplate, animated: Bool) {
+        if aTemplate is CPAlertTemplate {
+            isPresentingAlert = false
+        }
     }
 
     private func startRefreshing() {
