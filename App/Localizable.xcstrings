@@ -96,6 +96,12 @@
             "state" : "translated",
             "value" : "Cancel connection"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annulla connessione"
+          }
         }
       }
     },
@@ -217,6 +223,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration progress"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avanzamento rigenerazione"
           }
         }
       }
@@ -355,6 +367,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connecting to the adapter…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione all’adattatore…"
           }
         }
       }
@@ -539,6 +557,12 @@
             "state" : "translated",
             "value" : "Disconnect"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnetti"
+          }
         }
       }
     },
@@ -548,6 +572,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Distance since last regeneration"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distanza dall’ultima rigenerazione"
           }
         }
       }
@@ -1263,6 +1293,12 @@
             "state" : "translated",
             "value" : "DPF regeneration started"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione DPF iniziata"
+          }
         }
       }
     },
@@ -1345,6 +1381,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Total regenerations"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazioni totali"
           }
         }
       }
@@ -1610,6 +1652,12 @@
             "state" : "translated",
             "value" : "Exhaust gas temperature"
           }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura gas di scarico"
+          }
         }
       }
     },
@@ -1635,6 +1683,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Battery voltage"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tensione batteria"
           }
         }
       }
@@ -1763,6 +1817,310 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Last saved state, not real time"
+          }
+        }
+      }
+    },
+    "Alpha DPF Monitor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor"
+          }
+        }
+      }
+    },
+    "Attiva · non spegnere il motore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active · do not turn off the engine"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attiva · non spegnere il motore"
+          }
+        }
+      }
+    },
+    "Carico DPF" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF load"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carico DPF"
+          }
+        }
+      }
+    },
+    "Connesso · attesa dati ECU" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected · waiting for ECU data"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connesso · attesa dati ECU"
+          }
+        }
+      }
+    },
+    "Connesso · dati live" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected · live data"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connesso · dati live"
+          }
+        }
+      }
+    },
+    "Connetti" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connetti"
+          }
+        }
+      }
+    },
+    "Connessione interrotta · tocca Connetti" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection interrupted · tap Connect"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione interrotta · tocca Connetti"
+          }
+        }
+      }
+    },
+    "Disconnesso" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnected"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnesso"
+          }
+        }
+      }
+    },
+    "Disconnesso · ultimo dato salvato" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnected · last saved value"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnesso · ultimo dato salvato"
+          }
+        }
+      }
+    },
+    "Non attiva" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not active"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non attiva"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Passiva" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passive"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passiva"
+          }
+        }
+      }
+    },
+    "Rigenerazione" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione"
+          }
+        }
+      }
+    },
+    "Rigenerazione completata" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration completed"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione completata"
+          }
+        }
+      }
+    },
+    "Rigenerazione DPF completata." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF regeneration completed."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione DPF completata."
+          }
+        }
+      }
+    },
+    "Rigenerazione DPF iniziata — non spegnere il motore." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF regeneration started — do not turn off the engine."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione DPF iniziata — non spegnere il motore."
+          }
+        }
+      }
+    },
+    "Stato connessione" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection status"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato connessione"
+          }
+        }
+      }
+    },
+    "Test disponibile solo su iPhone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test available on iPhone only"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test disponibile solo su iPhone"
+          }
+        }
+      }
+    },
+    "Ultimo aggiornamento" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last update"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ultimo aggiornamento"
           }
         }
       }

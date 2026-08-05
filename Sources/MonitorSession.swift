@@ -8,6 +8,10 @@ import UIKit
 @MainActor
 @Observable
 final class MonitorSession {
+    /// Phone and CarPlay must control one BLE/ELM session. Creating a second
+    /// coordinator from the CarPlay scene would race the same adapter and ECU.
+    static let shared = MonitorSession()
+
     typealias Status = SessionStatus
 
     private(set) var status: Status = .idle {
@@ -56,6 +60,16 @@ final class MonitorSession {
     private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
     private static let batteryMetricMigrationDefaultsKey = "batteryMetricAdded.v1"
     private static let appAccentDefaultsKey = "appAccent.v1"
+
+    /// Secondary vehicle displays must never inherit a Test Lab fixture. Until
+    /// a fresh real sample arrives, expose only the last persisted ECU state.
+    var carPlayDPFState: DPFState {
+        CarPlayTelemetryPolicy.displayState(
+            current: dpf,
+            lastPersisted: lastPersistedState,
+            hasLiveTelemetry: hasLiveTelemetry
+        )
+    }
 
     init(defaults: UserDefaults = .standard) {
         let initialAutoConnectEnabled: Bool

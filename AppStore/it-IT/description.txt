@@ -15,6 +15,10 @@ RIGENERAZIONE SEMPRE VISIBILE
 
 Quando viene rilevata una rigenerazione, l’app aggiorna la schermata, può mostrare una Live Activity su schermata di blocco e Dynamic Island e può inviare notifiche locali di inizio e fine.
 
+SU CARPLAY
+
+La dashboard CarPlay dedicata mostra i dati DPF essenziali e il loro ultimo aggiornamento. Puoi avviare o interrompere la connessione all’adattatore direttamente da CarPlay e ricevere gli avvisi di inizio e fine rigenerazione, senza creare una seconda sessione diagnostica.
+
 PROVA SENZA AUTOMOBILE
 
 Il Laboratorio test integrato riproduce un ciclo completo per verificare interfaccia, notifiche e Live Activity prima di collegarsi al veicolo.

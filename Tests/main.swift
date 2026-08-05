@@ -65,6 +65,55 @@ expect(!SessionStatus.idle.keepsScreenAwake
        && !SessionStatus.failed("test").keepsScreenAwake,
        "idle timer: idle, simulation and failures release screen")
 
+expect(SessionStatus.idle.carPlayConnectionAction == .connect
+       && SessionStatus.failed("test").carPlayConnectionAction == .connect
+       && SessionStatus.simulating.carPlayConnectionAction == .connect,
+       "carplay: idle, failed and simulation states offer connect")
+expect(SessionStatus.connecting.carPlayConnectionAction == .cancel,
+       "carplay: connecting state offers cancellation")
+expect(SessionStatus.running.carPlayConnectionAction == .disconnect,
+       "carplay: running state offers disconnect")
+expect(CarPlayRefreshPolicy.interval >= .seconds(10),
+       "carplay: periodic dashboard refresh respects Apple's 10-second minimum")
+
+var carPlayCurrentState = DPFState()
+carPlayCurrentState.cloggingPercent = 88
+var carPlayPersistedState = DPFState()
+carPlayPersistedState.cloggingPercent = 42
+expect(CarPlayTelemetryPolicy.displayState(
+    current: carPlayCurrentState,
+    lastPersisted: carPlayPersistedState,
+    hasLiveTelemetry: true
+).cloggingPercent == 88,
+       "carplay telemetry: fresh real sample wins")
+expect(CarPlayTelemetryPolicy.displayState(
+    current: carPlayCurrentState,
+    lastPersisted: carPlayPersistedState,
+    hasLiveTelemetry: false
+).cloggingPercent == 42,
+       "carplay telemetry: cached real state hides non-live fixture")
+expect(!CarPlayTelemetryPolicy.displayState(
+    current: carPlayCurrentState,
+    lastPersisted: nil,
+    hasLiveTelemetry: false
+).hasTelemetry,
+       "carplay telemetry: no real state displays unavailable values")
+
+var carPlayAlertTracker = CarPlayRegenerationAlertTracker()
+expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: false) == nil,
+       "carplay alert: cached telemetry never creates an event")
+expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: true) == nil,
+       "carplay alert: first live sample arms without a false event")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == .started,
+       "carplay alert: inactive-to-active edge starts regeneration")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
+       "carplay alert: stable active state does not repeat")
+expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: true) == .finished,
+       "carplay alert: active-to-inactive edge finishes regeneration")
+expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: false) == nil
+       && carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
+       "carplay alert: telemetry interruption rearms without a false event")
+
 for error in [
     OBDError.notReady,
     .protocolError("test"),

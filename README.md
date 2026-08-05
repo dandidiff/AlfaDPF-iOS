@@ -31,10 +31,10 @@ Aprire **`AlfaDPF.xcodeproj`**, selezionare lo scheme **AlfaDPF**, scegliere
 l'iPhone e premere Run. Il target `DPFWidget` è una dipendenza dello scheme:
 Xcode lo compila e lo incorpora automaticamente, non va avviato separatamente.
 
-Con un Personal Team gratuito l'app e la Live Activity si possono installare
-sul proprio iPhone. La firma di una vera app-template CarPlay richiede invece
-un entitlement approvato da Apple; per questo il vecchio target CarPlay è stato
-rimosso dalla build finale.
+La build include una scena CarPlay nativa nella categoria **Driving Task**.
+La firma richiede che il bundle ID disponga dell'entitlement Apple
+`com.apple.developer.carplay-driving-task`; senza l'approvazione Apple la build
+firmata deve fallire, anziché distribuire una capability non autorizzata.
 
 ## Compatibilità adattatori
 
@@ -46,7 +46,31 @@ solo, non implica compatibilità. Un servizio generico `FFE0` senza un nome OBD,
 Konnwei o KW903 viene ignorato per evitare di collegarsi a periferiche HM-10 non
 OBD.
 
-## Schermata auto e Live Activity
+## CarPlay e Live Activity
+
+Collegando CarPlay, l'app mostra un `CPInformationTemplate` a due colonne con:
+
+- stato della connessione BLE/ECU e comando Connetti/Disconnetti;
+- carico DPF, avanzamento e stato rigenerazione;
+- distanza dall'ultima rigenerazione e numero totale di rigenerazioni;
+- temperatura gas di scarico, stato pressione olio e tensione batteria;
+- ora dell'ultimo aggiornamento, così un dato salvato non viene spacciato per
+  telemetria live.
+
+Telefono e CarPlay usano lo stesso `MonitorSession`: esiste una sola connessione
+BLE, un solo `DPFMonitor` e una sola coda ELM. La dashboard CarPlay si aggiorna
+ogni 10 secondi, nel rispetto delle linee guida Apple per le Driving Task app,
+osservando lo stato già prodotto dall'app e senza inviare richieste OBD
+aggiuntive. Il simulatore DPF resta disponibile soltanto su iPhone e non viene
+mai presentato come dato reale nell'auto.
+
+Le notifiche di inizio/fine rigenerazione usano una categoria locale con
+`.allowInCarPlay` e livello time-sensitive su iOS 18.4 e successivi. Sulle
+versioni precedenti supportate, o se le notifiche CarPlay di sistema sono
+disattivate, la scena usa un `CPAlertTemplate` come fallback; quando sono attive
+non mostra un secondo alert duplicato.
+
+### Live Activity
 
 Quando arrivano i primi dati DPF, l'app avvia una Live Activity con:
 
@@ -57,8 +81,8 @@ Quando arrivano i primi dati DPF, l'app avvia una Live Activity con:
 - temperatura di scarico;
 - presentazione compatta per Dynamic Island e CarPlay.
 
-Le Live Activity possono apparire automaticamente su CarPlay senza
-l'entitlement di una app CarPlay completa. Riferimenti Apple:
+La Live Activity resta disponibile anche fuori dalla scena CarPlay completa.
+Riferimenti Apple:
 [CarPlay](https://developer.apple.com/carplay/),
 [ActivityKit](https://developer.apple.com/documentation/activitykit),
 [Live Activities](https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities).
@@ -85,12 +109,12 @@ Nell'app aprire **Impostazioni → Laboratorio DPF**, quindi:
 4. verificare banner e suono sia all'inizio sia alla fine;
 5. controllare contemporaneamente Live Activity e Dynamic Island.
 
-Per la prova reale lasciare attiva la sessione Bluetooth, bloccare il telefono
-e verificare anche CarPlay. Gli avvisi usano una categoria abilitata per
-CarPlay; in **Impostazioni → Notifiche → Alpha DPF Monitor** devono essere consentiti
-Schermata di blocco e Suoni. Con un Personal Team le notifiche urgenti non sono
-firmabili, quindi anche la modalità Full immersion Guida deve consentire gli
-avvisi di Alpha DPF Monitor.
+Per la prova reale collegare CarPlay e usare **Connetti** direttamente dalla
+dashboard dell'auto. Verificare che gli stessi dati restino sincronizzati su
+iPhone e CarPlay, quindi bloccare il telefono. Gli avvisi usano una categoria
+abilitata per CarPlay; in **Impostazioni → Notifiche → Alpha DPF Monitor** devono
+essere consentiti CarPlay, Schermata di blocco e Suoni. Anche la modalità Full
+immersion Guida deve consentire gli avvisi di Alpha DPF Monitor.
 
 Ogni scenario può anche essere selezionato singolarmente. Per provare soltanto
 il canale di notifica usare **Prova solo banner e suono**. Il simulatore usa lo
@@ -162,6 +186,7 @@ swiftc Sources/Models.swift Sources/OBDLog.swift Sources/OBDTransport.swift \
 | `Sources/MonitorSession.swift` | connessione, polling DPF, simulazioni |
 | `Sources/DPFMonitor.swift` | PID Mode 22 e transizioni rigenerazione |
 | `Sources/AlertService.swift` | notifiche locali con suono |
+| `Sources/CarPlaySceneDelegate.swift` | dashboard, comandi e alert CarPlay |
 | `Sources/DPFLiveActivityController.swift` | avvio e aggiornamento Live Activity |
 | `DPFWidget/DPFWidgetBundle.swift` | Lock Screen, Dynamic Island e CarPlay |
 | `Sources/Models.swift` | stato DPF, tracker, scenari e formule PID |

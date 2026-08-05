@@ -1,5 +1,6 @@
 Version 1.2 improves reliability, Live Activities and available data:
 
+• new native CarPlay dashboard with direct adapter connection, updated DPF data and regeneration notifications;
 • redesigned Live Activity without the double border, fully localised in Italian and English;
 • more reliable DPF polling, protected from interfering diagnostic requests;
 • detection of Konnwei KW903 Bluetooth LE adapters and support for the FFE0/FFE1 profile;

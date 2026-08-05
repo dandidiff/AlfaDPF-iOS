@@ -20,6 +20,71 @@ enum SessionStatus: Equatable, Sendable {
         case .idle, .simulating, .failed: return false
         }
     }
+
+    /// The single safe connection action exposed by the CarPlay dashboard.
+    /// A simulation is phone-only, so selecting Connect replaces it with a
+    /// real OBD session rather than displaying synthetic data in the vehicle.
+    var carPlayConnectionAction: CarPlayConnectionAction {
+        switch self {
+        case .idle, .simulating, .failed: return .connect
+        case .connecting: return .cancel
+        case .running: return .disconnect
+        }
+    }
+}
+
+enum CarPlayConnectionAction: Equatable, Sendable {
+    case connect
+    case cancel
+    case disconnect
+}
+
+/// Apple limits periodic data-item refreshes in Driving Task apps to no more
+/// than once every ten seconds. Keep this policy shared with tests so a future
+/// UI change cannot silently reintroduce a non-compliant real-time refresh.
+enum CarPlayRefreshPolicy {
+    static let interval: Duration = .seconds(10)
+}
+
+enum CarPlayTelemetryPolicy {
+    static func displayState(
+        current: DPFState,
+        lastPersisted: DPFState?,
+        hasLiveTelemetry: Bool
+    ) -> DPFState {
+        hasLiveTelemetry ? current : (lastPersisted ?? DPFState())
+    }
+}
+
+enum CarPlayRegenerationAlertEvent: Equatable, Sendable {
+    case started
+    case finished
+}
+
+/// Emits CarPlay modal alerts only on edges observed while telemetry is live.
+/// Cached/initial values arm the tracker without producing a false alert, and
+/// an interruption resets it so reconnection cannot replay a stale event.
+struct CarPlayRegenerationAlertTracker: Equatable, Sendable {
+    private var previousIsRegenerating: Bool?
+
+    mutating func observe(
+        isRegenerating: Bool,
+        telemetryIsLive: Bool
+    ) -> CarPlayRegenerationAlertEvent? {
+        guard telemetryIsLive else {
+            previousIsRegenerating = nil
+            return nil
+        }
+
+        guard let previousIsRegenerating else {
+            self.previousIsRegenerating = isRegenerating
+            return nil
+        }
+
+        self.previousIsRegenerating = isRegenerating
+        guard previousIsRegenerating != isRegenerating else { return nil }
+        return isRegenerating ? .started : .finished
+    }
 }
 
 /// Canonical deep-link destinations. The Live Activity widget opens

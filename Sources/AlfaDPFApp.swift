@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 @main
 struct AlfaDPFApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var session = MonitorSession()
+    @State private var session = MonitorSession.shared
 
     var body: some Scene {
         WindowGroup {
