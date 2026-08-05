@@ -501,6 +501,28 @@ expect(
 
 // MARK: - Mode 01 parsing
 
+var mode01Admission = Mode01AdmissionPolicy(requiredStablePolls: 3)
+expect(
+    !mode01Admission.observe(freshPIDs: [.exhaustTempC]),
+    "mode01 gate: exhaust-only telemetry keeps standard polling disabled"
+)
+expect(
+    !mode01Admission.observe(freshPIDs: [.cloggingPercent, .regenProgressPercent]),
+    "mode01 gate: first stable DPF core poll is not enough"
+)
+expect(
+    !mode01Admission.observe(freshPIDs: [.cloggingPercent, .regenProgressPercent]),
+    "mode01 gate: second stable DPF core poll is not enough"
+)
+expect(
+    mode01Admission.observe(freshPIDs: [.cloggingPercent, .regenProgressPercent]),
+    "mode01 gate: third stable DPF core poll enables standard polling"
+)
+expect(
+    !mode01Admission.observe(freshPIDs: [.cloggingPercent]),
+    "mode01 gate: an unstable DPF core poll suspends standard polling"
+)
+
 expectBytes("mode01: 11-bit header, no spaces",
             { try Mode01Reader.parseMode01("7E804410C1AF8", expectedPID: 0x0C) },
             prefix: [0x1A, 0xF8])

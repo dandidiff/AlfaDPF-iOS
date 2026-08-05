@@ -50,6 +50,7 @@ actor DPFMonitor {
     private var lastSuccessfulCoreReadAt: Date?
     private var pidRetryAfter: [DPFPID: Date] = [:]
     private var mode01RetryAfter: [UInt8: Date] = [:]
+    private var mode01Admission = Mode01AdmissionPolicy()
     private var preferredExhaustTemperaturePID: DPFPID?
 
     /// Number of consecutive polls where the regen-progress read failed.
@@ -172,6 +173,14 @@ actor DPFMonitor {
             lastSuccessfulCoreReadAt: lastSuccessfulCoreReadAt
         )
 
+        let mode01WasEnabled = mode01Admission.isEnabled
+        let mode01IsEnabled = mode01Admission.observe(freshPIDs: freshPIDs)
+        if !mode01WasEnabled, mode01IsEnabled {
+            OBDLog.log("Mode 01 enabled after stable DPF core telemetry")
+        } else if mode01WasEnabled, !mode01IsEnabled {
+            OBDLog.log("Mode 01 suspended after unstable DPF core telemetry")
+        }
+
         // Non-critical telemetry comes last. A slow or unsupported PID cannot
         // delay the transition detector or its local notification.
         var secondary = DPFState(timestamp: sampledAt)
@@ -219,7 +228,8 @@ actor DPFMonitor {
         // barometric pressure so the displayed boost is not altitude-dependent.
         // The explicit functional header also prevents Mode 01 from inheriting
         // the previous physical Mode 22 ATSH context.
-        if let physicalHeader = lastGoodHeader,
+        if mode01IsEnabled,
+           let physicalHeader = ecuHeaders[.cloggingPercent],
            let functionalHeader = Mode01Reader.functionalRequestHeader(
                forPhysicalHeader: physicalHeader
            ) {

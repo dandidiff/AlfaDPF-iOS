@@ -764,3 +764,37 @@ enum DPFPID: UInt16, Hashable, Sendable {
         }
     }
 }
+
+/// Keeps optional standard engine polling out of the ELM327 session until the
+/// two DPF signals used by the dashboard and regeneration detector have both
+/// answered repeatedly. This preserves the proven main-branch DPF-only startup
+/// path and suspends Mode 01 again after any unstable core poll.
+struct Mode01AdmissionPolicy: Equatable, Sendable {
+    let requiredStablePolls: Int
+    private(set) var consecutiveStablePolls = 0
+    private(set) var isEnabled = false
+
+    init(requiredStablePolls: Int = 3) {
+        precondition(requiredStablePolls > 0)
+        self.requiredStablePolls = requiredStablePolls
+    }
+
+    @discardableResult
+    mutating func observe(freshPIDs: Set<DPFPID>) -> Bool {
+        let hasStableDPFCore = freshPIDs.contains(.cloggingPercent)
+            && freshPIDs.contains(.regenProgressPercent)
+
+        guard hasStableDPFCore else {
+            consecutiveStablePolls = 0
+            isEnabled = false
+            return false
+        }
+
+        consecutiveStablePolls = min(
+            consecutiveStablePolls + 1,
+            requiredStablePolls
+        )
+        isEnabled = consecutiveStablePolls >= requiredStablePolls
+        return isEnabled
+    }
+}

@@ -107,12 +107,15 @@ ALFADPF_SCENARIO=regenInProgress
 
 ## Dati motore senza interferire con il DPF
 
-I PID critici DPF vengono sempre letti per primi. Soltanto dopo, la sessione
-invia uno slot di telemetria standard Mode 01 usando un header funzionale
-esplicito e la stessa coda seriale ELM327; lo slot turbo invia sia MAP sia BARO.
-La richiesta Mode 22 successiva ripristina esplicitamente il proprio header
-fisico. Un PID opzionale non supportato va in backoff per 30 secondi, così un
-clone lento non può bloccare ogni ciclo.
+I PID critici DPF vengono sempre letti per primi. La telemetria standard Mode 01
+resta disattivata finché carico filtro e avanzamento rigenerazione non rispondono
+entrambi per tre cicli consecutivi; se uno dei due diventa instabile, Mode 01
+viene sospeso di nuovo. Soltanto dopo questa stabilizzazione, la sessione invia
+uno slot Mode 01 usando un header funzionale esplicito e la stessa coda seriale
+ELM327; lo slot turbo invia sia MAP sia BARO. La richiesta Mode 22 successiva
+ripristina esplicitamente il proprio header fisico. Un PID opzionale non
+supportato va in backoff per 30 secondi, così un clone lento non può bloccare
+ogni ciclo.
 
 - `010C` — giri motore, `(A·256+B)/4` rpm;
 - `0105` — temperatura liquido, `A−40` °C;
