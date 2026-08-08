@@ -37,6 +37,8 @@
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Si connette all'adattatore OBD-II Bluetooth per leggere i dati DPF in tempo reale.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Si connette all'adattatore OBD-II Wi-Fi sulla rete locale per leggere i dati DPF in tempo reale.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

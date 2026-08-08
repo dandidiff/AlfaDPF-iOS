@@ -1,11 +1,11 @@
 # Alpha DPF Monitor iOS
 
-Monitor DPF per Alfa Romeo / FCA diesel via adattatore ELM327 Bluetooth LE.
+Monitor DPF per Alfa Romeo / FCA diesel via adattatore ELM327 Bluetooth LE o Wi-Fi.
 La versione corrente è volutamente concentrata sui dati del filtro e sulla
 rilevazione affidabile della rigenerazione. La dashboard mostra anche la
 tensione di alimentazione reale restituita dall’adattatore tramite `ATRV`.
 
-Versione in sviluppo: **1.2 (build 10)**.
+Versione in sviluppo: **1.3 (build 11)**.
 
 Il nome pubblico della versione App Store è **Alpha DPF Monitor** — non “Alfa
 DPF”: “Alpha” è il marchio pubblico, scelto per restare distintivo senza usare
@@ -38,13 +38,19 @@ firmata deve fallire, anziché distribuire una capability non autorizzata.
 
 ## Compatibilità adattatori
 
-La connessione iOS usa esclusivamente Bluetooth Low Energy tramite CoreBluetooth.
+La connessione iOS supporta Bluetooth Low Energy tramite CoreBluetooth e
+adattatori Wi-Fi ELM327 tramite TCP locale con indirizzo e porta configurabili.
 Il profilo Konnwei KW903 BLE `FFE0`/`FFE1` è riconosciuto esplicitamente, insieme
 al profilo Vgate/Vlink `FFF0`/`FFF1`/`FFF2`. I modelli Konnwei Bluetooth Classic
 come KW902 non sono accessibili a una normale app iOS; il marchio Konnwei, da
 solo, non implica compatibilità. Un servizio generico `FFE0` senza un nome OBD,
 Konnwei o KW903 viene ignorato per evitare di collegarsi a periferiche HM-10 non
 OBD.
+
+Gli header CAN a 29 bit usano la sequenza compatibile ELM327 v1.5 `ATCPxx` +
+`ATSHxxxxxx`, con fallback al comando ATSH a otto cifre dei firmware più
+recenti. Le risposte ai comandi header vengono validate e mostrate nella
+diagnostica invece di essere ignorate.
 
 ## CarPlay e Live Activity
 
@@ -67,7 +73,7 @@ la diagnostica e i due test separati. Toccando una tile si apre un
 `CPInformationTemplate` di secondo livello con i dettagli contestuali.
 
 Telefono e CarPlay usano lo stesso `MonitorSession`: esiste una sola connessione
-BLE, un solo `DPFMonitor` e una sola coda ELM. La dashboard CarPlay si aggiorna
+OBD, un solo `DPFMonitor` e una sola coda ELM. La dashboard CarPlay si aggiorna
 ogni 10 secondi, nel rispetto delle linee guida Apple per le Driving Task app,
 osservando lo stato già prodotto dall'app e senza inviare richieste OBD
 aggiuntive. Il simulatore DPF resta disponibile soltanto su iPhone e non viene

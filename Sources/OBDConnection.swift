@@ -56,7 +56,7 @@ actor OBDConnection: OBDTransport {
         switch state {
         case .ready: return
         case .idle: throw OBDError.notReady
-        case .failed(let error) where error as? OBDError == .connectionTimeout:
+        case .failed(let error) where error as? OBDError == .wifiConnectionTimeout:
             throw error
         default:
             try await withCheckedThrowingContinuation { cont in
@@ -207,8 +207,8 @@ actor OBDConnection: OBDTransport {
         reconnectTask = nil
         connection?.cancel()
         connection = nil
-        state = .failed(OBDError.connectionTimeout)
-        resumeReadyContinuations(throwing: OBDError.connectionTimeout)
+        state = .failed(OBDError.wifiConnectionTimeout)
+        resumeReadyContinuations(throwing: OBDError.wifiConnectionTimeout)
     }
 
     private func resumeReadyContinuations(throwing error: Error? = nil) {

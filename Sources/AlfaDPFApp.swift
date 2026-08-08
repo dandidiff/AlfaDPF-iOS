@@ -1144,16 +1144,45 @@ private struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     settingsSection(title: "CONNESSIONE", icon: "cable.connector") {
-                        Toggle(isOn: $session.autoConnectEnabled) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Connessione automatica")
-                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                Text("Tenta la connessione Bluetooth all’apertura dell’app")
-                                    .font(.system(size: 11, design: .rounded))
-                                    .foregroundStyle(Brand.textDim)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Picker("Tipo di adattatore", selection: $session.transportKind) {
+                                ForEach(OBDTransportKind.allCases) { kind in
+                                    Text(LocalizedStringKey(kind.title)).tag(kind)
+                                }
                             }
+                            .pickerStyle(.segmented)
+                            .disabled(connectionSettingsLocked)
+
+                            if session.transportKind == .wifi {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    TextField("Indirizzo IP o host", text: $session.wifiHost)
+                                        .textInputAutocapitalization(.never)
+                                        .autocorrectionDisabled()
+                                        .keyboardType(.URL)
+                                    TextField("Porta TCP", text: $session.wifiPort)
+                                        .keyboardType(.numberPad)
+                                    Text("Connettiti prima alla rete Wi-Fi creata dall’adattatore. È normale che iOS indichi “Nessuna connessione Internet”.")
+                                        .font(.system(size: 10, design: .rounded))
+                                        .foregroundStyle(Brand.textDim)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                .textFieldStyle(.roundedBorder)
+                                .disabled(connectionSettingsLocked)
+                            }
+
+                            Divider().overlay(Brand.hairline)
+
+                            Toggle(isOn: $session.autoConnectEnabled) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Connessione automatica")
+                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    Text("Tenta la connessione all’apertura dell’app")
+                                        .font(.system(size: 11, design: .rounded))
+                                        .foregroundStyle(Brand.textDim)
+                                }
+                            }
+                            .tint(appAccent)
                         }
-                        .tint(appAccent)
                     }
 
                     settingsSection(title: "COLORE ACCENT", icon: "paintpalette.fill") {
@@ -1296,6 +1325,13 @@ private struct SettingsView: View {
             TestLabView(session: session)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+    }
+
+    private var connectionSettingsLocked: Bool {
+        switch session.status {
+        case .connecting, .running: return true
+        case .idle, .simulating, .failed: return false
         }
     }
 

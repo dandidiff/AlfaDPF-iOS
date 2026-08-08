@@ -12,9 +12,20 @@ struct ELM327 {
 
     /// Boots the adapter into a known state. Called once after (re)connect.
     func initializeSession() async throws {
-        // ATZ reboots the chip and prints a version banner — give it longer
-        // than the default read timeout before declaring the adapter dead.
-        _ = try await connection.send("ATZ", timeout: 5.0)
+        // ATZ reboots the chip and prints a version banner. Some old clones
+        // reboot successfully but omit or delay the final prompt; in that case
+        // prove the command channel is alive instead of rejecting the adapter.
+        do {
+            _ = try await connection.send("ATZ", timeout: 5.0)
+        } catch {
+            OBDLog.log("init: ATZ did not complete (\(error)); probing with ATI")
+            try await Task.sleep(for: .milliseconds(300))
+            let wake = try await connection.send("ATI", timeout: 3.0)
+            guard Self.isAcceptedATResponse(wake) else {
+                throw OBDError.protocolError("adapter did not answer ATI after reset: \(wake)")
+            }
+        }
+
         let boot = [
             "ATE0",        // echo off
             "ATL0",        // linefeeds off
@@ -27,7 +38,17 @@ struct ELM327 {
             "ATAT1"        // adaptive timing
         ]
         for cmd in boot {
-            _ = try await connection.send(cmd)
+            do {
+                let response = try await connection.send(cmd)
+                if !Self.isAcceptedATResponse(response) {
+                    OBDLog.log("init: optional \(cmd) rejected: \(response)")
+                }
+            } catch {
+                // Formatting and adaptive timing are optimizations. The parser
+                // already tolerates echo, spaces and linefeeds, so a clone that
+                // lacks one of these commands can still be usable.
+                OBDLog.log("init: optional \(cmd) unavailable: \(error)")
+            }
         }
 
         // First real request triggers the protocol search ("SEARCHING..."),
@@ -41,6 +62,20 @@ struct ELM327 {
         if let proto = try? await connection.send("ATDPN") {
             OBDLog.log("protocol: \(proto.trimmingCharacters(in: .whitespacesAndNewlines))")
         }
+    }
+
+    static func isAcceptedATResponse(_ response: String) -> Bool {
+        let lines = response
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+        guard !lines.isEmpty else { return false }
+        return !lines.contains(where: {
+            $0 == "?"
+                || $0 == "NO DATA"
+                || $0 == "STOPPED"
+                || $0.contains("ERROR")
+                || $0.contains("UNABLE TO CONNECT")
+        })
     }
 
     /// Requests a Mode 22 PID and returns the raw data bytes of the reply

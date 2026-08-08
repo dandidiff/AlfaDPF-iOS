@@ -218,6 +218,8 @@ for error in [
     .bluetoothUnavailable,
     .connectionFailed,
     .incompatibleAdapter,
+    .invalidWiFiEndpoint,
+    .wifiConnectionTimeout,
 ] {
     expect(!error.localizedDescription.isEmpty,
            "OBD error: user-readable \(error)")
@@ -709,6 +711,33 @@ do {
 
 // MARK: - BLE characteristic picking
 
+// MARK: - Transport settings
+
+expect(OBDTransportKind.load(from: UserDefaults(suiteName: UUID().uuidString)!) == .bluetooth,
+       "transport: Bluetooth remains the default")
+expect(WiFiAdapterEndpoint.parse(host: " 192.168.0.10 ", port: "35000")
+        == .init(host: "192.168.0.10", port: 35000),
+       "transport: Wi-Fi endpoint trims and parses")
+expect(WiFiAdapterEndpoint.parse(host: "192.168.0.10", port: "0") == nil,
+       "transport: Wi-Fi port zero is rejected")
+expect(WiFiAdapterEndpoint.parse(host: "http://192.168.0.10", port: "35000") == nil,
+       "transport: Wi-Fi endpoint rejects URL syntax")
+expect(WiFiAdapterEndpoint.parse(host: "192.168.0.10/path", port: "35000") == nil,
+       "transport: Wi-Fi endpoint rejects paths")
+
+expect(ELM327.isAcceptedATResponse("OK"), "init: accepts OK")
+expect(ELM327.isAcceptedATResponse("ELM327 v1.5"), "init: accepts version banner")
+expect(!ELM327.isAcceptedATResponse("?"), "init: rejects unsupported AT command")
+expect(!ELM327.isAcceptedATResponse("UNABLE TO CONNECT"),
+       "init: rejects failed adapter response")
+
+expect(ELMLineEngine.isSuccessfulATResponse("OK\r"),
+       "header: accepts explicit OK")
+expect(!ELMLineEngine.isSuccessfulATResponse("?"),
+       "header: rejects unsupported command")
+expect(!ELMLineEngine.isSuccessfulATResponse("NO DATA"),
+       "header: rejects non-acknowledgement")
+
 typealias BLECandidate = BLECharacteristicPicker.Candidate
 let svcVlink = CBUUID(string: "FFF0")
 let chrNotifyVlink = CBUUID(string: "FFF1")
@@ -937,6 +966,7 @@ let port2 = testPortBase + 1
 let recorder = CommandRecorder()
 let server2 = try MockELMServer(port: port2) { cmd in
     recorder.record(cmd)
+    if cmd.hasPrefix("ATCP") { return "OK\r>" }
     if cmd.hasPrefix("ATSH") { return "OK\r>" }
     if cmd == "2218E4" { return "18DAF110056218E40CCD\r>" } // 29-bit positive reply
     if cmd == "010C" { return "18DAF11004410C0C86\r>" }
@@ -956,12 +986,14 @@ do {
     let bytes = try await elm2.readMode22(pid: 0x18E4, header: "18DA10F1")
     expect(bytes == [0x0C, 0xCD], "header: mode22 with physical header parses")
     let cmds = recorder.commands
-    if let atsh = cmds.firstIndex(of: "ATSH18DA10F1"),
+    if let atcp = cmds.firstIndex(of: "ATCP18"),
+       let atsh = cmds.firstIndex(of: "ATSHDA10F1"),
        let req = cmds.firstIndex(of: "2218E4") {
-        expect(atsh < req, "header: ATSH precedes the 22 request")
+        expect(atcp < atsh && atsh < req,
+               "header: ELM327 v1.5 ATCP/ATSH precedes the 22 request")
     } else {
         failures += 1
-        print("FAIL: header: ATSH18DA10F1 not sent before 2218E4 — saw \(cmds)")
+        print("FAIL: header: ATCP18/ATSHDA10F1 not sent before 2218E4 — saw \(cmds)")
     }
 } catch {
     failures += 1
@@ -979,7 +1011,7 @@ do {
            "header: concurrent Mode 01 and Mode 22 both complete")
 
     let concurrentCommands = Array(recorder.commands.dropFirst(commandOffset))
-    if let atsh = concurrentCommands.firstIndex(of: "ATSH18DA18F1"),
+    if let atsh = concurrentCommands.firstIndex(of: "ATSHDA18F1"),
        let req = concurrentCommands.firstIndex(of: "2218E4") {
         expect(req == atsh + 1,
                "header: no Mode 01 interleaves between ATSH and Mode 22")
@@ -1007,9 +1039,9 @@ do {
     let sequence = Array(recorder.commands.dropFirst(commandOffset))
     expect(
         sequence == [
-            "ATSH18DA01F1", "2218E4",
-            "ATSH18DB33F1", "010C",
-            "ATSH18DA01F1", "2218E4",
+            "ATSHDA01F1", "2218E4",
+            "ATSHDB33F1", "010C",
+            "ATSHDA01F1", "2218E4",
         ],
         "header: physical context is restored after functional Mode 01"
     )
@@ -1018,6 +1050,57 @@ do {
     print("FAIL: sequential Mode 22/01/22 header test threw \(error)")
 }
 await obd2.stop()
+
+// Newer clone firmware may reject legacy ATCP but accept a complete 29-bit
+// identifier in ATSH. Validate that the fallback is bounded and observable.
+let port3 = testPortBase + 2
+let fallbackRecorder = CommandRecorder()
+let server3 = try MockELMServer(port: port3) { cmd in
+    fallbackRecorder.record(cmd)
+    if cmd == "ATCP18" { return "?\r>" }
+    if cmd == "ATSH18DA10F1" { return "OK\r>" }
+    if cmd == "2218E4" { return "18DAF110056218E40CCD\r>" }
+    return "NO DATA\r>"
+}
+_ = server3
+let fallbackOBD = OBDConnection(endpoint: .init(host: "127.0.0.1", port: port3))
+await fallbackOBD.start()
+do {
+    try await fallbackOBD.isReady()
+    let bytes = try await ELM327(connection: fallbackOBD)
+        .readMode22(pid: 0x18E4, header: "18DA10F1")
+    expect(bytes == [0x0C, 0xCD],
+           "header: four-byte ATSH fallback still reads Mode 22")
+    expect(fallbackRecorder.commands == ["ATCP18", "ATSH18DA10F1", "2218E4"],
+           "header: rejected ATCP triggers exactly one four-byte ATSH fallback")
+} catch {
+    failures += 1
+    print("FAIL: four-byte ATSH fallback threw \(error)")
+}
+await fallbackOBD.stop()
+
+// Never cache an unacknowledged header: a rejected legacy command followed by
+// a rejected fallback must fail before any diagnostic request reaches the ECU.
+let port4 = testPortBase + 3
+let rejectionRecorder = CommandRecorder()
+let server4 = try MockELMServer(port: port4) { cmd in
+    rejectionRecorder.record(cmd)
+    return "?\r>"
+}
+_ = server4
+let rejectingOBD = OBDConnection(endpoint: .init(host: "127.0.0.1", port: port4))
+await rejectingOBD.start()
+do {
+    try await rejectingOBD.isReady()
+    _ = try await ELM327(connection: rejectingOBD)
+        .readMode22(pid: 0x18E4, header: "18DA10F1")
+    failures += 1
+    print("FAIL: rejected header expected to throw")
+} catch {
+    expect(rejectionRecorder.commands == ["ATCP18", "ATSH18DA10F1"],
+           "header: rejected header never sends the Mode 22 request")
+}
+await rejectingOBD.stop()
 
 // An unreachable adapter must fail readiness instead of parking forever.
 let unavailable = OBDConnection(
@@ -1030,7 +1113,7 @@ do {
     failures += 1
     print("FAIL: readiness timeout expected, got ready")
 } catch let error as OBDError {
-    expect(error == .connectionTimeout,
+    expect(error == .wifiConnectionTimeout,
            "conn: readiness fails with typed overall timeout")
 } catch {
     failures += 1

@@ -33,6 +33,18 @@ final class MonitorSession {
         }
     }
 
+    var transportKind: OBDTransportKind {
+        didSet { transportKind.save(to: defaults) }
+    }
+
+    var wifiHost: String {
+        didSet { defaults.set(wifiHost, forKey: Self.wifiHostDefaultsKey) }
+    }
+
+    var wifiPort: String {
+        didSet { defaults.set(wifiPort, forKey: Self.wifiPortDefaultsKey) }
+    }
+
     var visibleDashboardMetrics: Set<DashboardMetric> {
         didSet {
             let values = visibleDashboardMetrics.map(\.rawValue).sorted()
@@ -62,6 +74,8 @@ final class MonitorSession {
     private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
     private static let batteryMetricMigrationDefaultsKey = "batteryMetricAdded.v1"
     private static let appAccentDefaultsKey = "appAccent.v1"
+    private static let wifiHostDefaultsKey = "wifiAdapterHost.v1"
+    private static let wifiPortDefaultsKey = "wifiAdapterPort.v1"
 
     /// Secondary vehicle displays must never inherit a Test Lab fixture. Until
     /// a fresh real sample arrives, expose only the last persisted ECU state.
@@ -100,6 +114,11 @@ final class MonitorSession {
 
         let initialAppAccent = defaults.string(forKey: Self.appAccentDefaultsKey)
             .flatMap(StelvioAccent.init(rawValue:)) ?? .rossoAlfa
+        let initialTransportKind = OBDTransportKind.load(from: defaults)
+        let initialWiFiHost = defaults.string(forKey: Self.wifiHostDefaultsKey)
+            ?? WiFiAdapterEndpoint.commonDefault.host
+        let initialWiFiPort = defaults.string(forKey: Self.wifiPortDefaultsKey)
+            ?? String(WiFiAdapterEndpoint.commonDefault.port)
         let initialCarPlayAlertsEnabled = CarPlayAlertPreference.load(from: defaults)
         let saved = DPFStateStore.load(from: defaults)
 
@@ -108,6 +127,9 @@ final class MonitorSession {
         self.autoConnectEnabled = initialAutoConnectEnabled
         self.visibleDashboardMetrics = initialVisibleDashboardMetrics
         self.appAccent = initialAppAccent
+        self.transportKind = initialTransportKind
+        self.wifiHost = initialWiFiHost
+        self.wifiPort = initialWiFiPort
         self.carPlayAlertsEnabled = initialCarPlayAlertsEnabled
         self.needsDrivingFocusGuidance =
             DrivingFocusGuidancePreference.needsPresentation(from: defaults)
@@ -332,8 +354,8 @@ final class MonitorSession {
 
     private func boot() async {
         let bootStartedAt = Date()
-        // Notification settings and BLE discovery are independent. Running
-        // them together removes an avoidable pause before scanning without
+        // Notification settings and transport setup are independent. Running
+        // them together removes an avoidable pause before connecting without
         // changing the adapter or ELM protocol sequence.
         let alertSetupTask = Task { [weak self, alerts] in
             let authorization = await alerts.configure()
@@ -341,7 +363,21 @@ final class MonitorSession {
             self?.alertAuthorization = authorization
         }
 
-        let obd = BLEConnection()
+        let obd: any OBDTransport
+        switch transportKind {
+        case .bluetooth:
+            OBDLog.log("connection: transport Bluetooth LE")
+            obd = BLEConnection()
+        case .wifi:
+            guard let endpoint = WiFiAdapterEndpoint.parse(host: wifiHost, port: wifiPort) else {
+                alertSetupTask.cancel()
+                status = .failed(OBDError.invalidWiFiEndpoint.localizedDescription)
+                hasLiveTelemetry = false
+                return
+            }
+            OBDLog.log("connection: transport Wi-Fi TCP \(endpoint.host):\(endpoint.port)")
+            obd = OBDConnection(endpoint: .init(host: endpoint.host, port: endpoint.port))
+        }
         self.obd = obd
         await obd.start()
         do {
@@ -352,7 +388,7 @@ final class MonitorSession {
                 await obd.stop()
                 return
             }
-            OBDLog.log("connection: BLE setup failed: \(error)")
+            OBDLog.log("connection: \(transportKind.title) setup failed: \(error)")
             status = .failed(Self.userMessage(
                 for: error,
                 fallback: "Impossibile connettersi all’adattatore OBD. Riprova."
@@ -367,7 +403,8 @@ final class MonitorSession {
         }
         OBDLog.log(
             String(
-                format: "connection: BLE ready after %.2f s",
+                format: "connection: %@ ready after %.2f s",
+                transportKind.title,
                 Date().timeIntervalSince(bootStartedAt)
             )
         )

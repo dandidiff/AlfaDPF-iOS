@@ -2897,6 +2897,60 @@
           }
         }
       }
+    },
+    "Bluetooth LE" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bluetooth LE" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Bluetooth LE" } }
+      }
+    },
+    "Wi-Fi" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Wi-Fi" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Wi-Fi" } }
+      }
+    },
+    "Tipo di adattatore" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Adapter type" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Tipo di adattatore" } }
+      }
+    },
+    "Indirizzo IP o host" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "IP address or host" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Indirizzo IP o host" } }
+      }
+    },
+    "Porta TCP" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "TCP port" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Porta TCP" } }
+      }
+    },
+    "Connettiti prima alla rete Wi-Fi creata dall’adattatore. È normale che iOS indichi “Nessuna connessione Internet”." : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "First connect to the Wi-Fi network created by the adapter. It is normal for iOS to show “No Internet Connection”." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Connettiti prima alla rete Wi-Fi creata dall’adattatore. È normale che iOS indichi “Nessuna connessione Internet”." } }
+      }
+    },
+    "Tenta la connessione all’apertura dell’app" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Try to connect when the app opens" } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Tenta la connessione all’apertura dell’app" } }
+      }
+    },
+    "Impostazioni Wi-Fi non valide. Controlla indirizzo e porta." : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid Wi-Fi settings. Check the address and port." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Impostazioni Wi-Fi non valide. Controlla indirizzo e porta." } }
+      }
+    },
+    "Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta." : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The Wi-Fi OBD adapter could not be reached within 30 seconds. Check the network, address and port." } },
+        "it" : { "stringUnit" : { "state" : "translated", "value" : "Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta." } }
+      }
     }
   },
   "version" : "1.0"

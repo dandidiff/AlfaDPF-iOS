@@ -1,5 +1,55 @@
 import Foundation
 
+/// User-selected physical link to the ELM adapter. Both transports feed the
+/// same ELM line engine; only discovery/socket plumbing differs.
+enum OBDTransportKind: String, CaseIterable, Identifiable, Sendable {
+    case bluetooth
+    case wifi
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .bluetooth: return "Bluetooth LE"
+        case .wifi: return "Wi-Fi"
+        }
+    }
+
+    private static let defaultsKey = "obdTransportKind.v1"
+
+    static func load(from defaults: UserDefaults) -> Self {
+        defaults.string(forKey: defaultsKey)
+            .flatMap(Self.init(rawValue:)) ?? .bluetooth
+    }
+
+    func save(to defaults: UserDefaults) {
+        defaults.set(rawValue, forKey: Self.defaultsKey)
+    }
+}
+
+/// Manually configured TCP endpoint used by common Wi-Fi ELM327 adapters.
+/// Manual configuration is deliberate: adapters use several private subnets,
+/// and blind local-network scans are both unreliable and intrusive.
+struct WiFiAdapterEndpoint: Equatable, Sendable {
+    var host: String
+    var port: UInt16
+
+    static let commonDefault = WiFiAdapterEndpoint(host: "192.168.0.10", port: 35000)
+
+    static func parse(host: String, port: String) -> Self? {
+        let cleanHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanPort = port.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanHost.isEmpty,
+              !cleanHost.contains(where: { $0.isWhitespace || $0.isNewline }),
+              !cleanHost.contains("://"),
+              !cleanHost.contains("/"),
+              let parsedPort = UInt16(cleanPort),
+              parsedPort > 0
+        else { return nil }
+        return WiFiAdapterEndpoint(host: cleanHost, port: parsedPort)
+    }
+}
+
 /// Lifecycle of the phone-side monitor session. Declared outside
 /// `MonitorSession` so the pure UI policy below (idle timer) is testable
 /// without UIKit.

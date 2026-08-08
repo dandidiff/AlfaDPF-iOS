@@ -47,6 +47,23 @@
           }
         }
       }
+    },
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Privacy - Local Network Usage Description",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connects to the Wi-Fi OBD-II adapter on the local network to read live DPF data."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si connette all’adattatore OBD-II Wi-Fi sulla rete locale per leggere i dati DPF in tempo reale."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
