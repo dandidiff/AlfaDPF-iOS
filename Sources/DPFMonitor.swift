@@ -121,6 +121,14 @@ actor DPFMonitor {
             failedPIDs.insert(.postDPFTempC)
         }
 
+        // Battery voltage is read on every cycle during an active regen so
+        // the interruption detector can distinguish a real engine shutdown
+        // (voltage drops from 14V to 12V) from a transient BLE dropout.
+        // Outside active regen it stays a secondary read (every 5th cycle).
+        if regenTracker.isActive == true {
+            fresh.batteryVoltage = try? await elm.readBatteryVoltage()
+        }
+
         let event = regenTracker.observe(
             progressPercent: fresh.regenProgressPercent,
             at: sampledAt,

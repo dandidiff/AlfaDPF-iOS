@@ -83,6 +83,76 @@ enum SessionStatus: Equatable, Sendable {
     }
 }
 
+/// Conservative evidence that the engine stopped while a regeneration was
+/// active. A single low ATRV sample is not enough: smart alternators can run
+/// below 13 V, and a stale voltage says nothing about a later telemetry loss.
+/// Confirmation therefore requires a live running-voltage baseline followed
+/// by three low samples spanning at least five seconds while core DPF traffic
+/// is unavailable.
+struct RegenEngineOffDetector: Equatable, Sendable {
+    private static let runningVoltage = 13.5
+    private static let engineOffVoltage = 12.8
+    private static let minimumVoltageDrop = 0.8
+    private static let minimumLowSamples = 3
+    private static let minimumLowDuration: TimeInterval = 5
+
+    private var runningBaseline: Double?
+    private var lowVoltageStartedAt: Date?
+    private var lowSampleCount = 0
+
+    mutating func observe(
+        voltage: Double?,
+        at timestamp: Date,
+        coreTelemetryAvailable: Bool
+    ) -> Bool {
+        if coreTelemetryAvailable {
+            clearLowEvidence()
+            guard let voltage, voltage.isFinite, (0...100).contains(voltage) else {
+                runningBaseline = nil
+                return false
+            }
+            // Only the most recent live voltage can arm a later shutdown
+            // decision. A historical alternator peak is stale evidence if the
+            // last live sample had already dropped into the ambiguous range.
+            runningBaseline = voltage >= Self.runningVoltage ? voltage : nil
+            return false
+        }
+
+        guard let voltage, voltage.isFinite, (0...100).contains(voltage) else {
+            return false
+        }
+        guard let runningBaseline else { return false }
+        let lowThreshold = min(
+            Self.engineOffVoltage,
+            runningBaseline - Self.minimumVoltageDrop
+        )
+        guard voltage <= lowThreshold else {
+            if voltage >= Self.runningVoltage {
+                clearLowEvidence()
+            }
+            return false
+        }
+
+        if lowVoltageStartedAt == nil {
+            lowVoltageStartedAt = timestamp
+        }
+        lowSampleCount += 1
+        guard let lowVoltageStartedAt else { return false }
+        return lowSampleCount >= Self.minimumLowSamples
+            && timestamp.timeIntervalSince(lowVoltageStartedAt) >= Self.minimumLowDuration
+    }
+
+    mutating func reset() {
+        runningBaseline = nil
+        clearLowEvidence()
+    }
+
+    private mutating func clearLowEvidence() {
+        lowVoltageStartedAt = nil
+        lowSampleCount = 0
+    }
+}
+
 enum CarPlayConnectionAction: Equatable, Sendable {
     case connect
     case cancel

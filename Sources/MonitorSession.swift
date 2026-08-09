@@ -26,6 +26,7 @@ final class MonitorSession {
     private(set) var hasLiveTelemetry = false
     private(set) var carPlayAlertsEnabled: Bool
     private(set) var needsDrivingFocusGuidance: Bool
+    private(set) var historyStore: DPFHistoryStore?
 
     var autoConnectEnabled: Bool {
         didSet {
@@ -67,9 +68,12 @@ final class MonitorSession {
     private let alerts: AlertService
     private let liveActivity = DPFLiveActivityController()
     private let defaults: UserDefaults
+    private var lastRecordedCloggingPercent: Double?
     private var lastPersistedState: DPFState?
     private var lastAcceptedPollSequence: UInt64 = 0
     private var reportedTelemetryInterruption = false
+    private var lastLiveRegenState: Bool?
+    private var engineOffDetector = RegenEngineOffDetector()
     private static let autoConnectDefaultsKey = "autoConnectEnabled.v1"
     private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
     private static let batteryMetricMigrationDefaultsKey = "batteryMetricAdded.v1"
@@ -124,6 +128,12 @@ final class MonitorSession {
 
         self.defaults = defaults
         self.alerts = AlertService(carPlayAlertsEnabled: initialCarPlayAlertsEnabled)
+        self.historyStore = { () -> DPFHistoryStore? in
+            do { return try DPFHistoryStore() } catch {
+                OBDLog.log("history: store init failed: \(error)")
+                return nil
+            }
+        }()
         self.autoConnectEnabled = initialAutoConnectEnabled
         self.visibleDashboardMetrics = initialVisibleDashboardMetrics
         self.appAccent = initialAppAccent
@@ -135,6 +145,9 @@ final class MonitorSession {
             DrivingFocusGuidancePreference.needsPresentation(from: defaults)
         self.dpf = saved ?? DPFState()
         self.lastPersistedState = saved
+        if historyStore?.recordActiveRegenUnconfirmed() == true {
+            OBDLog.log("history: active regen from previous app lifecycle marked unconfirmed")
+        }
     }
 
     /// Cached values remain visible while idle, reconnecting, or after an
@@ -200,6 +213,9 @@ final class MonitorSession {
 
     func start() {
         guard status == .idle || isFailed(status) else { return }
+        if historyStore?.recordActiveRegenUnconfirmed() == true {
+            OBDLog.log("history: active regen from previous session marked unconfirmed")
+        }
         cancelWork()
         let previousOBD = obd
         let previousMonitor = monitor
@@ -210,7 +226,10 @@ final class MonitorSession {
         activeScenario = nil
         lastRegenEvent = nil
         lastAcceptedPollSequence = 0
+        lastRecordedCloggingPercent = nil
         reportedTelemetryInterruption = false
+        lastLiveRegenState = nil
+        engineOffDetector.reset()
 
         bootTask = Task { [weak self] in
             await previousMonitor?.stop()
@@ -221,6 +240,9 @@ final class MonitorSession {
     }
 
     func stop() {
+        if historyStore?.recordActiveRegenUnconfirmed() == true {
+            OBDLog.log("history: active regen marked unconfirmed on session stop")
+        }
         cancelWork()
         persistCurrentState()
         let obd = self.obd
@@ -267,6 +289,9 @@ final class MonitorSession {
     // MARK: - Test Lab
 
     func startSimulation() {
+        if historyStore?.recordActiveRegenUnconfirmed() == true {
+            OBDLog.log("history: active regen marked unconfirmed before simulation")
+        }
         cancelWork()
 
         let obd = self.obd
@@ -453,7 +478,7 @@ final class MonitorSession {
                         await self?.liveActivity.update(with: monitorSnapshot.state)
                     } else if monitorSnapshot.pollSequence > 0,
                               !monitorSnapshot.hasRecentCoreTelemetry() {
-                        self?.markTelemetryInterrupted()
+                        self?.markTelemetryInterrupted(with: monitorSnapshot.state)
                     }
                 }
                 try? await Task.sleep(for: .seconds(1))
@@ -462,12 +487,55 @@ final class MonitorSession {
     }
 
     private func acceptLive(_ snapshot: DPFState) {
+        _ = engineOffDetector.observe(
+            voltage: snapshot.batteryVoltage,
+            at: snapshot.timestamp,
+            coreTelemetryAvailable: true
+        )
         dpf = snapshot
         hasLiveTelemetry = true
         reportedTelemetryInterruption = false
         if isFailed(status) {
             status = .running
         }
+
+        // History recording: sample on ≥1% load delta.
+        if let store = historyStore, let load = snapshot.cloggingPercent {
+            let delta = lastRecordedCloggingPercent.map { abs(load - $0) } ?? .infinity
+            if delta >= 1.0 {
+                let recorded = store.recordSample(
+                    timestamp: snapshot.timestamp,
+                    cloggingPercent: load,
+                    exhaustTempC: snapshot.exhaustTempC,
+                    regenActive: snapshot.effectiveRegenerationMode != .none,
+                    distanceSinceLastRegenKm: snapshot.distanceSinceLastRegenKm
+                )
+                if recorded {
+                    lastRecordedCloggingPercent = load
+                }
+            }
+        }
+
+        // Regen cycle tracking is based only on fresh live edges. A cached
+        // active state from a previous app run cannot prove whether that cycle
+        // later completed or was interrupted.
+        let isRegenerating = snapshot.effectiveRegenerationMode != .none
+        if lastLiveRegenState == nil,
+           !isRegenerating,
+           historyStore?.recordActiveRegenUnconfirmed() == true {
+            OBDLog.log("history: unresolved regen from previous app lifecycle marked unconfirmed")
+        }
+        if isRegenerating,
+           historyStore?.hasActiveRegen == false,
+           let load = snapshot.cloggingPercent {
+            _ = historyStore?.recordRegenStart(at: snapshot.timestamp, load: load)
+        } else if lastLiveRegenState == true, !isRegenerating {
+            _ = historyStore?.recordRegenFinish(
+                at: snapshot.timestamp,
+                endingLoad: snapshot.cloggingPercent
+            )
+        }
+        lastLiveRegenState = isRegenerating
 
         let last = lastPersistedState
         let elapsed = last.map { snapshot.timestamp.timeIntervalSince($0.timestamp) } ?? .infinity
@@ -479,15 +547,46 @@ final class MonitorSession {
         }
     }
 
-    private func markTelemetryInterrupted() {
-        guard !reportedTelemetryInterruption else { return }
+    private func markTelemetryInterrupted(with latestMonitorState: DPFState) {
         // Keep `dpf` untouched: it is the last accepted snapshot and the UI
         // will immediately relabel it as historical via `hasLiveTelemetry`.
+
+        // ATRV remains available from many ELM adapters after ECU traffic
+        // disappears. Only sustained low-voltage evidence following a live
+        // alternator baseline can classify the active cycle as interrupted.
+        let engineOffConfirmed = engineOffDetector.observe(
+            voltage: latestMonitorState.batteryVoltage,
+            at: latestMonitorState.timestamp,
+            coreTelemetryAvailable: false
+        )
+        let wasRegenerating = dpf.effectiveRegenerationMode != .none
+        if wasRegenerating, engineOffConfirmed,
+           historyStore?.recordRegenInterrupted(
+               at: latestMonitorState.timestamp,
+               endingLoad: latestMonitorState.cloggingPercent ?? dpf.cloggingPercent
+           ) == true {
+            let voltage = latestMonitorState.batteryVoltage ?? 0
+            OBDLog.log(String(
+                format: "history: regen interrupted — sustained battery drop to %.1fV after telemetry loss",
+                voltage
+            ))
+        }
+
+        guard !reportedTelemetryInterruption else { return }
         persistCurrentState()
         hasLiveTelemetry = false
         reportedTelemetryInterruption = true
         status = .failed(String(localized: "Telemetria OBD interrotta. Mostro l’ultimo stato valido."))
         OBDLog.log("telemetry: no core DPF response for 8 s; preserving cached snapshot")
+        if transportKind == .wifi {
+            // A post-ready TCP loss is terminal. Stop both loops so no further
+            // command is attempted until a new session reruns the ELM bootstrap.
+            pollTask?.cancel()
+            pollTask = nil
+            if let monitor {
+                Task { await monitor.stop() }
+            }
+        }
     }
 
     private func cancelWork() {

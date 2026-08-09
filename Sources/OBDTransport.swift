@@ -222,10 +222,17 @@ actor ELMLineEngine {
     }
 
     static func isSuccessfulATResponse(_ response: String) -> Bool {
-        response
+        let lines = response
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
-            .contains("OK")
+        guard lines.contains("OK") else { return false }
+        return !lines.contains(where: {
+            $0 == "?"
+                || $0 == "NO DATA"
+                || $0 == "STOPPED"
+                || $0.contains("ERROR")
+                || $0.contains("UNABLE TO CONNECT")
+        })
     }
 
     private func tryCompletePendingRead() {

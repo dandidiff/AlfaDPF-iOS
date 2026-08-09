@@ -4,8 +4,10 @@ import Network
 /// Wi-Fi TCP client for an ELM327-style OBD dongle.
 ///
 /// Typical dongle exposes a TCP server at 192.168.0.10:35000 once the phone
-/// joins its Wi-Fi. `start()` retries with a fixed backoff until the readiness
-/// deadline expires; callers await `isReady()` before sending commands. The
+/// joins its Wi-Fi. `start()` retries with a fixed backoff until the initial
+/// readiness deadline expires; callers await `isReady()` before sending
+/// commands. A socket loss after readiness is terminal so the owner must run a
+/// fresh transport + ELM bootstrap instead of resuming with unknown AT state.
 /// command/response framing lives in `ELMLineEngine`; this actor owns the
 /// socket and its lifecycle.
 actor OBDConnection: OBDTransport {
@@ -26,6 +28,8 @@ actor OBDConnection: OBDTransport {
     private var readinessTimeoutTask: Task<Void, Never>?
     private var readinessTimeoutGeneration: UInt = 0
     private var readyContinuations: [CheckedContinuation<Void, Error>] = []
+    private var hasBeenReady = false
+    private var terminalFailure: Error?
 
     init(endpoint: Endpoint = .defaultELM, readinessTimeout: TimeInterval = 30) {
         self.endpoint = endpoint
@@ -36,6 +40,8 @@ actor OBDConnection: OBDTransport {
     /// the socket is usable or the overall readiness deadline expires.
     func start() {
         reconnectTask?.cancel()
+        hasBeenReady = false
+        terminalFailure = nil
         state = .connecting
         armReadinessTimeout()
         reconnectTask = Task { await reconnectLoop() }
@@ -48,11 +54,14 @@ actor OBDConnection: OBDTransport {
         connection?.cancel()
         connection = nil
         await engine.reset()
+        hasBeenReady = false
+        terminalFailure = nil
         state = .idle
         resumeReadyContinuations(throwing: CancellationError())
     }
 
     func isReady() async throws {
+        if let terminalFailure { throw terminalFailure }
         switch state {
         case .ready: return
         case .idle: throw OBDError.notReady
@@ -133,6 +142,7 @@ actor OBDConnection: OBDTransport {
             // ELM327 wants a reset + a couple of AT lines before first use.
             // That's handled by ELM327 on top of this, not here.
             state = .ready
+            hasBeenReady = true
             cancelReadinessTimeout()
             resumeReadyContinuations()
         case .failed(let err), .waiting(let err):
@@ -144,10 +154,23 @@ actor OBDConnection: OBDTransport {
     }
 
     private func connectionLost(_ error: Error, conn: NWConnection) async {
+        let isTerminal = hasBeenReady
         state = .failed(error)
         conn.cancel()
+        connection = nil
         await engine.failPendingRead(with: error)
-        armReadinessTimeout()
+        if isTerminal {
+            // A replacement socket would have reset ELMLineEngine but not the
+            // physical adapter. Requiring a new owning session guarantees ATZ
+            // and the complete DPF-only bootstrap run again before polling.
+            terminalFailure = error
+            reconnectTask?.cancel()
+            reconnectTask = nil
+            cancelReadinessTimeout()
+            resumeReadyContinuations(throwing: error)
+        } else {
+            armReadinessTimeout()
+        }
     }
 
     private func receiveLoop(on conn: NWConnection) {
@@ -207,6 +230,7 @@ actor OBDConnection: OBDTransport {
         reconnectTask = nil
         connection?.cancel()
         connection = nil
+        terminalFailure = OBDError.wifiConnectionTimeout
         state = .failed(OBDError.wifiConnectionTimeout)
         resumeReadyContinuations(throwing: OBDError.wifiConnectionTimeout)
     }

@@ -29,6 +29,7 @@
 		B10000010000000000000005 /* DPFWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B10000110000000000000005 /* DPFWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B10000010000000000000006 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000012 /* Localizable.xcstrings */; };
 		C10000010000000000000001 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000110000000000000001 /* CarPlaySceneDelegate.swift */; };
+		A100004A8A60A578828429F319DB1A /* DPFHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100007DF925F193637927B9134A76 /* DPFHistoryStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,6 +81,7 @@
 		B10000110000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10000110000000000000005 /* DPFWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DPFWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C10000110000000000000001 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
+		A100007DF925F193637927B9134A76 /* DPFHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DPFHistoryStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +129,7 @@
 				C10000110000000000000001 /* CarPlaySceneDelegate.swift */,
 				B10000110000000000000001 /* DPFActivityAttributes.swift */,
 				B10000110000000000000002 /* DPFLiveActivityController.swift */,
+				A100007DF925F193637927B9134A76 /* DPFHistoryStore.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -281,6 +284,7 @@
 				C10000010000000000000001 /* CarPlaySceneDelegate.swift in Sources */,
 				B10000010000000000000001 /* DPFActivityAttributes.swift in Sources */,
 				B10000010000000000000002 /* DPFLiveActivityController.swift in Sources */,
+				A100004A8A60A578828429F319DB1A /* DPFHistoryStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

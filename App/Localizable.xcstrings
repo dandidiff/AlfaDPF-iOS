@@ -1,6 +1,38 @@
 {
   "sourceLanguage" : "it",
   "strings" : {
+    "—" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "—"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "—"
+          }
+        }
+      }
+    },
+    "· %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· %@"
+          }
+        }
+      }
+    },
     "%" : {
       "localizations" : {
         "en" : {
@@ -13,6 +45,54 @@
     },
     "%@%%" : {
 
+    },
+    "%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        }
+      }
+    },
+    "%lld min %lld s" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld min %lld s"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld min %lld s"
+          }
+        }
+      }
+    },
+    "%lld%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        }
+      }
     },
     "0 · nessuna" : {
       "localizations" : {
@@ -104,8 +184,23 @@
         }
       }
     },
+    "Almeno due campioni per il grafico" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "At least two samples are needed for the chart"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Almeno due campioni per il grafico"
+          }
+        }
+      }
+    },
     "Alpha DPF Monitor" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -127,6 +222,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor cannot detect or change Driving Focus. Configure it before you start driving."
+          }
+        }
+      }
+    },
+    "ANDAMENTO CARICO" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LOAD TREND"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ANDAMENTO CARICO"
           }
         }
       }
@@ -400,6 +512,23 @@
         }
       }
     },
+    "Basso (<45%)" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low (<45%)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basso (<45%)"
+          }
+        }
+      }
+    },
     "Batteria" : {
       "localizations" : {
         "en" : {
@@ -437,12 +566,61 @@
         }
       }
     },
+    "Bluetooth LE" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth LE"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth LE"
+          }
+        }
+      }
+    },
     "Bluetooth non è disponibile su questo dispositivo." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bluetooth is not available on this device."
+          }
+        }
+      }
+    },
+    "Campioni: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Samples: %lld"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Campioni: %lld"
+          }
+        }
+      }
+    },
+    "Carico" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Load"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carico"
           }
         }
       }
@@ -501,6 +679,39 @@
         }
       }
     },
+    "CICLI RIGENERAZIONE" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REGENERATION CYCLES"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CICLI RIGENERAZIONE"
+          }
+        }
+      }
+    },
+    "Cicli: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cycles: %lld"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cicli: %lld"
+          }
+        }
+      }
+    },
     "COLORE ACCENT" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -524,6 +735,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Finish alert setup"
+          }
+        }
+      }
+    },
+    "Completata" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completata"
           }
         }
       }
@@ -692,6 +919,22 @@
         }
       }
     },
+    "Connetti l'adattatore OBD per iniziare a registrare l'andamento del carico DPF e la cronologia delle rigenerazioni." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect the OBD adapter to start recording DPF load trends and regeneration history."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connetti l'adattatore OBD per iniziare a registrare l'andamento del carico DPF e la cronologia delle rigenerazioni."
+          }
+        }
+      }
+    },
     "Connetti l'adattatore oppure usa il laboratorio test." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -705,6 +948,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connetti l'adattatore oppure usa il laboratorio test."
+          }
+        }
+      }
+    },
+    "Connettiti prima alla rete Wi-Fi creata dall’adattatore. È normale che iOS indichi “Nessuna connessione Internet”." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "First connect to the Wi-Fi network created by the adapter. It is normal for iOS to show “No Internet Connection”."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connettiti prima alla rete Wi-Fi creata dall’adattatore. È normale che iOS indichi “Nessuna connessione Internet”."
           }
         }
       }
@@ -746,6 +1005,23 @@
         }
       }
     },
+    "Critico (75+%)" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Critical (75+%)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Critico (75+%)"
+          }
+        }
+      }
+    },
     "Dall’ultima" : {
       "localizations" : {
         "en" : {
@@ -758,22 +1034,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dall’ultima"
-          }
-        }
-      }
-    },
-    "Ultima" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Last regen"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ultima"
           }
         }
       }
@@ -1051,6 +1311,22 @@
         }
       }
     },
+    "Esito non verificato" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outcome not verified"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esito non verificato"
+          }
+        }
+      }
+    },
     "Filtro antiparticolato" : {
       "localizations" : {
         "en" : {
@@ -1222,6 +1498,22 @@
         }
       }
     },
+    "Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Wi-Fi OBD adapter could not be reached within 30 seconds. Check the network, address and port."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta."
+          }
+        }
+      }
+    },
     "Impostazioni" : {
       "localizations" : {
         "en" : {
@@ -1232,12 +1524,44 @@
         }
       }
     },
+    "Impostazioni Wi-Fi non valide. Controlla indirizzo e porta." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid Wi-Fi settings. Check the address and port."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impostazioni Wi-Fi non valide. Controlla indirizzo e porta."
+          }
+        }
+      }
+    },
     "In “Durante la guida”, disattiva “Attiva con CarPlay” oppure scegli l’attivazione manuale" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Under “While Driving,” turn off “Activate With CarPlay” or choose manual activation"
+          }
+        }
+      }
+    },
+    "In corso" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In progress"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In corso"
           }
         }
       }
@@ -1285,6 +1609,22 @@
         }
       }
     },
+    "Indirizzo IP o host" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IP address or host"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indirizzo IP o host"
+          }
+        }
+      }
+    },
     "Informazioni" : {
       "localizations" : {
         "en" : {
@@ -1301,6 +1641,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "About, safety and privacy"
+          }
+        }
+      }
+    },
+    "Interrotta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrupted"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrotta"
           }
         }
       }
@@ -1461,6 +1817,7 @@
       }
     },
     "Monitor" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1504,6 +1861,54 @@
     },
     "Nel messaggio di iOS tocca “Consenti”" : {
 
+    },
+    "Nessun ciclo registrato" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No recorded cycles"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun ciclo registrato"
+          }
+        }
+      }
+    },
+    "Nessun dato registrato" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No recorded data"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun dato registrato"
+          }
+        }
+      }
+    },
+    "Nessun dato storico" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No history data"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun dato storico"
+          }
+        }
+      }
     },
     "Nessuna connessione con l’adattatore OBD entro 30 secondi. Verifica che sia alimentato e vicino." : {
       "localizations" : {
@@ -1706,6 +2111,22 @@
         }
       }
     },
+    "Ora" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ora"
+          }
+        }
+      }
+    },
     "Origine dati" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1852,6 +2273,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "PID non disponibile"
+          }
+        }
+      }
+    },
+    "Porta TCP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TCP port"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Porta TCP"
           }
         }
       }
@@ -2496,6 +2933,38 @@
         }
       }
     },
+    "Storico" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storico"
+          }
+        }
+      }
+    },
+    "Storico DPF" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF history"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storico DPF"
+          }
+        }
+      }
+    },
     "STRUMENTI" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2619,7 +3088,24 @@
         }
       }
     },
+    "Tenta la connessione all’apertura dell’app" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try to connect when the app opens"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tenta la connessione all’apertura dell’app"
+          }
+        }
+      }
+    },
     "Tenta la connessione Bluetooth all’apertura dell’app" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2824,6 +3310,38 @@
         }
       }
     },
+    "Tipo di adattatore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adapter type"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tipo di adattatore"
+          }
+        }
+      }
+    },
+    "Ultima" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last regen"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ultima"
+          }
+        }
+      }
+    },
     "ULTIMA LETTURA CARICO DPF" : {
       "localizations" : {
         "en" : {
@@ -2898,58 +3416,38 @@
         }
       }
     },
-    "Bluetooth LE" : {
+    "Vicino (45–75%)" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bluetooth LE" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Bluetooth LE" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Near regeneration (45–75%)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vicino (45–75%)"
+          }
+        }
       }
     },
     "Wi-Fi" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Wi-Fi" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Wi-Fi" } }
-      }
-    },
-    "Tipo di adattatore" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Adapter type" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Tipo di adattatore" } }
-      }
-    },
-    "Indirizzo IP o host" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "IP address or host" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Indirizzo IP o host" } }
-      }
-    },
-    "Porta TCP" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "TCP port" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Porta TCP" } }
-      }
-    },
-    "Connettiti prima alla rete Wi-Fi creata dall’adattatore. È normale che iOS indichi “Nessuna connessione Internet”." : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "First connect to the Wi-Fi network created by the adapter. It is normal for iOS to show “No Internet Connection”." } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Connettiti prima alla rete Wi-Fi creata dall’adattatore. È normale che iOS indichi “Nessuna connessione Internet”." } }
-      }
-    },
-    "Tenta la connessione all’apertura dell’app" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Try to connect when the app opens" } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Tenta la connessione all’apertura dell’app" } }
-      }
-    },
-    "Impostazioni Wi-Fi non valide. Controlla indirizzo e porta." : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid Wi-Fi settings. Check the address and port." } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Impostazioni Wi-Fi non valide. Controlla indirizzo e porta." } }
-      }
-    },
-    "Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta." : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "The Wi-Fi OBD adapter could not be reached within 30 seconds. Check the network, address and port." } },
-        "it" : { "stringUnit" : { "state" : "translated", "value" : "Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta." } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi"
+          }
+        }
       }
     }
   },

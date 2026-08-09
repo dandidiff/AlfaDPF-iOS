@@ -4,9 +4,9 @@ import CoreBluetooth
 
 // Standalone test runner for the pure protocol logic + OBDConnection.
 // Runs on macOS without Xcode:
-//   swiftc Sources/Models.swift Sources/OBDLog.swift Sources/OBDTransport.swift \
-//          Sources/OBDConnection.swift Sources/BLEConnection.swift Sources/ELM327.swift \
-//          Sources/Mode01.swift Tests/main.swift -o /tmp/alfadpf_tests && /tmp/alfadpf_tests
+//   swiftc Sources/Models.swift Sources/OBDLog.swift Sources/OBDTransport.swift \\
+//          Sources/OBDConnection.swift Sources/BLEConnection.swift Sources/ELM327.swift \\
+//          Sources/Mode01.swift Sources/DPFHistoryStore.swift Tests/main.swift -o /tmp/alfadpf_tests && /tmp/alfadpf_tests
 
 var failures = 0
 
@@ -39,6 +39,51 @@ func expectThrows(_ name: String, _ body: () throws -> Void) {
     }
 }
 
+actor InitializationTestTransport: OBDTransport {
+    enum Behavior {
+        case valid
+        case rejectsEverything
+        case resetTimeoutThenLegacy
+    }
+
+    struct Sent: Equatable {
+        var command: String
+        var header: String?
+    }
+
+    private let behavior: Behavior
+    private var sent: [Sent] = []
+
+    init(_ behavior: Behavior) {
+        self.behavior = behavior
+    }
+
+    func start() {}
+    func stop() async {}
+    func isReady() async throws {}
+
+    func send(_ command: String, header: String?, timeout: TimeInterval) async throws -> String {
+        sent.append(.init(command: command, header: header))
+        switch behavior {
+        case .valid:
+            if command == "ATZ" { return "ELM327 v1.5" }
+            if command == "22380B" { return "NO DATA" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .rejectsEverything:
+            return "?"
+        case .resetTimeoutThenLegacy:
+            if command == "ATZ" { throw OBDError.timeout }
+            if command == "ATI" { return "ELM327 v1.5" }
+            if command == "22380B" { return "NO DATA" }
+            if command == "ATDPN" { return "A7" }
+            return "?"
+        }
+    }
+
+    func commands() -> [Sent] { sent }
+}
+
 // MARK: - Session policies and deep links
 
 expect(AppDeepLink.monitorURL.absoluteString == "alfadpf://monitor",
@@ -64,6 +109,52 @@ expect(!SessionStatus.idle.keepsScreenAwake
        && !SessionStatus.simulating.keepsScreenAwake
        && !SessionStatus.failed("test").keepsScreenAwake,
        "idle timer: idle, simulation and failures release screen")
+
+var engineOffDetector = RegenEngineOffDetector()
+let voltageStart = Date(timeIntervalSince1970: 1_000)
+expect(!engineOffDetector.observe(voltage: 12.4, at: voltageStart, coreTelemetryAvailable: false),
+       "history engine-off: low voltage without a running baseline is inconclusive")
+expect(!engineOffDetector.observe(voltage: 14.2, at: voltageStart, coreTelemetryAvailable: true),
+       "history engine-off: live alternator voltage arms the detector")
+expect(!engineOffDetector.observe(voltage: 12.6,
+                                  at: voltageStart.addingTimeInterval(1),
+                                  coreTelemetryAvailable: false),
+       "history engine-off: one low sample is insufficient")
+expect(!engineOffDetector.observe(voltage: 12.5,
+                                  at: voltageStart.addingTimeInterval(3),
+                                  coreTelemetryAvailable: false),
+       "history engine-off: short low-voltage interval is insufficient")
+expect(engineOffDetector.observe(voltage: 12.4,
+                                 at: voltageStart.addingTimeInterval(6),
+                                 coreTelemetryAvailable: false),
+       "history engine-off: sustained drop after live running voltage confirms shutdown")
+engineOffDetector.reset()
+_ = engineOffDetector.observe(voltage: 14.1, at: voltageStart, coreTelemetryAvailable: true)
+_ = engineOffDetector.observe(voltage: 12.5,
+                              at: voltageStart.addingTimeInterval(1),
+                              coreTelemetryAvailable: false)
+_ = engineOffDetector.observe(voltage: 13.8,
+                              at: voltageStart.addingTimeInterval(2),
+                              coreTelemetryAvailable: true)
+expect(!engineOffDetector.observe(voltage: 12.5,
+                                  at: voltageStart.addingTimeInterval(6),
+                                  coreTelemetryAvailable: false),
+       "history engine-off: recovered live telemetry resets a transient drop")
+engineOffDetector.reset()
+_ = engineOffDetector.observe(voltage: 14.0, at: voltageStart, coreTelemetryAvailable: true)
+_ = engineOffDetector.observe(voltage: 12.6,
+                              at: voltageStart.addingTimeInterval(1),
+                              coreTelemetryAvailable: true)
+_ = engineOffDetector.observe(voltage: 12.5,
+                              at: voltageStart.addingTimeInterval(2),
+                              coreTelemetryAvailable: false)
+_ = engineOffDetector.observe(voltage: 12.4,
+                              at: voltageStart.addingTimeInterval(5),
+                              coreTelemetryAvailable: false)
+expect(!engineOffDetector.observe(voltage: 12.3,
+                                  at: voltageStart.addingTimeInterval(8),
+                                  coreTelemetryAvailable: false),
+       "history engine-off: low last-live voltage invalidates an older alternator peak")
 
 expect(SessionStatus.idle.carPlayConnectionAction == .connect
        && SessionStatus.failed("test").carPlayConnectionAction == .connect
@@ -138,8 +229,9 @@ expect(carPlayNotificationState(
 ],
        "carplay notifications: every delivery and sound problem is exposed")
 
-let carPlayAlertDefaults = UserDefaults(suiteName: "AlphaDPF.CarPlayAlertPreferenceTests")!
-carPlayAlertDefaults.removePersistentDomain(forName: "AlphaDPF.CarPlayAlertPreferenceTests")
+let carPlayAlertSuite = "AlphaDPF.CarPlayAlertPreferenceTests.\(UUID().uuidString)"
+let carPlayAlertDefaults = UserDefaults(suiteName: carPlayAlertSuite)!
+carPlayAlertDefaults.removePersistentDomain(forName: carPlayAlertSuite)
 expect(CarPlayAlertPreference.load(from: carPlayAlertDefaults),
        "carplay alerts: delivery is enabled by default")
 carPlayAlertDefaults.set(false, forKey: CarPlayAlertPreference.defaultsKey)
@@ -154,7 +246,7 @@ expect(CarPlayNotificationRoute.production(carPlayAlertsEnabled: false) == .phon
        "carplay alerts: disabled production events remain phone-only")
 expect(CarPlayNotificationRoute.explicitTest == .carPlay,
        "carplay alerts: an explicit user test still exercises CarPlay delivery")
-carPlayAlertDefaults.removePersistentDomain(forName: "AlphaDPF.CarPlayAlertPreferenceTests")
+carPlayAlertDefaults.removePersistentDomain(forName: carPlayAlertSuite)
 
 let drivingFocusSuite = "AlphaDPF.DrivingFocusGuidance.\(UUID().uuidString)"
 let drivingFocusDefaults = UserDefaults(suiteName: drivingFocusSuite)!
@@ -737,6 +829,42 @@ expect(!ELMLineEngine.isSuccessfulATResponse("?"),
        "header: rejects unsupported command")
 expect(!ELMLineEngine.isSuccessfulATResponse("NO DATA"),
        "header: rejects non-acknowledgement")
+expect(!ELMLineEngine.isSuccessfulATResponse("ERROR\rOK"),
+       "header: mixed error and OK is rejected")
+
+let validInitialization = InitializationTestTransport(.valid)
+do {
+    try await ELM327(connection: validInitialization).initializeSession()
+    let commands = await validInitialization.commands()
+    expect(!commands.contains(where: { $0.command.hasPrefix("01") }),
+           "init: live bootstrap never sends Mode 01")
+    expect(commands.contains(.init(command: "22380B", header: "18DA10F1")),
+           "init: protocol search uses a DPF Mode 22 probe")
+} catch {
+    failures += 1
+    print("FAIL: init: valid DPF-only bootstrap threw \(error)")
+}
+
+let rejectingInitialization = InitializationTestTransport(.rejectsEverything)
+do {
+    try await ELM327(connection: rejectingInitialization).initializeSession()
+    failures += 1
+    print("FAIL: init: adapter rejecting every command was accepted")
+} catch {
+    print("PASS: init: adapter rejecting every command is rejected")
+}
+
+let legacyInitialization = InitializationTestTransport(.resetTimeoutThenLegacy)
+do {
+    try await ELM327(connection: legacyInitialization).initializeSession()
+    let commands = await legacyInitialization.commands()
+    expect(commands.contains(where: { $0.command == "ATI" })
+           && commands.contains(where: { $0.command == "22380B" }),
+           "init: timed-out ATZ falls back to ATI and a DPF-only protocol probe")
+} catch {
+    failures += 1
+    print("FAIL: init: legacy reset fallback threw \(error)")
+}
 
 typealias BLECandidate = BLECharacteristicPicker.Candidate
 let svcVlink = CBUUID(string: "FFF0")
@@ -942,19 +1070,34 @@ do {
     print("FAIL: conn stale-buffer send threw \(error)")
 }
 
-// After the dongle drops the socket, the client must reconnect by itself.
+// A transparent TCP reconnect would resume polling without rerunning the ELM
+// bootstrap. Treat a post-ready drop as terminal; the owning session restarts
+// the transport and initializes the adapter from scratch.
 server.dropAllConnections()
 try? await Task.sleep(nanoseconds: 500_000_000)
-var reconnected = false
-let deadline = Date().addingTimeInterval(12)
+var transparentlyReconnected = false
+let deadline = Date().addingTimeInterval(4)
 while Date() < deadline {
     if let reply = try? await obd.send("010C", timeout: 1.0), reply.contains("410C") {
-        reconnected = true
+        transparentlyReconnected = true
         break
     }
     try? await Task.sleep(nanoseconds: 500_000_000)
 }
-expect(reconnected, "conn: reconnects after socket drop")
+expect(!transparentlyReconnected,
+       "conn: post-ready socket drop requires a fully reinitialized session")
+
+await obd.stop()
+await obd.start()
+do {
+    try await obd.isReady()
+    let reply = try await obd.send("ATZ")
+    expect(reply.contains("ELM327"),
+           "conn: explicit transport restart recovers for a fresh ELM bootstrap")
+} catch {
+    failures += 1
+    print("FAIL: conn: explicit transport restart threw \(error)")
+}
 
 await obd.stop()
 
@@ -1164,6 +1307,122 @@ for _ in 0..<20 {
 }
 expect(stoppedConnectionsStayedIdle,
        "conn: cancelled readiness deadline cannot overwrite stopped state")
+
+// MARK: - History store
+
+let historyTestDirectory = FileManager.default.temporaryDirectory
+    .appendingPathComponent("AlphaDPFHistoryTests-\(UUID().uuidString)", isDirectory: true)
+let historyTestURL = historyTestDirectory.appendingPathComponent("history.sqlite3")
+
+let historyStoreResult = Result { try DPFHistoryStore(databaseURL: historyTestURL) }
+switch historyStoreResult {
+case .failure(let error):
+    failures += 1
+    print("FAIL: history — store init failed: \(error)")
+case .success(let store):
+    expect(store.samples().isEmpty, "history: isolated store starts without samples")
+    expect(store.cycles().isEmpty, "history: isolated store starts without cycles")
+    expect(!store.hasActiveRegen, "history: isolated store has no active regen")
+
+    let now = Date()
+    let recorded1 = store.recordSample(
+        timestamp: now,
+        cloggingPercent: 30.0,
+        exhaustTempC: 180.0,
+        regenActive: false,
+        distanceSinceLastRegenKm: 50.0
+    )
+    expect(recorded1, "history: first sample is always recorded")
+
+    let recorded2 = store.recordSample(
+        timestamp: now.addingTimeInterval(10),
+        cloggingPercent: 30.2,
+        exhaustTempC: 182.0,
+        regenActive: false,
+        distanceSinceLastRegenKm: 51.0
+    )
+    expect(!recorded2, "history: sample skipped when delta < 1%")
+
+    let recorded3 = store.recordSample(
+        timestamp: now.addingTimeInterval(20),
+        cloggingPercent: 31.5,
+        exhaustTempC: 185.0,
+        regenActive: false,
+        distanceSinceLastRegenKm: 52.0
+    )
+    expect(recorded3, "history: sample recorded when delta ≥ 1%")
+    let samples = store.samples()
+    expect(samples.count == 2, "history: expected 2 isolated samples, got \(samples.count)")
+
+    let rollingStoreURL = historyTestDirectory.appendingPathComponent("rolling.sqlite3")
+    if let rollingStore = try? DPFHistoryStore(databaseURL: rollingStoreURL) {
+        _ = rollingStore.recordSample(
+            timestamp: now.addingTimeInterval(-(25 * 60 * 60)),
+            cloggingPercent: 40.0,
+            exhaustTempC: nil,
+            regenActive: false,
+            distanceSinceLastRegenKm: nil
+        )
+        let firstCurrentSample = rollingStore.recordSample(
+            timestamp: now,
+            cloggingPercent: 40.2,
+            exhaustTempC: nil,
+            regenActive: false,
+            distanceSinceLastRegenKm: nil
+        )
+        expect(firstCurrentSample,
+               "history: expired sample cannot suppress the first current-window sample")
+        expect(rollingStore.samples(since: now.addingTimeInterval(-(24 * 60 * 60))).count == 1,
+               "history: expired samples are pruned before the delta decision")
+    } else {
+        failures += 1
+        print("FAIL: history: rolling-window store init failed")
+    }
+
+    expect(store.recordRegenStart(at: now.addingTimeInterval(30), load: 88.0),
+           "history: first regen start inserts a cycle")
+    expect(!store.recordRegenStart(at: now.addingTimeInterval(31), load: 87.5),
+           "history: duplicate active edge is idempotent")
+    expect(store.hasActiveRegen, "history: has active regen after start")
+    let activeCycles = store.cycles()
+    expect(activeCycles.count == 1, "history: one cycle after duplicate start")
+    expect(activeCycles.first?.status == .active
+           && activeCycles.first?.startingLoad == 88.0
+           && activeCycles.first?.finishedAt == nil,
+           "history: active cycle preserves its original start")
+
+    expect(store.recordRegenFinish(at: now.addingTimeInterval(900), endingLoad: 32.0),
+           "history: active cycle can be completed")
+    expect(!store.recordRegenFinish(at: now.addingTimeInterval(901), endingLoad: 31.5),
+           "history: duplicate finish is idempotent")
+    expect(!store.hasActiveRegen, "history: no active regen after finish")
+    let finishedCycles = store.cycles()
+    expect(finishedCycles.count == 1
+           && finishedCycles.first?.status == .completed
+           && finishedCycles.first?.endingLoad == 32.0
+           && finishedCycles.first?.finishedAt != nil,
+           "history: completed cycle stores one truthful finish")
+
+    _ = store.recordRegenStart(at: now.addingTimeInterval(2000), load: 85.0)
+    expect(store.recordRegenInterrupted(at: now.addingTimeInterval(2100), endingLoad: 80.0),
+           "history: confirmed engine-off can interrupt the active cycle")
+    let allCycles = store.cycles()
+    expect(allCycles.count == 2
+           && allCycles[0].status == .interrupted
+           && allCycles[1].status == .completed,
+           "history: interrupted and completed cycles remain distinct")
+
+    _ = store.recordRegenStart(at: now.addingTimeInterval(3000), load: 78.0)
+    expect(store.recordActiveRegenUnconfirmed(),
+           "history: lifecycle loss marks an unresolved cycle as unconfirmed")
+    let reconciled = store.cycles()
+    expect(reconciled.first?.status == .unconfirmed
+           && reconciled.first?.finishedAt == nil,
+           "history: unconfirmed cycle keeps an honest unknown end time")
+
+    print("PASS: history — all store tests")
+}
+try? FileManager.default.removeItem(at: historyTestDirectory)
 
 // MARK: - Summary
 
