@@ -25,7 +25,7 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           build
 
-      - name: Compile protocol tests
+      - name: Compile standalone tests
         run: >
           xcrun swiftc
           Sources/Models.swift
@@ -35,8 +35,10 @@ jobs:
           Sources/BLEConnection.swift
           Sources/ELM327.swift
           Sources/Mode01.swift
+          Sources/DPFHistoryStore.swift
           Tests/main.swift
+          -lsqlite3
           -o /tmp/alfadpf_tests
 
-      - name: Run protocol tests
+      - name: Run standalone tests
         run: /tmp/alfadpf_tests

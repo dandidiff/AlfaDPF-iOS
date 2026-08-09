@@ -203,7 +203,8 @@ comandi ELM:
 ```sh
 swiftc Sources/Models.swift Sources/OBDLog.swift Sources/OBDTransport.swift \
   Sources/OBDConnection.swift Sources/BLEConnection.swift Sources/ELM327.swift \
-  Sources/Mode01.swift Tests/main.swift -o /tmp/alfadpf_tests
+  Sources/Mode01.swift Sources/DPFHistoryStore.swift Tests/main.swift \
+  -lsqlite3 -o /tmp/alfadpf_tests
 /tmp/alfadpf_tests
 ```
 
