@@ -588,7 +588,13 @@ final class CarPlaySceneDelegate: UIResponder,
         let dpf = session.carPlayDPFState
         let hasTimestamp = dpf.hasTelemetry
         let timestamp = hasTimestamp
-            ? dpf.timestamp.formatted(date: .omitted, time: .standard)
+            ? dpf.timestamp.formatted(
+                Date.FormatStyle(
+                    date: .omitted,
+                    time: .standard,
+                    locale: session.appLanguage.locale
+                )
+            )
             : "—"
         let updated = CPInformationItem(
             title: AppLocalization.string("Ultimo aggiornamento"),
@@ -1018,7 +1024,9 @@ final class CarPlaySceneDelegate: UIResponder,
     ) -> String {
         guard let value else { return "—" }
         let number = value.formatted(
-            .number.precision(.fractionLength(fractionDigits))
+            .number
+                .precision(.fractionLength(fractionDigits))
+                .locale(session.appLanguage.locale)
         )
         guard let unit else { return number }
         return "\(number) \(unit)"
@@ -1031,7 +1039,9 @@ final class CarPlaySceneDelegate: UIResponder,
     ) -> String {
         guard let value else { return "—" }
         let number = value.formatted(
-            .number.precision(.fractionLength(fractionDigits))
+            .number
+                .precision(.fractionLength(fractionDigits))
+                .locale(session.appLanguage.locale)
         )
         guard let unit else { return number }
         return "\(number)\(unit)"

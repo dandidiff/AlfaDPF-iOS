@@ -359,6 +359,18 @@ expect(AppLanguage.allCases.map(\.displayNameKey) == [
 ], "app language: selector order and native names stay stable")
 appLanguageDefaults.removePersistentDomain(forName: appLanguageSuite)
 
+do {
+    let localization = try String(
+        contentsOfFile: "App/Localizable.xcstrings",
+        encoding: .utf8
+    )
+    expect(localization.contains("\"Avanzamento\" : {"),
+           "carplay localization: compact progress tile key is present")
+} catch {
+    failures += 1
+    print("FAIL: carplay localization: could not read catalog — \(error)")
+}
+
 var carPlayCurrentState = DPFState()
 carPlayCurrentState.cloggingPercent = 88
 var carPlayPersistedState = DPFState()
