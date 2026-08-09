@@ -16,27 +16,27 @@ enum OBDError: Error, Equatable, Sendable, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notReady:
-            return String(localized: "L’adattatore OBD non è pronto.")
+            return AppLocalization.string("L’adattatore OBD non è pronto.")
         case .protocolError:
-            return String(localized: "Errore di comunicazione con l’adattatore OBD.")
+            return AppLocalization.string("Errore di comunicazione con l’adattatore OBD.")
         case .timeout:
-            return String(localized: "L’adattatore OBD non ha risposto in tempo.")
+            return AppLocalization.string("L’adattatore OBD non ha risposto in tempo.")
         case .connectionTimeout:
-            return String(localized: "Nessuna connessione con l’adattatore OBD entro 30 secondi. Verifica che sia alimentato e vicino.")
+            return AppLocalization.string("Nessuna connessione con l’adattatore OBD entro 30 secondi. Verifica che sia alimentato e vicino.")
         case .bluetoothUnauthorized:
-            return String(localized: "Accesso Bluetooth negato. Abilitalo nelle Impostazioni di iOS.")
+            return AppLocalization.string("Accesso Bluetooth negato. Abilitalo nelle Impostazioni di iOS.")
         case .bluetoothPoweredOff:
-            return String(localized: "Bluetooth è disattivato. Attivalo e riprova.")
+            return AppLocalization.string("Bluetooth è disattivato. Attivalo e riprova.")
         case .bluetoothUnavailable:
-            return String(localized: "Bluetooth non è disponibile su questo dispositivo.")
+            return AppLocalization.string("Bluetooth non è disponibile su questo dispositivo.")
         case .connectionFailed:
-            return String(localized: "Errore durante la connessione Bluetooth all’adattatore OBD.")
+            return AppLocalization.string("Errore durante la connessione Bluetooth all’adattatore OBD.")
         case .incompatibleAdapter:
-            return String(localized: "L’adattatore Bluetooth non espone una connessione ELM327 compatibile.")
+            return AppLocalization.string("L’adattatore Bluetooth non espone una connessione ELM327 compatibile.")
         case .invalidWiFiEndpoint:
-            return String(localized: "Impostazioni Wi-Fi non valide. Controlla indirizzo e porta.")
+            return AppLocalization.string("Impostazioni Wi-Fi non valide. Controlla indirizzo e porta.")
         case .wifiConnectionTimeout:
-            return String(localized: "Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta.")
+            return AppLocalization.string("Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta.")
         }
     }
 }

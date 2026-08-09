@@ -33,6 +33,7 @@ struct AlfaDPFApp: App {
         WindowGroup {
             PhoneRootView(session: session)
                 .preferredColorScheme(.dark)
+                .environment(\.locale, session.appLanguage.locale)
                 .environment(\.appAccent, session.appAccent.color)
                 .tint(session.appAccent.color)
         }
@@ -1239,6 +1240,46 @@ private struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
 
+                    settingsSection(title: "LINGUA", icon: "globe") {
+                        Menu {
+                            ForEach(AppLanguage.allCases) { option in
+                                Button {
+                                    session.appLanguage = option
+                                } label: {
+                                    if session.appLanguage == option {
+                                        Label(
+                                            LocalizedStringKey(option.displayNameKey),
+                                            systemImage: "checkmark"
+                                        )
+                                    } else {
+                                        Text(LocalizedStringKey(option.displayNameKey))
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "globe")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(appAccent)
+                                    .frame(width: 25, height: 25)
+                                Text(LocalizedStringKey(session.appLanguage.displayNameKey))
+                                    .font(.system(
+                                        size: 14,
+                                        weight: .semibold,
+                                        design: .rounded
+                                    ))
+                                    .foregroundStyle(.white)
+                                Spacer()
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(Brand.textDim)
+                            }
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     settingsSection(title: "PAGINA PRINCIPALE", icon: "rectangle.grid.2x2") {
                         VStack(spacing: 0) {
                             ForEach(DashboardMetric.allCases) { metric in
@@ -1262,21 +1303,6 @@ private struct SettingsView: View {
                                 }
                             }
                         }
-
-                        Divider().overlay(Brand.hairline)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Label("Pressione olio e SGW", systemImage: "info.circle")
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.82))
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar.")
-                                Text("Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone.")
-                            }
-                                .font(.system(size: 10, design: .rounded))
-                                .foregroundStyle(Brand.textDim)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(.top, 8)
                     }
 
                     settingsSection(title: "STRUMENTI", icon: "wrench.and.screwdriver") {
@@ -1691,20 +1717,20 @@ private struct DiagnosticsView: View {
 
     private var regenerationModeText: String {
         guard let mode = dpf.regenerationMode else {
-            return String(localized: "PID non disponibile")
+            return AppLocalization.string("PID non disponibile")
         }
         switch mode {
-        case .none: return String(localized: "0 · nessuna")
-        case .passive: return String(localized: "1 · passiva")
-        case .active: return String(localized: "2 · attiva")
+        case .none: return AppLocalization.string("0 · nessuna")
+        case .passive: return AppLocalization.string("1 · passiva")
+        case .active: return AppLocalization.string("2 · attiva")
         }
     }
 
     private var oilPressureDiagnosticText: String {
         guard let raw = dpf.oilPressureStatusRaw else {
-            return String(localized: "PID non disponibile")
+            return AppLocalization.string("PID non disponibile")
         }
-        return "\(raw) · \(dpf.oilPressureStatusText ?? String(localized: "Sconosciuto"))"
+        return "\(raw) · \(dpf.oilPressureStatusText ?? AppLocalization.string("Sconosciuto"))"
     }
 }
 
@@ -1765,14 +1791,14 @@ private struct HistoryNavigationRow: View {
 
     private var summary: String {
         if sampleCount == 0 && cycleCount == 0 {
-            return String(localized: "Nessun dato registrato")
+            return AppLocalization.string("Nessun dato registrato")
         }
         var parts: [String] = []
         if sampleCount > 0 {
-            parts.append(String(localized: "Campioni: \(sampleCount)"))
+            parts.append(AppLocalization.string("Campioni: \(sampleCount)"))
         }
         if cycleCount > 0 {
-            parts.append(String(localized: "Cicli: \(cycleCount)"))
+            parts.append(AppLocalization.string("Cicli: \(cycleCount)"))
         }
         return parts.joined(separator: " · ")
     }
@@ -1996,10 +2022,10 @@ private struct RegenCycleRow: View {
 
     private var statusLabel: String {
         switch cycle.status {
-        case .completed: return String(localized: "Completata")
-        case .interrupted: return String(localized: "Interrotta")
-        case .unconfirmed: return String(localized: "Esito non verificato")
-        case .active: return String(localized: "In corso")
+        case .completed: return AppLocalization.string("Completata")
+        case .interrupted: return AppLocalization.string("Interrotta")
+        case .unconfirmed: return AppLocalization.string("Esito non verificato")
+        case .active: return AppLocalization.string("In corso")
         }
     }
 
@@ -2008,7 +2034,7 @@ private struct RegenCycleRow: View {
         let seconds = finished.timeIntervalSince(cycle.startedAt)
         let minutes = Int(seconds / 60)
         let secs = Int(seconds.truncatingRemainder(dividingBy: 60))
-        return String(localized: "\(minutes) min \(secs) s")
+        return AppLocalization.string("\(minutes) min \(secs) s")
     }
 
     var body: some View {

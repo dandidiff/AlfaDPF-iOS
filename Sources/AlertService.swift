@@ -102,14 +102,14 @@ actor AlertService {
         let body: String
         if let cloggingPercent {
             body = String.localizedStringWithFormat(
-                String(localized: "Rigenerazione iniziata — DPF al %.0f%%. Non spegnere il motore."),
+                AppLocalization.string("Rigenerazione iniziata — DPF al %.0f%%. Non spegnere il motore."),
                 cloggingPercent
             )
         } else {
-            body = String(localized: "Rigenerazione iniziata. Non spegnere il motore.")
+            body = AppLocalization.string("Rigenerazione iniziata. Non spegnere il motore.")
         }
         await post(
-            title: String(localized: "Rigenerazione DPF iniziata"),
+            title: AppLocalization.string("Rigenerazione DPF iniziata"),
             body: body
         )
     }
@@ -117,9 +117,9 @@ actor AlertService {
     func notifyRegenFinished(duration: TimeInterval) async {
         let min = max(1, Int((duration / 60).rounded()))
         await post(
-            title: String(localized: "Rigenerazione DPF terminata"),
+            title: AppLocalization.string("Rigenerazione DPF terminata"),
             body: String.localizedStringWithFormat(
-                String(localized: "Rigenerazione completata — %d min."),
+                AppLocalization.string("Rigenerazione completata — %d min."),
                 min
             )
         )
@@ -127,8 +127,8 @@ actor AlertService {
 
     func notifyTest() async {
         _ = await post(
-            title: String(localized: "Test avviso Alpha DPF Monitor"),
-            body: String(localized: "Test a schermo bloccato: iOS decide se mostrare o annunciare questo avviso."),
+            title: AppLocalization.string("Test avviso Alpha DPF Monitor"),
+            body: AppLocalization.string("Test a schermo bloccato: iOS decide se mostrare o annunciare questo avviso."),
             delay: 5,
             route: .explicitTest
         )
@@ -138,8 +138,8 @@ actor AlertService {
     /// the driver time to return to CarPlay Home before system delivery.
     func notifyCarPlayTest() async -> Bool {
         await post(
-            title: String(localized: "Test notifica CarPlay"),
-            body: String(localized: "Le notifiche di rigenerazione sono configurate correttamente."),
+            title: AppLocalization.string("Test notifica CarPlay"),
+            body: AppLocalization.string("Le notifiche di rigenerazione sono configurate correttamente."),
             delay: CarPlayNotificationTestPolicy.systemDeliveryDelay,
             route: .explicitTest
         )

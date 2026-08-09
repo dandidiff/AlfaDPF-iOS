@@ -59,6 +59,12 @@ final class MonitorSession {
         }
     }
 
+    var appLanguage: AppLanguage {
+        didSet {
+            defaults.set(appLanguage.rawValue, forKey: AppLanguage.defaultsKey)
+        }
+    }
+
     private var obd: (any OBDTransport)?
     private var monitor: DPFMonitor?
     private var bootTask: Task<Void, Never>?
@@ -87,6 +93,7 @@ final class MonitorSession {
         CarPlayTelemetryPolicy.displayState(
             current: dpf,
             lastPersisted: lastPersistedState,
+            status: status,
             hasLiveTelemetry: hasLiveTelemetry
         )
     }
@@ -118,6 +125,7 @@ final class MonitorSession {
 
         let initialAppAccent = defaults.string(forKey: Self.appAccentDefaultsKey)
             .flatMap(StelvioAccent.init(rawValue:)) ?? .rossoAlfa
+        let initialAppLanguage = AppLanguage.load(from: defaults)
         let initialTransportKind = OBDTransportKind.load(from: defaults)
         let initialWiFiHost = defaults.string(forKey: Self.wifiHostDefaultsKey)
             ?? WiFiAdapterEndpoint.commonDefault.host
@@ -137,6 +145,7 @@ final class MonitorSession {
         self.autoConnectEnabled = initialAutoConnectEnabled
         self.visibleDashboardMetrics = initialVisibleDashboardMetrics
         self.appAccent = initialAppAccent
+        self.appLanguage = initialAppLanguage
         self.transportKind = initialTransportKind
         self.wifiHost = initialWiFiHost
         self.wifiPort = initialWiFiPort
@@ -576,7 +585,7 @@ final class MonitorSession {
         persistCurrentState()
         hasLiveTelemetry = false
         reportedTelemetryInterruption = true
-        status = .failed(String(localized: "Telemetria OBD interrotta. Mostro l’ultimo stato valido."))
+        status = .failed(AppLocalization.string("Telemetria OBD interrotta. Mostro l’ultimo stato valido."))
         OBDLog.log("telemetry: no core DPF response for 8 s; preserving cached snapshot")
         if transportKind == .wifi {
             // A post-ready TCP loss is terminal. Stop both loops so no further
@@ -607,7 +616,7 @@ final class MonitorSession {
         if let obdError = error as? OBDError {
             return obdError.localizedDescription
         }
-        return String(localized: fallback)
+        return AppLocalization.string(key: fallback)
     }
 
     private var skipAlertSetupForVisualTest: Bool {

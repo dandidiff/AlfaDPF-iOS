@@ -3,13 +3,25 @@
   "strings" : {
     "—" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "—"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "—"
           }
         },
-        "it" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "—"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "—"
@@ -19,13 +31,25 @@
     },
     "· %@" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· %@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "· %@"
           }
         },
-        "it" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "· %@"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "· %@"
@@ -35,7 +59,25 @@
     },
     "%" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%"
+          }
+        },
         "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%"
@@ -44,17 +86,54 @@
       }
     },
     "%@%%" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@%%"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@%%"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@%%"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@%%"
+          }
+        }
+      }
     },
     "%lld" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld"
           }
         },
-        "it" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld"
@@ -64,13 +143,25 @@
     },
     "%lld min %lld s" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld min %lld s"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld min %lld s"
           }
         },
-        "it" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld min %lld s"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld min %lld s"
@@ -80,13 +171,25 @@
     },
     "%lld%%" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld%%"
           }
         },
-        "it" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld%%"
@@ -96,119 +199,221 @@
     },
     "0 · nessuna" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0 · nessuna"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "0 · none"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "0 · nessuna"
+            "value" : "0 · aucune"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0 · ninguna"
           }
         }
       }
     },
     "1 · passiva" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 · passiva"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "1 · passive"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1 · passiva"
+            "value" : "1 · passive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 · pasiva"
           }
         }
       }
     },
     "2 · attiva" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2 · attiva"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "2 · active"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "2 · attiva"
+            "value" : "2 · active"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2 · activa"
           }
         }
       }
     },
     "Accesso Bluetooth negato. Abilitalo nelle Impostazioni di iOS." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesso Bluetooth negato. Abilitalo nelle Impostazioni di iOS."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bluetooth access was denied. Enable it in iOS Settings."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accès Bluetooth refusé. Activez-le dans les réglages iOS."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acceso Bluetooth denegado. Actívalo en Ajustes de iOS."
           }
         }
       }
     },
     "Alert CarPlay OK" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alert CarPlay OK"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "CarPlay alert OK"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alert CarPlay OK"
+            "value" : "Alerte CarPlay OK"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alerta de CarPlay OK"
           }
         }
       }
     },
     "Alert CarPlay visibile correttamente." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alert CarPlay visibile correttamente."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "CarPlay alert displayed correctly."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alert CarPlay visibile correttamente."
+            "value" : "Alerte CarPlay affichée correctement."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alerta de CarPlay mostrada correctamente."
           }
         }
       }
     },
     "Almeno due campioni per il grafico" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Almeno due campioni per il grafico"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "At least two samples are needed for the chart"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Almeno due campioni per il grafico"
+            "value" : "Au moins deux échantillons sont nécessaires pour le graphique"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se necesitan al menos dos muestras para el gráfico"
           }
         }
       }
     },
     "Alpha DPF Monitor" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor"
           }
         },
-        "it" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor"
@@ -218,10 +423,28 @@
     },
     "Alpha DPF Monitor non può rilevare o modificare la Full immersion. Configurala prima di metterti alla guida." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor non può rilevare o modificare la Full immersion. Configurala prima di metterti alla guida."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor cannot detect or change Driving Focus. Configure it before you start driving."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor ne peut pas détecter ni modifier le mode Concentration au volant. Configurez-le avant de prendre la route."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor no puede detectar ni cambiar el modo Concentración al volante. Configúralo antes de conducir."
           }
         }
       }
@@ -229,32 +452,56 @@
     "ANDAMENTO CARICO" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ANDAMENTO CARICO"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "LOAD TREND"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ANDAMENTO CARICO"
+            "value" : "ÉVOLUTION DE LA CHARGE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EVOLUCIÓN DE LA CARGA"
           }
         }
       }
     },
     "Annulla" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annulla"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cancel"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Annulla"
+            "value" : "Annuler"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
           }
         }
       }
@@ -262,68 +509,140 @@
     "Annulla connessione" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annulla connessione"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cancel connection"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Annulla connessione"
+            "value" : "Annuler la connexion"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar conexión"
           }
         }
       }
     },
     "Apri Impostazioni" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri Impostazioni"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open Settings"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir les réglages"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Ajustes"
           }
         }
       }
     },
     "Apri Impostazioni › Full immersion › Guida" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri Impostazioni › Full immersion › Guida"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open Settings › Focus › Driving"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir Réglages › Concentration › Au volant"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Ajustes › Concentración › Al conducir"
           }
         }
       }
     },
     "Apri l’app per riconnettere" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri l’app per riconnettere"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open the app to reconnect"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apri l’app per riconnettere"
+            "value" : "Ouvrez l’app pour vous reconnecter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre la app para volver a conectarte"
           }
         }
       }
     },
     "Assente" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assente"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Absent"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Assente"
+            "value" : "Absent"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausente"
           }
         }
       }
@@ -331,74 +650,140 @@
     "Attendo i primi valori dalla centralina" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attendo i primi valori dalla centralina"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for the first ECU readings"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Attendo i primi valori dalla centralina"
+            "value" : "En attente des premières valeurs du calculateur"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando las primeras lecturas de la ECU"
           }
         }
       }
     },
     "ATTIVA" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ATTIVA"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ACTIVE"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ATTIVA"
+            "value" : "ACTIVE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ACTIVA"
           }
         }
       }
     },
     "ATTIVA · %@%%" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ATTIVA · %@%%"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ACTIVE · %@%%"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ATTIVA · %@%%"
+            "value" : "ACTIVE · %@%%"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ACTIVA · %@%%"
           }
         }
       }
     },
     "Attiva · non spegnere il motore" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attiva · non spegnere il motore"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Active · do not turn off the engine"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Attiva · non spegnere il motore"
+            "value" : "Active · ne coupez pas le moteur"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa · no apagues el motor"
           }
         }
       }
     },
     "Attiva gli avvisi" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attiva gli avvisi"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enable alerts"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer les alertes"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar alertas"
           }
         }
       }
@@ -406,16 +791,28 @@
     "Attivi" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attivi"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "On"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Attivi"
+            "value" : "Activées"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activadas"
           }
         }
       }
@@ -423,58 +820,112 @@
     "AVANZAMENTO" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AVANZAMENTO"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "PROGRESS"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PROGRESSION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PROGRESO"
           }
         }
       }
     },
     "Avanzamento rigenerazione" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avanzamento rigenerazione"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration progress"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avanzamento rigenerazione"
+            "value" : "Progression de la régénération"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progreso de la regeneración"
           }
         }
       }
     },
     "Avvisi Alpha su CarPlay attivi." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisi Alpha su CarPlay attivi."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha alerts on CarPlay are on."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avvisi Alpha su CarPlay attivi."
+            "value" : "Alertes Alpha sur CarPlay activées."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alertas de Alpha en CarPlay activadas."
           }
         }
       }
     },
     "Avvisi Alpha su CarPlay disattivati." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisi Alpha su CarPlay disattivati."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha alerts on CarPlay are off."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avvisi Alpha su CarPlay disattivati."
+            "value" : "Alertes Alpha sur CarPlay désactivées."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alertas de Alpha en CarPlay desactivadas."
           }
         }
       }
@@ -482,32 +933,56 @@
     "Avvisi CarPlay" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisi CarPlay"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "CarPlay alerts"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avvisi CarPlay"
+            "value" : "Alertes CarPlay"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alertas de CarPlay"
           }
         }
       }
     },
     "Banner notifiche disattivati" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Banner notifiche disattivati"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notification banners are off"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Banner notifiche disattivati"
+            "value" : "Bannières de notification désactivées"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Banners de notificación desactivados"
           }
         }
       }
@@ -515,32 +990,56 @@
     "Basso (<45%)" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basso (<45%)"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Low (<45%)"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Basso (<45%)"
+            "value" : "Faible (<45%)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bajo (<45%)"
           }
         }
       }
     },
     "Batteria" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batteria"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Battery"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Batteria"
+            "value" : "Batterie"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batería"
           }
         }
       }
@@ -548,20 +1047,56 @@
     "BATTERIA" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BATTERIA"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "BATTERY"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BATTERIE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BATERÍA"
           }
         }
       }
     },
     "Bluetooth è disattivato. Attivalo e riprova." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth è disattivato. Attivalo e riprova."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bluetooth is off. Turn it on and try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Bluetooth est désactivé. Activez-le et réessayez."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Bluetooth está desactivado. Actívalo y vuelve a intentarlo."
           }
         }
       }
@@ -569,13 +1104,25 @@
     "Bluetooth LE" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth LE"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bluetooth LE"
           }
         },
-        "it" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth LE"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bluetooth LE"
@@ -585,42 +1132,84 @@
     },
     "Bluetooth non è disponibile su questo dispositivo." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth non è disponibile su questo dispositivo."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bluetooth is not available on this device."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Bluetooth n’est pas disponible sur cet appareil."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth no está disponible en este dispositivo."
           }
         }
       }
     },
     "Campioni: %lld" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Campioni: %lld"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Samples: %lld"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Campioni: %lld"
+            "value" : "Échantillons : %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestras: %lld"
           }
         }
       }
     },
     "Carico" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carico"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Load"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Carico"
+            "value" : "Charge"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carga"
           }
         }
       }
@@ -628,26 +1217,56 @@
     "Carico critico" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carico critico"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Critical load"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Charge critique"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carga crítica"
           }
         }
       }
     },
     "Carico DPF" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carico DPF"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF load"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Carico DPF"
+            "value" : "Charge du DPF"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carga del DPF"
           }
         }
       }
@@ -655,26 +1274,56 @@
     "Carico elevato" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carico elevato"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "High load"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Charge élevée"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carga alta"
           }
         }
       }
     },
     "Chiudi" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiudi"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Close"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chiudi"
+            "value" : "Fermer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar"
           }
         }
       }
@@ -682,32 +1331,56 @@
     "CICLI RIGENERAZIONE" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CICLI RIGENERAZIONE"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "REGENERATION CYCLES"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CICLI RIGENERAZIONE"
+            "value" : "CYCLES DE RÉGÉNÉRATION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CICLOS DE REGENERACIÓN"
           }
         }
       }
     },
     "Cicli: %lld" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cicli: %lld"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cycles: %lld"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cicli: %lld"
+            "value" : "Cycles : %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ciclos: %lld"
           }
         }
       }
@@ -715,94 +1388,168 @@
     "COLORE ACCENT" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "COLORE ACCENT"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ACCENT COLOR"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "COLORE ACCENT"
+            "value" : "COULEUR D’ACCENT"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "COLOR DE ACENTO"
           }
         }
       }
     },
     "Completa gli avvisi" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completa gli avvisi"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Finish alert setup"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminer la configuration des alertes"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completar la configuración de alertas"
           }
         }
       }
     },
     "Completata" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completata"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Completed"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Completata"
-          }
-        }
-      }
-    },
-    "Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "With an SGW bypass already installed, advanced PIDs may become accessible if the ECU exposes them."
+            "value" : "Terminée"
           }
         },
-        "it" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone."
+            "value" : "Completada"
           }
         }
       }
     },
     "Concedi prima il permesso notifiche dall’iPhone." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Concedi prima il permesso notifiche dall’iPhone."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Grant notification permission on your iPhone first."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Concedi prima il permesso notifiche dall’iPhone."
+            "value" : "Autorisez d’abord les notifications depuis l’iPhone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Concede primero el permiso de notificaciones desde el iPhone."
           }
         }
       }
     },
     "Configura l’adattatore e consulta i dati soltanto a veicolo fermo. Non interagire con iPhone durante la guida e rispetta sempre il codice della strada." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura l’adattatore e consulta i dati soltanto a veicolo fermo. Non interagire con iPhone durante la guida e rispetta sempre il codice della strada."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Set up the adapter and check data only while parked. Do not interact with iPhone while driving, and always obey traffic laws."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurez l’adaptateur et consultez les données uniquement à l’arrêt. N’utilisez pas l’iPhone en conduisant et respectez toujours le code de la route."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura el adaptador y consulta los datos solo con el vehículo detenido. No uses el iPhone mientras conduces y respeta siempre las normas de tráfico."
           }
         }
       }
     },
     "Configura la connessione da fermo. Non usare iPhone durante la guida." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura la connessione da fermo. Non usare iPhone durante la guida."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Set up the connection while parked. Do not use iPhone while driving."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurez la connexion à l’arrêt. N’utilisez pas l’iPhone en conduisant."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura la conexión con el vehículo detenido. No uses el iPhone mientras conduces."
           }
         }
       }
@@ -810,100 +1557,196 @@
     "CONNESSIONE" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CONNESSIONE"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "CONNECTION"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CONNEXION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CONEXIÓN"
           }
         }
       }
     },
     "Connessione all’adattatore…" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione all’adattatore…"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connecting to the adapter…"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connessione all’adattatore…"
+            "value" : "Connexion à l’adaptateur…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectando al adaptador…"
           }
         }
       }
     },
     "Connessione automatica" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione automatica"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Automatic connection"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connexion automatique"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conexión automática"
           }
         }
       }
     },
     "Connessione interrotta · tocca Connetti" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione interrotta · tocca Connetti"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connection interrupted · tap Connect"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connessione interrotta · tocca Connetti"
+            "value" : "Connexion interrompue · touchez Connecter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conexión interrumpida · toca Conectar"
           }
         }
       }
     },
     "Connesso · attesa dati ECU" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connesso · attesa dati ECU"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connected · waiting for ECU data"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connesso · attesa dati ECU"
+            "value" : "Connecté · en attente des données du calculateur"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectado · esperando datos de la ECU"
           }
         }
       }
     },
     "Connesso · dati live" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connesso · dati live"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connected · live data"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connesso · dati live"
+            "value" : "Connecté · données en direct"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectado · datos en directo"
           }
         }
       }
     },
     "Connetti" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connetti"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connect"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connetti"
+            "value" : "Connecter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar"
           }
         }
       }
@@ -911,26 +1754,56 @@
     "Connetti all'OBD" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connetti all'OBD"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connect to OBD"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecter à l’OBD"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar al OBD"
           }
         }
       }
     },
     "Connetti l'adattatore OBD per iniziare a registrare l'andamento del carico DPF e la cronologia delle rigenerazioni." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connetti l'adattatore OBD per iniziare a registrare l'andamento del carico DPF e la cronologia delle rigenerazioni."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connect the OBD adapter to start recording DPF load trends and regeneration history."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connetti l'adattatore OBD per iniziare a registrare l'andamento del carico DPF e la cronologia delle rigenerazioni."
+            "value" : "Connectez l’adaptateur OBD pour commencer à enregistrer l’évolution de la charge du DPF et l’historique des régénérations."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecta el adaptador OBD para empezar a registrar la evolución de la carga del DPF y el historial de regeneraciones."
           }
         }
       }
@@ -938,42 +1811,84 @@
     "Connetti l'adattatore oppure usa il laboratorio test." : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connetti l'adattatore oppure usa il laboratorio test."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connect the adapter or use the test lab."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connetti l'adattatore oppure usa il laboratorio test."
+            "value" : "Connectez l’adaptateur ou utilisez le laboratoire de test."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecta el adaptador o usa el laboratorio de pruebas."
           }
         }
       }
     },
     "Connettiti prima alla rete Wi-Fi creata dall’adattatore. È normale che iOS indichi “Nessuna connessione Internet”." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connettiti prima alla rete Wi-Fi creata dall’adattatore. È normale che iOS indichi “Nessuna connessione Internet”."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "First connect to the Wi-Fi network created by the adapter. It is normal for iOS to show “No Internet Connection”."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connettiti prima alla rete Wi-Fi creata dall’adattatore. È normale che iOS indichi “Nessuna connessione Internet”."
+            "value" : "Connectez-vous d’abord au réseau Wi-Fi créé par l’adaptateur. Il est normal qu’iOS indique « Pas de connexion Internet »."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conéctate primero a la red Wi-Fi creada por el adaptador. Es normal que iOS muestre «Sin conexión a Internet»."
           }
         }
       }
     },
     "Continua nell’app" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continua nell’app"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Continue to app"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuer dans l’app"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuar en la app"
           }
         }
       }
@@ -981,26 +1896,56 @@
     "Contributo facoltativo · €4,99" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contributo facoltativo · €4,99"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Optional contribution · €4.99"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Contributo facoltativo · €4,99"
+            "value" : "Contribution facultative · 4,99 €"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contribución opcional · 4,99 €"
           }
         }
       }
     },
     "Copia" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copy"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar"
           }
         }
       }
@@ -1008,32 +1953,56 @@
     "Critico (75+%)" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Critico (75+%)"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Critical (75+%)"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Critico (75+%)"
+            "value" : "Critique (75+%)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crítico (75+%)"
           }
         }
       }
     },
     "Dall’ultima" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dall’ultima"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Since last regen"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dall’ultima"
+            "value" : "Depuis la dernière régénération"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desde la última regeneración"
           }
         }
       }
@@ -1041,10 +2010,28 @@
     "DALL'ULTIMA REGEN" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DALL'ULTIMA REGEN"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "SINCE LAST REGEN"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DEPUIS LA DERNIÈRE RÉGÉNÉRATION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DESDE LA ÚLTIMA REGENERACIÓN"
           }
         }
       }
@@ -1052,64 +2039,112 @@
     "Dati" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dati"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Data"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dati"
+            "value" : "Données"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datos"
           }
         }
       }
     },
     "Dati DPF non aggiornati" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dati DPF non aggiornati"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF data not updated"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dati DPF non aggiornati"
+            "value" : "Données du DPF non actualisées"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datos del DPF no actualizados"
           }
         }
       }
     },
     "Dati non aggiornati" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dati non aggiornati"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Data not updated"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dati non aggiornati"
+            "value" : "Données non actualisées"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datos no actualizados"
           }
         }
       }
     },
     "Dati non disponibili" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dati non disponibili"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Data unavailable"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dati non disponibili"
+            "value" : "Données indisponibles"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datos no disponibles"
           }
         }
       }
@@ -1117,16 +2152,28 @@
     "DATI VEICOLO" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DATI VEICOLO"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "VEHICLE DATA"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "DATI VEICOLO"
+            "value" : "DONNÉES DU VÉHICULE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DATOS DEL VEHÍCULO"
           }
         }
       }
@@ -1134,20 +2181,56 @@
     "DETTAGLI DPF" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DETTAGLI DPF"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF DETAILS"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DÉTAILS DU DPF"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DETALLES DEL DPF"
           }
         }
       }
     },
     "Diagnostica OBD" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostica OBD"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "OBD diagnostics"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostic OBD"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnóstico OBD"
           }
         }
       }
@@ -1155,93 +2238,165 @@
     "Disattivati" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disattivati"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Off"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Disattivati"
+            "value" : "Désactivées"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivadas"
           }
         }
       }
     },
     "Disconnesso" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnesso"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Disconnected"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Disconnesso"
+            "value" : "Déconnecté"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectado"
           }
         }
       }
     },
     "Disconnesso · ultimo dato salvato" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnesso · ultimo dato salvato"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Disconnected · last saved value"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Disconnesso · ultimo dato salvato"
+            "value" : "Déconnecté · dernière valeur enregistrée"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectado · último valor guardado"
           }
         }
       }
     },
     "Disconnetti" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnetti"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Disconnect"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Disconnetti"
+            "value" : "Déconnecter"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectar"
           }
         }
       }
     },
     "Distanza dall’ultima rigenerazione" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distanza dall’ultima rigenerazione"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Distance since last regeneration"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Distanza dall’ultima rigenerazione"
+            "value" : "Distance depuis la dernière régénération"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distancia desde la última regeneración"
           }
         }
       }
     },
     "DPF" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF"
           }
         },
-        "it" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF"
@@ -1251,10 +2406,28 @@
     },
     "DPF LOAD" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF LOAD"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF LOAD"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CHARGE DU DPF"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CARGA DEL DPF"
           }
         }
       }
@@ -1262,10 +2435,28 @@
     "DPF pulito" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF pulito"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Clean DPF"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF propre"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DPF limpio"
           }
         }
       }
@@ -1273,7 +2464,25 @@
     "Errore" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Errore"
+          }
+        },
         "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erreur"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Error"
@@ -1283,121 +2492,308 @@
     },
     "Errore di comunicazione con l’adattatore OBD." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Errore di comunicazione con l’adattatore OBD."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Communication error with the OBD adapter."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erreur de communication avec l’adaptateur OBD."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error de comunicación con el adaptador OBD."
           }
         }
       }
     },
     "Errore durante la connessione Bluetooth all’adattatore OBD." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Errore durante la connessione Bluetooth all’adattatore OBD."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bluetooth connection to the OBD adapter failed."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec de la connexion Bluetooth à l’adaptateur OBD."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error al conectar por Bluetooth con el adaptador OBD."
           }
         }
       }
     },
     "Esegui ciclo completo (8 secondi)" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esegui ciclo completo (8 secondi)"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Run full cycle (8 seconds)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exécuter le cycle complet (8 secondes)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejecutar ciclo completo (8 segundos)"
           }
         }
       }
     },
     "Esito non verificato" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esito non verificato"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Outcome not verified"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Esito non verificato"
+            "value" : "Résultat non vérifié"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resultado no verificado"
           }
         }
       }
     },
     "Filtro antiparticolato" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filtro antiparticolato"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Diesel particulate filter"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Filtro antiparticolato"
+            "value" : "Filtre à particules"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filtro de partículas"
           }
         }
       }
     },
     "Fine" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fine"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Done"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminé"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listo"
           }
         }
       }
     },
     "formula raw×1000/65535 = %@" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "formula raw×1000/65535 = %@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "formula raw×1000/65535 = %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "formule raw×1000/65535 = %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "fórmula raw×1000/65535 = %@"
           }
         }
       }
     },
     "Full immersion Guida" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full immersion Guida"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Driving Focus"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Concentration au volant"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Concentración al volante"
           }
         }
       }
     },
     "Full immersion Guida può comunque silenziare l’avviso." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full immersion Guida può comunque silenziare l’avviso."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Driving Focus may still silence the alert."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Full immersion Guida può comunque silenziare l’avviso."
+            "value" : "Le mode Concentration au volant peut malgré tout réduire l’alerte au silence."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El modo Concentración al volante puede silenciar la alerta de todos modos."
           }
         }
       }
     },
     "Gli avvisi di rigenerazione sono informazioni sensibili al tempo. Ti guidiamo una volta sola; poi l’app tenterà automaticamente la connessione all’OBD." : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gli avvisi di rigenerazione sono informazioni sensibili al tempo. Ti guidiamo una volta sola; poi l’app tenterà automaticamente la connessione all’OBD."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneration alerts are time-sensitive. We will guide you through setup once; the app will then automatically try to connect to the OBD."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les alertes de régénération sont sensibles au temps. Nous vous guiderons une seule fois ; l’app tentera ensuite automatiquement de se connecter à l’OBD."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las alertas de regeneración son sensibles al tiempo. Te guiaremos una sola vez; después la app intentará conectarse automáticamente al OBD."
+          }
+        }
+      }
     },
     "Gli scenari usano la stessa logica della connessione reale: interfaccia, Live Activity e notifiche di inizio/fine rigenerazione." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gli scenari usano la stessa logica della connessione reale: interfaccia, Live Activity e notifiche di inizio/fine rigenerazione."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The scenarios use the same logic as a real connection: interface, Live Activity, and regeneration start/end notifications."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les scénarios utilisent la même logique qu’une connexion réelle : interface, activité en direct et notifications de début/fin de régénération."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los escenarios usan la misma lógica que una conexión real: interfaz, Live Activity y notificaciones de inicio/fin de regeneración."
           }
         }
       }
@@ -1405,10 +2801,28 @@
     "Header non ancora convalidato: confronto beta richiesto" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Header non ancora convalidato: confronto beta richiesto"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Header not yet validated: beta comparison required"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En-tête non encore validé : comparaison bêta requise"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cabecera aún no validada: se requiere comparación beta"
           }
         }
       }
@@ -1416,20 +2830,56 @@
     "Header verificato Giulia/Stelvio 2.2D" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Header verificato Giulia/Stelvio 2.2D"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Header verified for Giulia/Stelvio 2.2D"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En-tête vérifié pour Giulia/Stelvio 2.2D"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cabecera verificada para Giulia/Stelvio 2.2D"
           }
         }
       }
     },
     "Ho capito, continua" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ho capito, continua"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Got it, continue"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compris, continuer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entendido, continuar"
           }
         }
       }
@@ -1437,10 +2887,28 @@
     "Il filtro è nella normale zona di utilizzo." : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il filtro è nella normale zona di utilizzo."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The filter is in its normal operating range."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le filtre se trouve dans sa plage de fonctionnement normale."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El filtro está en su rango normal de funcionamiento."
           }
         }
       }
@@ -1448,120 +2916,252 @@
     "Il PID carico DPF non è disponibile su questa centralina." : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il PID carico DPF non è disponibile su questa centralina."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The DPF load PID is not available from this ECU."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il PID carico DPF non è disponibile su questa centralina."
+            "value" : "Le PID de charge du DPF n’est pas disponible sur ce calculateur."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El PID de carga del DPF no está disponible en esta ECU."
           }
         }
       }
     },
     "Impossibile accodare la notifica di test." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile accodare la notifica di test."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unable to queue the test notification."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impossibile accodare la notifica di test."
+            "value" : "Impossible de mettre l’alerte de test en file d’attente."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo poner en cola la notificación de prueba."
           }
         }
       }
     },
     "Impossibile connettersi all’adattatore OBD. Riprova." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile connettersi all’adattatore OBD. Riprova."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Could not connect to the OBD adapter. Try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connexion à l’adaptateur OBD impossible. Réessayez."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo conectar al adaptador OBD. Inténtalo de nuevo."
           }
         }
       }
     },
     "Impossibile inizializzare l’adattatore OBD. Riprova." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile inizializzare l’adattatore OBD. Riprova."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Could not initialise the OBD adapter. Try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Initialisation de l’adaptateur OBD impossible. Réessayez."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo inicializar el adaptador OBD. Inténtalo de nuevo."
           }
         }
       }
     },
     "Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The Wi-Fi OBD adapter could not be reached within 30 seconds. Check the network, address and port."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta."
+            "value" : "Impossible d’atteindre l’adaptateur OBD Wi-Fi en 30 secondes. Vérifiez le réseau, l’adresse et le port."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo acceder al adaptador OBD Wi-Fi en 30 segundos. Comprueba la red, la dirección y el puerto."
           }
         }
       }
     },
     "Impostazioni" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impostazioni"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Settings"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réglages"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes"
           }
         }
       }
     },
     "Impostazioni Wi-Fi non valide. Controlla indirizzo e porta." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impostazioni Wi-Fi non valide. Controlla indirizzo e porta."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Invalid Wi-Fi settings. Check the address and port."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impostazioni Wi-Fi non valide. Controlla indirizzo e porta."
+            "value" : "Réglages Wi-Fi invalides. Vérifiez l’adresse et le port."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes de Wi-Fi no válidos. Comprueba la dirección y el puerto."
           }
         }
       }
     },
     "In “Durante la guida”, disattiva “Attiva con CarPlay” oppure scegli l’attivazione manuale" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In “Durante la guida”, disattiva “Attiva con CarPlay” oppure scegli l’attivazione manuale"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Under “While Driving,” turn off “Activate With CarPlay” or choose manual activation"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans « Au volant », désactivez « Activer avec CarPlay » ou choisissez l’activation manuelle"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En «Al conducir», desactiva «Activar con CarPlay» o elige la activación manual"
           }
         }
       }
     },
     "In corso" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In corso"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "In progress"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In corso"
+            "value" : "En cours"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En curso"
           }
         }
       }
@@ -1569,150 +3169,336 @@
     "In Impostazioni › Notifiche › Alpha DPF Monitor, abilita “Notifiche urgenti”." : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Impostazioni › Notifiche › Alpha DPF Monitor, abilita “Notifiche urgenti”."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "In Settings › Notifications › Alpha DPF Monitor, enable “Time Sensitive Notifications.”"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans Réglages › Notifications › Alpha DPF Monitor, activez les « notifications urgentes »."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En Ajustes › Notificaciones › Alpha DPF Monitor, activa las «notificaciones urgentes»."
           }
         }
       }
     },
     "INDICE ECU" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "INDICE ECU"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ECU INDEX"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "INDICE ECU"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ÍNDICE DE ECU"
           }
         }
       }
     },
     "Indice ECU %@%%" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indice ECU %@%%"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ECU index %@%%"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Indice ECU %@%%"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Índice de ECU %@%%"
           }
         }
       }
     },
     "Indirizzo IP o host" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indirizzo IP o host"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "IP address or host"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Indirizzo IP o host"
+            "value" : "Adresse IP ou hôte"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dirección IP o host"
           }
         }
       }
     },
     "Informazioni" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Informazioni"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "About"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À propos"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acerca de"
           }
         }
       }
     },
     "Informazioni, sicurezza e privacy" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Informazioni, sicurezza e privacy"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "About, safety and privacy"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À propos, sécurité et confidentialité"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acerca de, seguridad y privacidad"
           }
         }
       }
     },
     "Interrotta" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrotta"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Interrupted"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Interrotta"
+            "value" : "Interrompue"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrumpida"
           }
         }
       }
     },
     "iOS non permette ad Alpha DPF Monitor di cambiare queste preferenze al posto tuo." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS non permette ad Alpha DPF Monitor di cambiare queste preferenze al posto tuo."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "iOS does not allow Alpha DPF Monitor to change these preferences for you."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS ne permet pas à Alpha DPF Monitor de modifier ces préférences à votre place."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS no permite que Alpha DPF Monitor cambie estas preferencias por ti."
           }
         }
       }
     },
     "L’adattatore Bluetooth non espone una connessione ELM327 compatibile." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’adattatore Bluetooth non espone una connessione ELM327 compatibile."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The Bluetooth adapter does not expose a compatible ELM327 connection."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’adaptateur Bluetooth n’expose pas de connexion ELM327 compatible."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El adaptador Bluetooth no ofrece una conexión ELM327 compatible."
           }
         }
       }
     },
     "L’adattatore OBD non è pronto." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’adattatore OBD non è pronto."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The OBD adapter is not ready."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’adaptateur OBD n’est pas prêt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El adaptador OBD no está listo."
           }
         }
       }
     },
     "L’adattatore OBD non ha risposto in tempo." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’adattatore OBD non ha risposto in tempo."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The OBD adapter did not respond in time."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’adaptateur OBD n’a pas répondu à temps."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El adaptador OBD no respondió a tiempo."
           }
         }
       }
     },
     "L’app è gratuita e resterà gratuita. Un contributo facoltativo di €4,99 aiuta a coprire i costi annuali e a mantenere vivo il progetto. Non sblocca funzioni e non cambia l’esperienza." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’app è gratuita e resterà gratuita. Un contributo facoltativo di €4,99 aiuta a coprire i costi annuali e a mantenere vivo il progetto. Non sblocca funzioni e non cambia l’esperienza."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The app is free and will stay free. An optional €4.99 contribution helps cover annual costs and keeps the project alive. It unlocks nothing and does not change the experience."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "L’app è gratuita e resterà gratuita. Un contributo facoltativo di €4,99 aiuta a coprire i costi annuali e a mantenere vivo il progetto. Non sblocca funzioni e non cambia l’esperienza."
+            "value" : "L’app est gratuite et le restera. Une contribution facultative de 4,99 € aide à couvrir les coûts annuels et à faire vivre le projet. Elle ne débloque aucune fonction et ne change pas l’expérience."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La app es gratuita y seguirá siéndolo. Una contribución opcional de 4,99 € ayuda a cubrir los costes anuales y mantener vivo el proyecto. No desbloquea funciones ni cambia la experiencia."
           }
         }
       }
@@ -1720,52 +3506,112 @@
     "La rigenerazione è attesa, ma non è ancora attiva." : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La rigenerazione è attesa, ma non è ancora attiva."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration is expected but is not active yet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La régénération est attendue, mais n’est pas encore active."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se espera una regeneración, pero aún no está activa."
           }
         }
       }
     },
     "Laboratorio DPF" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laboratorio DPF"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF Test Lab"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laboratoire de test DPF"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laboratorio de pruebas DPF"
           }
         }
       }
     },
     "Le notifiche di rigenerazione sono configurate correttamente." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le notifiche di rigenerazione sono configurate correttamente."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration notifications are configured correctly."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le notifiche di rigenerazione sono configurate correttamente."
+            "value" : "Les notifications de régénération sont correctement configurées."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las notificaciones de regeneración están configuradas correctamente."
           }
         }
       }
     },
     "Le notifiche di sistema Driving Task richiedono iOS 18.4. Usa il test alert CarPlay." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le notifiche di sistema Driving Task richiedono iOS 18.4. Usa il test alert CarPlay."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "System notifications for Driving Task apps require iOS 18.4. Use the CarPlay alert test."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le notifiche di sistema Driving Task richiedono iOS 18.4. Usa il test alert CarPlay."
+            "value" : "Les notifications système des tâches de conduite nécessitent iOS 18.4. Utilisez le test d’alerte CarPlay."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las notificaciones del sistema de las tareas de conducción requieren iOS 18.4. Usa la prueba de alerta de CarPlay."
           }
         }
       }
@@ -1773,45 +3619,112 @@
     "Lettura dati DPF…" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lettura dati DPF…"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reading DPF data…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lecture des données DPF…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leyendo datos del DPF…"
           }
         }
       }
     },
     "Live" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Live"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Live"
+            "value" : "En direct"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En directo"
           }
         }
       }
     },
     "Mantieni attive le “Notifiche urgenti”" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantieni attive le “Notifiche urgenti”"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep “Time Sensitive Notifications” on"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gardez les « notifications urgentes » activées"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mantén activadas las «notificaciones urgentes»"
+          }
+        }
+      }
     },
     "Modello veicolo non identificato automaticamente" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modello veicolo non identificato automaticamente"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vehicle model is not identified automatically"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modello veicolo non identificato automaticamente"
+            "value" : "Modèle du véhicule non identifié automatiquement"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modelo del vehículo no identificado automáticamente"
           }
         }
       }
@@ -1819,7 +3732,25 @@
     "Monitor" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monitor"
+          }
+        },
         "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monitor"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moniteur"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Monitor"
@@ -1829,231 +3760,448 @@
     },
     "Mostra in CarPlay disattivato" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra in CarPlay disattivato"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Show in CarPlay is off"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostra in CarPlay disattivato"
+            "value" : "Afficher dans CarPlay désactivé"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar en CarPlay desactivado"
           }
         }
       }
     },
     "Mostra in CarPlay, Time Sensitive e suoni sono attivi." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra in CarPlay, Time Sensitive e suoni sono attivi."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Show in CarPlay, Time Sensitive notifications and sounds are on."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostra in CarPlay, Time Sensitive e suoni sono attivi."
+            "value" : "Afficher dans CarPlay, les notifications urgentes et les sons sont activés."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar en CarPlay, las notificaciones urgentes y los sonidos están activados."
           }
         }
       }
     },
     "Nel messaggio di iOS tocca “Consenti”" : {
-
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nel messaggio di iOS tocca “Consenti”"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap “Allow” in the iOS prompt"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez « Autoriser » dans le message iOS"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toca «Permitir» en el mensaje de iOS"
+          }
+        }
+      }
     },
     "Nessun ciclo registrato" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun ciclo registrato"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No recorded cycles"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nessun ciclo registrato"
+            "value" : "Aucun cycle enregistré"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay ciclos registrados"
           }
         }
       }
     },
     "Nessun dato registrato" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun dato registrato"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No recorded data"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nessun dato registrato"
+            "value" : "Aucune donnée enregistrée"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay datos registrados"
           }
         }
       }
     },
     "Nessun dato storico" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun dato storico"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No history data"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nessun dato storico"
+            "value" : "Aucun historique de données"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay datos históricos"
           }
         }
       }
     },
     "Nessuna connessione con l’adattatore OBD entro 30 secondi. Verifica che sia alimentato e vicino." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessuna connessione con l’adattatore OBD entro 30 secondi. Verifica che sia alimentato e vicino."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No connection to the OBD adapter within 30 seconds. Check that it is powered and nearby."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune connexion à l’adaptateur OBD en 30 secondes. Vérifiez qu’il est alimenté et à proximité."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se conectó al adaptador OBD en 30 segundos. Comprueba que tenga alimentación y esté cerca."
           }
         }
       }
     },
     "No, grazie" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No, grazie"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No, thanks"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No, grazie"
+            "value" : "Non merci"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No, gracias"
           }
         }
       }
     },
     "NON AGGIORNATO" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NON AGGIORNATO"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "NOT UPDATED"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NON AGGIORNATO"
+            "value" : "NON ACTUALISÉ"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NO ACTUALIZADO"
           }
         }
       }
     },
     "Non attiva" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non attiva"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not active"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non attiva"
+            "value" : "Inactive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No activa"
           }
         }
       }
     },
     "NON LIVE" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NON LIVE"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "NOT LIVE"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "NON LIVE"
+            "value" : "PAS EN DIRECT"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NO EN DIRECTO"
           }
         }
       }
     },
     "Non perdere una rigenerazione" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non perdere una rigenerazione"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Never miss a regeneration"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ne manquez aucune régénération"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No te pierdas ninguna regeneración"
           }
         }
       }
     },
     "Non significativa" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non significativa"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not significant"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non significativa"
+            "value" : "Non significative"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No significativa"
           }
         }
       }
     },
     "Non spegnere il motore" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non spegnere il motore"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Do not turn off the engine"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non spegnere il motore"
+            "value" : "Ne coupez pas le moteur"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No apagues el motor"
           }
         }
       }
     },
     "Normale" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normale"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Normal"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Normale"
+            "value" : "Normal"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal"
           }
         }
       }
     },
     "Notifiche CarPlay" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifiche CarPlay"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "CarPlay notifications"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Notifiche CarPlay"
+            "value" : "Notifications CarPlay"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notificaciones de CarPlay"
           }
         }
       }
@@ -2061,33 +4209,81 @@
     "NUOVI SEGNALI ECU" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NUOVI SEGNALI ECU"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "NEW ECU SIGNALS"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NOUVEAUX SIGNAUX ECU"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NUEVAS SEÑALES DE ECU"
           }
         }
       }
     },
     "OBD disattivato durante il test" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD disattivato durante il test"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "OBD disabled during testing"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD désactivé pendant le test"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OBD desactivado durante la prueba"
           }
         }
       }
     },
     "OK" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
           }
         },
-        "it" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
@@ -2097,32 +4293,56 @@
     },
     "Olio" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olio"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Oil"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Olio"
+            "value" : "Huile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aceite"
           }
         }
       }
     },
     "Ora" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ora"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Time"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ora"
+            "value" : "Heure"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hora"
           }
         }
       }
@@ -2130,16 +4350,28 @@
     "Origine dati" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Origine dati"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Data source"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Origine dati"
+            "value" : "Source des données"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Origen de los datos"
           }
         }
       }
@@ -2147,113 +4379,221 @@
     "PAGINA PRINCIPALE" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PAGINA PRINCIPALE"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "HOME PAGE"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PAGINA PRINCIPALE"
+            "value" : "PAGE D’ACCUEIL"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PÁGINA PRINCIPAL"
           }
         }
       }
     },
     "Passiva" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passiva"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Passive"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Passiva"
+            "value" : "Passive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pasiva"
           }
         }
       }
     },
     "Per consentire gli annunci Siri quando supportati, attiva “Annuncia notifiche”" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per consentire gli annunci Siri quando supportati, attiva “Annuncia notifiche”"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "To allow Siri announcements when supported, enable “Announce Notifications”"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Per consentire gli annunci Siri quando supportati, attiva “Annuncia notifiche”"
+            "value" : "Pour autoriser les annonces Siri si elles sont prises en charge, activez « Annoncer les notifications »"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para permitir los anuncios de Siri cuando sean compatibles, activa «Anunciar notificaciones»"
           }
         }
       }
     },
     "Per il test sistema, tocca il pulsante e torna subito alla Home CarPlay." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per il test sistema, tocca il pulsante e torna subito alla Home CarPlay."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "For the system test, tap the button and immediately return to CarPlay Home."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Per il test sistema, tocca il pulsante e torna subito alla Home CarPlay."
+            "value" : "Pour le test système, touchez le bouton puis revenez immédiatement à l’accueil CarPlay."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para la prueba del sistema, toca el botón y vuelve inmediatamente a la pantalla de inicio de CarPlay."
           }
         }
       }
     },
     "Per testare manualmente entrambe le notifiche, tocca prima “Inizio rigenerazione” e poi “Fine rigenerazione”." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per testare manualmente entrambe le notifiche, tocca prima “Inizio rigenerazione” e poi “Fine rigenerazione”."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "To test both notifications manually, tap “Regeneration started” first, then “Regeneration finished.”"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pour tester manuellement les deux notifications, touchez d’abord « Début de la régénération », puis « Fin de la régénération »."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para probar manualmente ambas notificaciones, toca primero «Inicio de regeneración» y después «Fin de regeneración»."
           }
         }
       }
     },
     "Permesso notifiche negato" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permesso notifiche negato"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notification permission denied"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Permesso notifiche negato"
+            "value" : "Autorisation de notifications refusée"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permiso de notificaciones denegado"
           }
         }
       }
     },
     "Permesso notifiche non ancora concesso" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permesso notifiche non ancora concesso"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notification permission has not been granted yet"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Permesso notifiche non ancora concesso"
+            "value" : "Autorisation de notifications pas encore accordée"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no se ha concedido el permiso de notificaciones"
           }
         }
       }
     },
     "PID 2218E4 · ECU %@" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 2218E4 · ECU %@"
+          }
+        },
         "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 2218E4 · ECU %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID 2218E4 · calculateur %@"
+          }
+        },
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "PID 2218E4 · ECU %@"
@@ -2263,32 +4603,56 @@
     },
     "PID non disponibile" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID non disponibile"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "PID unavailable"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PID non disponibile"
+            "value" : "PID indisponible"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PID no disponible"
           }
         }
       }
     },
     "Porta TCP" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Porta TCP"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "TCP port"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Porta TCP"
+            "value" : "Port TCP"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puerto TCP"
           }
         }
       }
@@ -2296,10 +4660,28 @@
     "Pressione olio" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressione olio"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Oil pressure"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pression d’huile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presión de aceite"
           }
         }
       }
@@ -2307,36 +4689,56 @@
     "PRESSIONE OLIO" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PRESSIONE OLIO"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "OIL PRESSURE"
           }
-        }
-      }
-    },
-    "Pressione olio e SGW" : {
-      "localizations" : {
-        "en" : {
+        },
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Oil pressure and SGW"
+            "value" : "PRESSION D’HUILE"
           }
         },
-        "it" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pressione olio e SGW"
+            "value" : "PRESIÓN DE ACEITE"
           }
         }
       }
     },
     "Prima la sicurezza" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prima la sicurezza"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Safety first"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sécurité d’abord"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La seguridad es lo primero"
           }
         }
       }
@@ -2344,52 +4746,112 @@
     "Pronto" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pronto"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ready"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prêt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listo"
           }
         }
       }
     },
     "Quando Guida è attiva, iOS silenzia o limita le notifiche delle app, anche su CarPlay." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quando Guida è attiva, iOS silenzia o limita le notifiche delle app, anche su CarPlay."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "When Driving Focus is active, iOS silences or limits app notifications, including on CarPlay."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lorsque Concentration au volant est activée, iOS réduit ou bloque les notifications des apps, y compris sur CarPlay."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuando Concentración al volante está activa, iOS silencia o limita las notificaciones de las apps, también en CarPlay."
           }
         }
       }
     },
     "raw %u (0x%@)" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "raw %u (0x%@)"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "raw %1$u (0x%2$@)"
+            "value" : "raw %u (0x%@)"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
-            "state" : "new",
-            "value" : "raw %1$u (0x%2$@)"
+            "state" : "translated",
+            "value" : "raw %u (0x%@)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "raw %u (0x%@)"
           }
         }
       }
     },
     "Regen" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regen"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Regen"
+            "value" : "Régén."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regen."
           }
         }
       }
@@ -2397,218 +4859,392 @@
     "Ricerca dell’ELM327 in corso" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ricerca dell’ELM327 in corso"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Searching for the ELM327"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recherche de l’ELM327 en cours"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscando el ELM327"
           }
         }
       }
     },
     "RIGEN" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RIGEN"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "REGEN"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "RIGEN"
+            "value" : "RÉGÉN."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REGEN."
           }
         }
       }
     },
     "Rigenerazione" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazione"
+            "value" : "Régénération"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración"
           }
         }
       }
     },
     "RIGENERAZIONE" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RIGENERAZIONE"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "REGENERATION"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "RIGENERAZIONE"
+            "value" : "RÉGÉNÉRATION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REGENERACIÓN"
           }
         }
       }
     },
     "Rigenerazione attiva" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione attiva"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Active regeneration"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazione attiva"
+            "value" : "Régénération active"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración activa"
           }
         }
       }
     },
     "Rigenerazione completata" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione completata"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration completed"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazione completata"
+            "value" : "Régénération terminée"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración completada"
           }
         }
       }
     },
     "Rigenerazione completata — %d min." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione completata — %d min."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration completed — %d min."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazione completata — %d min."
+            "value" : "Régénération terminée — %d min."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración completada — %d min."
           }
         }
       }
     },
     "Rigenerazione DPF attiva" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione DPF attiva"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF regeneration active"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazione DPF attiva"
+            "value" : "Régénération DPF active"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración del DPF activa"
           }
         }
       }
     },
     "Rigenerazione DPF completata." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione DPF completata."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF regeneration completed."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazione DPF completata."
+            "value" : "Régénération DPF terminée."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración del DPF completada."
           }
         }
       }
     },
     "Rigenerazione DPF iniziata" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione DPF iniziata"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF regeneration started"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazione DPF iniziata"
+            "value" : "Régénération DPF commencée"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración del DPF iniciada"
           }
         }
       }
     },
     "Rigenerazione DPF iniziata — non spegnere il motore." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione DPF iniziata — non spegnere il motore."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF regeneration started — do not turn off the engine."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazione DPF iniziata — non spegnere il motore."
+            "value" : "Régénération DPF commencée — ne coupez pas le moteur."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración del DPF iniciada — no apagues el motor."
           }
         }
       }
     },
     "Rigenerazione DPF terminata" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione DPF terminata"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF regeneration finished"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazione DPF terminata"
+            "value" : "Régénération DPF terminée"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración del DPF finalizada"
           }
         }
       }
     },
     "Rigenerazione iniziata — DPF al %.0f%%. Non spegnere il motore." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione iniziata — DPF al %.0f%%. Non spegnere il motore."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration started — DPF at %.0f%%. Do not turn off the engine."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazione iniziata — DPF al %.0f%%. Non spegnere il motore."
+            "value" : "Régénération commencée — DPF à %.0f%%. Ne coupez pas le moteur."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración iniciada — DPF al %.0f%%. No apagues el motor."
           }
         }
       }
     },
     "Rigenerazione iniziata. Non spegnere il motore." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione iniziata. Non spegnere il motore."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration started. Do not turn off the engine."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazione iniziata. Non spegnere il motore."
+            "value" : "Régénération commencée. Ne coupez pas le moteur."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración iniciada. No apagues el motor."
           }
         }
       }
@@ -2616,10 +5252,28 @@
     "Rigenerazione non attiva" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione non attiva"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration inactive"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Régénération inactive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración no activa"
           }
         }
       }
@@ -2627,20 +5281,56 @@
     "Rigenerazione passiva" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione passiva"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Passive regeneration"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Régénération passive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración pasiva"
           }
         }
       }
     },
     "Rigenerazione: %@" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazione: %@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Régénération : %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneración: %@"
           }
         }
       }
@@ -2648,16 +5338,28 @@
     "Rigenerazioni" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazioni"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regens"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazioni"
+            "value" : "Régénérations"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regeneraciones"
           }
         }
       }
@@ -2665,26 +5367,56 @@
     "RIGENERAZIONI" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RIGENERAZIONI"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "REGENERATIONS"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RÉGÉNÉRATIONS"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REGENERACIONES"
           }
         }
       }
     },
     "Rigenerazioni totali" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rigenerazioni totali"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Total regenerations"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rigenerazioni totali"
+            "value" : "Total des régénérations"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total de regeneraciones"
           }
         }
       }
@@ -2692,52 +5424,112 @@
     "Riprova connessione" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riprova connessione"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Retry connection"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer la connexion"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar conexión"
           }
         }
       }
     },
     "Salvati" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salvati"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Saved"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Salvati"
+            "value" : "Enregistrées"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardados"
           }
         }
       }
     },
     "SATURAZIONE" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SATURAZIONE"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "SATURATION"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SATURATION"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SATURACIÓN"
           }
         }
       }
     },
     "Scarico" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scarico"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Exhaust"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Scarico"
+            "value" : "Échappement"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escape"
           }
         }
       }
@@ -2745,42 +5537,84 @@
     "SCARICO" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SCARICO"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "EXHAUST"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ÉCHAPPEMENT"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ESCAPE"
           }
         }
       }
     },
     "Sconosciuto" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sconosciuto"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unknown"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sconosciuto"
+            "value" : "Inconnu"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconocido"
           }
         }
       }
     },
     "Sostieni con €4,99" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sostieni con €4,99"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Support with €4.99"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sostieni con €4,99"
+            "value" : "Soutenir avec 4,99 €"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apoyar con 4,99 €"
           }
         }
       }
@@ -2788,48 +5622,84 @@
     "SOSTIENI IL PROGETTO" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SOSTIENI IL PROGETTO"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "SUPPORT THE PROJECT"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "SOSTIENI IL PROGETTO"
+            "value" : "SOUTENIR LE PROJET"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "APOYA EL PROYECTO"
           }
         }
       }
     },
     "standby" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "standby"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "standby"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "standby"
+            "value" : "veille"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "espera"
           }
         }
       }
     },
     "Stato %@" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato %@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Status %@"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stato %@"
+            "value" : "État %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado %@"
           }
         }
       }
@@ -2837,32 +5707,56 @@
     "Stato connessione" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato connessione"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connection status"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stato connessione"
+            "value" : "État de la connexion"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado de la conexión"
           }
         }
       }
     },
     "Stato pressione olio" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato pressione olio"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Oil pressure status"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stato pressione olio"
+            "value" : "État de la pression d’huile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado de la presión de aceite"
           }
         }
       }
@@ -2870,32 +5764,56 @@
     "STATO PRESSIONE OLIO" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "STATO PRESSIONE OLIO"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "OIL PRESSURE STATUS"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "STATO PRESSIONE OLIO"
+            "value" : "ÉTAT DE LA PRESSION D’HUILE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ESTADO DE LA PRESIÓN DE ACEITE"
           }
         }
       }
     },
     "Stato pressione olio 22194D: %@" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato pressione olio 22194D: %@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Oil pressure status 22194D: %@"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stato pressione olio 22194D: %@"
+            "value" : "État de la pression d’huile 22194D : %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado de la presión de aceite 22194D: %@"
           }
         }
       }
@@ -2903,10 +5821,28 @@
     "Stato reale letto dal PID di rigenerazione" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato reale letto dal PID di rigenerazione"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Actual status read from the regeneration PID"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "État réel lu depuis le PID de régénération"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado real leído del PID de regeneración"
           }
         }
       }
@@ -2914,10 +5850,28 @@
     "Stato rigenerazione sconosciuto" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato rigenerazione sconosciuto"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Regeneration status unknown"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "État de régénération inconnu"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado de regeneración desconocido"
           }
         }
       }
@@ -2925,42 +5879,84 @@
     "Stato stimato dai dati disponibili" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stato stimato dai dati disponibili"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Status estimated from available data"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "État estimé à partir des données disponibles"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado estimado a partir de los datos disponibles"
           }
         }
       }
     },
     "Storico" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storico"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "History"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Storico"
+            "value" : "Historique"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historial"
           }
         }
       }
     },
     "Storico DPF" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storico DPF"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "DPF history"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Storico DPF"
+            "value" : "Historique DPF"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historial del DPF"
           }
         }
       }
@@ -2968,138 +5964,224 @@
     "STRUMENTI" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "STRUMENTI"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "TOOLS"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "STRUMENTI"
-          }
-        }
-      }
-    },
-    "Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "On compatible diesel engines, the available PID reports an ECU status, not a pressure value in bar."
+            "value" : "OUTILS"
           }
         },
-        "it" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar."
+            "value" : "HERRAMIENTAS"
           }
         }
       }
     },
     "Suoni disattivati" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suoni disattivati"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sounds are off"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Suoni disattivati"
+            "value" : "Sons désactivés"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sonidos desactivados"
           }
         }
       }
     },
     "TELEMETRIA ECU" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TELEMETRIA ECU"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ECU TELEMETRY"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "TELEMETRIA ECU"
+            "value" : "TÉLÉMÉTRIE ECU"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TELEMETRÍA DE ECU"
           }
         }
       }
     },
     "Telemetria OBD interrotta. Mostro l’ultimo stato valido." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Telemetria OBD interrotta. Mostro l’ultimo stato valido."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "OBD telemetry was interrupted. Showing the last valid state."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télémétrie OBD interrompue. Affichage du dernier état valide."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La telemetría OBD se interrumpió. Se muestra el último estado válido."
           }
         }
       }
     },
     "Temperatura gas di scarico" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura gas di scarico"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Exhaust gas temperature"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Temperatura gas di scarico"
+            "value" : "Température des gaz d’échappement"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura de los gases de escape"
           }
         }
       }
     },
     "Temperatura scarico: PID %@ · %@" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura scarico: PID %@ · %@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Exhaust temperature: PID %@ · %@"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Temperatura scarico: PID %@ · %@"
+            "value" : "Température d’échappement : PID %@ · %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura de escape: PID %@ · %@"
           }
         }
       }
     },
     "Tensione batteria" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tensione batteria"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Battery voltage"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tensione batteria"
+            "value" : "Tension de la batterie"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tensión de la batería"
           }
         }
       }
     },
     "Tenta la connessione all’apertura dell’app" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tenta la connessione all’apertura dell’app"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Try to connect when the app opens"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tenta la connessione all’apertura dell’app"
+            "value" : "Essayer de se connecter à l’ouverture de l’app"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intentar conectar al abrir la app"
           }
         }
       }
@@ -3107,10 +6189,28 @@
     "Tenta la connessione Bluetooth all’apertura dell’app" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tenta la connessione Bluetooth all’apertura dell’app"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Try the Bluetooth connection when the app opens"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essayer la connexion Bluetooth à l’ouverture de l’app"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intentar la conexión Bluetooth al abrir la app"
           }
         }
       }
@@ -3118,262 +6218,532 @@
     "Termina simulazione" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Termina simulazione"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stop simulation"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrêter la simulation"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener simulación"
           }
         }
       }
     },
     "Termina test" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Termina test"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stop test"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrêter le test"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener prueba"
           }
         }
       }
     },
     "Test a schermo bloccato: iOS decide se mostrare o annunciare questo avviso." : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test a schermo bloccato: iOS decide se mostrare o annunciare questo avviso."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lock-screen test: iOS decides whether to show or announce this alert."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Test a schermo bloccato: iOS decide se mostrare o annunciare questo avviso."
+            "value" : "Test sur écran verrouillé : iOS décide d’afficher ou d’annoncer cette alerte."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prueba con la pantalla bloqueada: iOS decide si muestra o anuncia esta alerta."
           }
         }
       }
     },
     "Test alert CarPlay" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test alert CarPlay"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Test CarPlay alert"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Test alert CarPlay"
+            "value" : "Tester l’alerte CarPlay"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Probar alerta de CarPlay"
           }
         }
       }
     },
     "Test avviso" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test avviso"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Test alert"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tester l’alerte"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Probar alerta"
           }
         }
       }
     },
     "Test avviso Alpha DPF Monitor" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test avviso Alpha DPF Monitor"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor test alert"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Test avviso Alpha DPF Monitor"
+            "value" : "Alerte de test Alpha DPF Monitor"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alerta de prueba de Alpha DPF Monitor"
           }
         }
       }
     },
     "Test disponibile solo su iPhone" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test disponibile solo su iPhone"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Test available on iPhone only"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Test disponibile solo su iPhone"
+            "value" : "Test disponible sur iPhone uniquement"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prueba disponible solo en el iPhone"
           }
         }
       }
     },
     "Test notifica CarPlay" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test notifica CarPlay"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Test CarPlay notification"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Test notifica CarPlay"
+            "value" : "Tester la notification CarPlay"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Probar notificación de CarPlay"
           }
         }
       }
     },
     "Test notifica non riuscito" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test notifica non riuscito"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notification test failed"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Test notifica non riuscito"
+            "value" : "Échec du test de notification"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La prueba de notificación ha fallado"
           }
         }
       }
     },
     "Test senza automobile" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test senza automobile"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Test without a vehicle"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test sans voiture"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prueba sin vehículo"
           }
         }
       }
     },
     "Test sistema · 10 s" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test sistema · 10 s"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "System test · 10 sec"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Test sistema · 10 s"
+            "value" : "Test système · 10 s"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prueba del sistema · 10 s"
           }
         }
       }
     },
     "Test tra 5 s: blocca lo schermo" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test tra 5 s: blocca lo schermo"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Test in 5 sec: lock the screen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Test dans 5 s : verrouillez l’écran"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prueba en 5 s: bloquea la pantalla"
           }
         }
       }
     },
     "Ti piace Alpha DPF Monitor?" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ti piace Alpha DPF Monitor?"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enjoying Alpha DPF Monitor?"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ti piace Alpha DPF Monitor?"
+            "value" : "Alpha DPF Monitor vous plaît ?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Te gusta Alpha DPF Monitor?"
           }
         }
       }
     },
     "Time Sensitive disattivate" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time Sensitive disattivate"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Time Sensitive notifications are off"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Time Sensitive disattivate"
+            "value" : "Notifications urgentes désactivées"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notificaciones urgentes desactivadas"
           }
         }
       }
     },
     "Tipo di adattatore" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tipo di adattatore"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Adapter type"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tipo di adattatore"
+            "value" : "Type d’adaptateur"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tipo de adaptador"
           }
         }
       }
     },
     "Ultima" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ultima"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Last regen"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ultima"
+            "value" : "Dernière régénération"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Última regeneración"
           }
         }
       }
     },
     "ULTIMA LETTURA CARICO DPF" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ULTIMA LETTURA CARICO DPF"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "LAST DPF LOAD READING"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DERNIÈRE LECTURE DE CHARGE DPF"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ÚLTIMA LECTURA DE CARGA DEL DPF"
           }
         }
       }
     },
     "Ultimo aggiornamento" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ultimo aggiornamento"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Last update"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ultimo aggiornamento"
+            "value" : "Dernière mise à jour"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Última actualización"
           }
         }
       }
     },
     "ULTIMO STATO SALVATO" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ULTIMO STATO SALVATO"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "LAST SAVED STATE"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DERNIER ÉTAT ENREGISTRÉ"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ÚLTIMO ESTADO GUARDADO"
           }
         }
       }
@@ -3381,10 +6751,28 @@
     "Ultimo stato salvato, non in tempo reale" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ultimo stato salvato, non in tempo reale"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Last saved state, not real time"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernier état enregistré, pas en temps réel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Último estado guardado, no en tiempo real"
           }
         }
       }
@@ -3392,26 +6780,56 @@
     "Valore dell’ultima connessione, non in tempo reale." : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valore dell’ultima connessione, non in tempo reale."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Value from the last connection, not real time."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valeur de la dernière connexion, pas en temps réel."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valor de la última conexión, no en tiempo real."
           }
         }
       }
     },
     "Verifica impostazioni in corso" : {
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifica impostazioni in corso"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Checking notification settings"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Verifica impostazioni in corso"
+            "value" : "Vérification des réglages en cours"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobando los ajustes"
           }
         }
       }
@@ -3419,16 +6837,28 @@
     "Vicino (45–75%)" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vicino (45–75%)"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Near regeneration (45–75%)"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vicino (45–75%)"
+            "value" : "Proche de la régénération (45–75%)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerca de la regeneración (45–75%)"
           }
         }
       }
@@ -3436,16 +6866,196 @@
     "Wi-Fi" : {
       "extractionState" : "stale",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wi-Fi"
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wi-Fi"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi"
+          }
+        }
+      }
+    },
+    "LINGUA" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LINGUA"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LANGUAGE"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LANGUE"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IDIOMA"
+          }
+        }
+      }
+    },
+    "Sistema" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sistema"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Système"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sistema"
+          }
+        }
+      }
+    },
+    "Italiano" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Italiano"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Italiano"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Italiano"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Italiano"
+          }
+        }
+      }
+    },
+    "English" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "English"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "English"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "English"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "English"
+          }
+        }
+      }
+    },
+    "Français" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Français"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Français"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Français"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Français"
+          }
+        }
+      }
+    },
+    "Español" : {
+      "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Español"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Español"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Español"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Español"
           }
         }
       }

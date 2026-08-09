@@ -39,6 +39,30 @@ func expectThrows(_ name: String, _ body: () throws -> Void) {
     }
 }
 
+// Settings regression: the explanatory oil-pressure/SGW disclaimer is gone,
+// while the categorical oil-pressure telemetry and diagnostics remain.
+do {
+    let appSource = try String(contentsOfFile: "Sources/AlfaDPFApp.swift", encoding: .utf8)
+    let localization = try String(contentsOfFile: "App/Localizable.xcstrings", encoding: .utf8)
+    let removedStrings = [
+        "Pressione olio e SGW",
+        "Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar.",
+        "Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone."
+    ]
+
+    for string in removedStrings {
+        expect(!appSource.contains(string), "settings regression: disclaimer source text removed")
+        expect(!localization.contains(string), "settings regression: unused localization key removed")
+    }
+    expect(appSource.contains("title: \"STATO PRESSIONE OLIO\""),
+           "settings regression: categorical oil-pressure card retained")
+    expect(appSource.contains("Stato pressione olio 22194D"),
+           "settings regression: oil-pressure diagnostic retained")
+} catch {
+    failures += 1
+    print("FAIL: settings regression: could not read source or localization — \(error)")
+}
+
 actor InitializationTestTransport: OBDTransport {
     enum Behavior {
         case valid
@@ -182,6 +206,58 @@ expect(DPFLoadAlertLevel.resolve(loadPercent: 30, regenerationMode: .active) == 
 expect(DPFLoadAlertLevel.resolve(loadPercent: 88, regenerationMode: .passive) == .nearRegeneration,
        "carplay colors: passive regeneration preserves the load warning band")
 
+let nonLiveCarPlayStatuses: [SessionStatus] = [
+    .idle,
+    .connecting,
+    .simulating,
+    .failed("test"),
+]
+for status in nonLiveCarPlayStatuses {
+    expect(!CarPlayTelemetryPolicy.isLive(status: status, hasLiveTelemetry: true),
+           "carplay liveness: non-running status stays offline")
+}
+expect(!CarPlayTelemetryPolicy.isLive(status: .running, hasLiveTelemetry: false),
+       "carplay liveness: running transport without fresh telemetry stays offline")
+expect(CarPlayTelemetryPolicy.isLive(status: .running, hasLiveTelemetry: true),
+       "carplay liveness: running session with fresh telemetry is live")
+
+var carPlayArtworkState = DPFState()
+carPlayArtworkState.cloggingPercent = 90
+for metric in CarPlayDashboardMetric.allCases {
+    expect(CarPlayDashboardIconPolicy.tone(
+        for: metric,
+        state: carPlayArtworkState,
+        isLive: false
+    ) == .neutral, "carplay artwork: every offline tile is neutral")
+}
+expect(CarPlayDashboardIconPolicy.tone(
+    for: .distance,
+    state: carPlayArtworkState,
+    isLive: true
+) == .accent, "carplay artwork: ordinary live metrics use the app accent")
+expect(CarPlayDashboardIconPolicy.tone(
+    for: .dpf,
+    state: carPlayArtworkState,
+    isLive: true
+) == .dpfSemantic(.nearRegeneration),
+       "carplay artwork: live DPF tile preserves semantic warning color")
+expect(CarPlayDashboardIconPolicy.tone(
+    for: .regeneration,
+    state: carPlayArtworkState,
+    isLive: true
+) == .accent, "carplay artwork: live idle regeneration tile uses accent")
+carPlayArtworkState.regenActive = true
+expect(CarPlayDashboardIconPolicy.tone(
+    for: .regeneration,
+    state: carPlayArtworkState,
+    isLive: true
+) == .regenerationSemantic(.active),
+       "carplay artwork: active regeneration keeps its semantic color")
+expect(CarPlayDashboardMetric.allCases.count == CarPlayDashboardPolicy.maximumTileCount,
+       "carplay dashboard: glanceable grid stays within eight tiles")
+expect(CarPlayDashboardPolicy.maximumInformationItemCount == 4,
+       "carplay dashboard: detail surfaces stay compact")
+
 func carPlayNotificationState(
     authorization: AlertAuthorizationState.Authorization = .authorized,
     timeSensitive: Bool = true,
@@ -258,6 +334,31 @@ expect(!DrivingFocusGuidancePreference.needsPresentation(from: drivingFocusDefau
        "driving focus onboarding: acknowledgement persists")
 drivingFocusDefaults.removePersistentDomain(forName: drivingFocusSuite)
 
+let appLanguageSuite = "AlphaDPF.AppLanguage.\(UUID().uuidString)"
+let appLanguageDefaults = UserDefaults(suiteName: appLanguageSuite)!
+appLanguageDefaults.removePersistentDomain(forName: appLanguageSuite)
+expect(AppLanguage.load(from: appLanguageDefaults) == .system,
+       "app language: system locale is the default")
+for language in AppLanguage.allCases {
+    appLanguageDefaults.set(language.rawValue, forKey: AppLanguage.defaultsKey)
+    expect(AppLanguage.load(from: appLanguageDefaults) == language,
+           "app language: every supported selection persists")
+}
+appLanguageDefaults.set("unsupported", forKey: AppLanguage.defaultsKey)
+expect(AppLanguage.load(from: appLanguageDefaults) == .system,
+       "app language: invalid stored values fall back to system")
+expect(AppLanguage.system.localeIdentifier == nil,
+       "app language: system selection has no forced locale")
+expect(AppLanguage.italian.localeIdentifier == "it"
+       && AppLanguage.english.localeIdentifier == "en"
+       && AppLanguage.french.localeIdentifier == "fr"
+       && AppLanguage.spanish.localeIdentifier == "es",
+       "app language: explicit locale identifiers are stable")
+expect(AppLanguage.allCases.map(\.displayNameKey) == [
+    "Sistema", "Italiano", "English", "Français", "Español",
+], "app language: selector order and native names stay stable")
+appLanguageDefaults.removePersistentDomain(forName: appLanguageSuite)
+
 var carPlayCurrentState = DPFState()
 carPlayCurrentState.cloggingPercent = 88
 var carPlayPersistedState = DPFState()
@@ -265,18 +366,21 @@ carPlayPersistedState.cloggingPercent = 42
 expect(CarPlayTelemetryPolicy.displayState(
     current: carPlayCurrentState,
     lastPersisted: carPlayPersistedState,
+    status: .running,
     hasLiveTelemetry: true
 ).cloggingPercent == 88,
        "carplay telemetry: fresh real sample wins")
 expect(CarPlayTelemetryPolicy.displayState(
     current: carPlayCurrentState,
     lastPersisted: carPlayPersistedState,
+    status: .idle,
     hasLiveTelemetry: false
 ).cloggingPercent == 42,
        "carplay telemetry: cached real state hides non-live fixture")
 expect(!CarPlayTelemetryPolicy.displayState(
     current: carPlayCurrentState,
     lastPersisted: nil,
+    status: .failed("test"),
     hasLiveTelemetry: false
 ).hasTelemetry,
        "carplay telemetry: no real state displays unavailable values")

@@ -7,7 +7,25 @@
       "localizations" : {
         "it" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
             "value" : "Alpha DPF Monitor"
           }
         }
@@ -17,16 +35,28 @@
       "comment" : "Bundle name",
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
+        "it" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Alpha DPF Monitor"
           }
         },
-        "it" : {
+        "en" : {
           "stringUnit" : {
-            "state" : "new",
-            "value" : "AlfaDPF"
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha DPF Monitor"
           }
         }
       }
@@ -34,16 +64,28 @@
     "NSBluetoothAlwaysUsageDescription" : {
       "comment" : "Privacy - Bluetooth Always Usage Description",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si connette all’adattatore OBD-II Bluetooth per leggere i dati DPF in tempo reale."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connects to the Bluetooth OBD-II adapter to read live DPF data."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Si connette all’adattatore OBD-II Bluetooth per leggere i dati DPF in tempo reale."
+            "value" : "Se connecte à l’adaptateur OBD-II Bluetooth pour lire les données DPF en temps réel."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se conecta al adaptador OBD-II Bluetooth para leer los datos del DPF en tiempo real."
           }
         }
       }
@@ -51,16 +93,28 @@
     "NSLocalNetworkUsageDescription" : {
       "comment" : "Privacy - Local Network Usage Description",
       "localizations" : {
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si connette all’adattatore OBD-II Wi-Fi sulla rete locale per leggere i dati DPF in tempo reale."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connects to the Wi-Fi OBD-II adapter on the local network to read live DPF data."
           }
         },
-        "it" : {
+        "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Si connette all’adattatore OBD-II Wi-Fi sulla rete locale per leggere i dati DPF in tempo reale."
+            "value" : "Se connecte à l’adaptateur OBD-II Wi-Fi sur le réseau local pour lire les données DPF en temps réel."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se conecta al adaptador OBD-II Wi-Fi de la red local para leer los datos del DPF en tiempo real."
           }
         }
       }
