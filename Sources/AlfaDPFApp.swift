@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import UserNotifications
+import Charts
 
 /// iOS normally hides local notifications while the app is open. Presenting
 /// them explicitly is essential here: a regeneration must still create a
@@ -32,6 +33,7 @@ struct AlfaDPFApp: App {
         WindowGroup {
             PhoneRootView(session: session)
                 .preferredColorScheme(.dark)
+                .environment(\.locale, session.appLanguage.locale)
                 .environment(\.appAccent, session.appAccent.color)
                 .tint(session.appAccent.color)
         }
@@ -121,6 +123,7 @@ struct PhoneRootView: View {
     @State private var projectSupportPromptPending = false
     @State private var preparedLaunch = false
     @State private var appliedDebugLaunchScenario = false
+    @State private var showHistory = false
 
     var body: some View {
         ZStack {
@@ -159,6 +162,13 @@ struct PhoneRootView: View {
                         visibleMetrics: session.visibleDashboardMetrics
                     )
 
+                    if session.historyStore != nil {
+                        HistoryNavigationRow(
+                            action: { showHistory = true },
+                            store: session.historyStore
+                        )
+                    }
+
                     if let event = session.lastRegenEvent {
                         EventStrip(text: event, simulated: session.status == .simulating)
                     }
@@ -188,6 +198,9 @@ struct PhoneRootView: View {
                 session.startAutomaticallyIfNeeded()
             }
             .interactiveDismissDisabled()
+        }
+        .fullScreenCover(isPresented: $showHistory) {
+            DPFHistoryView(store: session.historyStore)
         }
         .alert("Ti piace Alpha DPF Monitor?", isPresented: $showProjectSupportPrompt) {
             Button("Sostieni con €4,99") {
@@ -1144,16 +1157,45 @@ private struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     settingsSection(title: "CONNESSIONE", icon: "cable.connector") {
-                        Toggle(isOn: $session.autoConnectEnabled) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Connessione automatica")
-                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                Text("Tenta la connessione Bluetooth all’apertura dell’app")
-                                    .font(.system(size: 11, design: .rounded))
-                                    .foregroundStyle(Brand.textDim)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Picker("Tipo di adattatore", selection: $session.transportKind) {
+                                ForEach(OBDTransportKind.allCases) { kind in
+                                    Text(LocalizedStringKey(kind.title)).tag(kind)
+                                }
                             }
+                            .pickerStyle(.segmented)
+                            .disabled(connectionSettingsLocked)
+
+                            if session.transportKind == .wifi {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    TextField("Indirizzo IP o host", text: $session.wifiHost)
+                                        .textInputAutocapitalization(.never)
+                                        .autocorrectionDisabled()
+                                        .keyboardType(.URL)
+                                    TextField("Porta TCP", text: $session.wifiPort)
+                                        .keyboardType(.numberPad)
+                                    Text("Connettiti prima alla rete Wi-Fi creata dall’adattatore. È normale che iOS indichi “Nessuna connessione Internet”.")
+                                        .font(.system(size: 10, design: .rounded))
+                                        .foregroundStyle(Brand.textDim)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                .textFieldStyle(.roundedBorder)
+                                .disabled(connectionSettingsLocked)
+                            }
+
+                            Divider().overlay(Brand.hairline)
+
+                            Toggle(isOn: $session.autoConnectEnabled) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Connessione automatica")
+                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    Text("Tenta la connessione all’apertura dell’app")
+                                        .font(.system(size: 11, design: .rounded))
+                                        .foregroundStyle(Brand.textDim)
+                                }
+                            }
+                            .tint(appAccent)
                         }
-                        .tint(appAccent)
                     }
 
                     settingsSection(title: "COLORE ACCENT", icon: "paintpalette.fill") {
@@ -1198,6 +1240,46 @@ private struct SettingsView: View {
                         .buttonStyle(.plain)
                     }
 
+                    settingsSection(title: "LINGUA", icon: "globe") {
+                        Menu {
+                            ForEach(AppLanguage.allCases) { option in
+                                Button {
+                                    session.appLanguage = option
+                                } label: {
+                                    if session.appLanguage == option {
+                                        Label(
+                                            LocalizedStringKey(option.displayNameKey),
+                                            systemImage: "checkmark"
+                                        )
+                                    } else {
+                                        Text(LocalizedStringKey(option.displayNameKey))
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "globe")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(appAccent)
+                                    .frame(width: 25, height: 25)
+                                Text(LocalizedStringKey(session.appLanguage.displayNameKey))
+                                    .font(.system(
+                                        size: 14,
+                                        weight: .semibold,
+                                        design: .rounded
+                                    ))
+                                    .foregroundStyle(.white)
+                                Spacer()
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(Brand.textDim)
+                            }
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     settingsSection(title: "PAGINA PRINCIPALE", icon: "rectangle.grid.2x2") {
                         VStack(spacing: 0) {
                             ForEach(DashboardMetric.allCases) { metric in
@@ -1221,21 +1303,6 @@ private struct SettingsView: View {
                                 }
                             }
                         }
-
-                        Divider().overlay(Brand.hairline)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Label("Pressione olio e SGW", systemImage: "info.circle")
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.82))
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Sui diesel compatibili il PID disponibile indica uno stato ECU, non un valore in bar.")
-                                Text("Con bypass SGW già installato, i PID avanzati possono diventare accessibili se la centralina li espone.")
-                            }
-                                .font(.system(size: 10, design: .rounded))
-                                .foregroundStyle(Brand.textDim)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(.top, 8)
                     }
 
                     settingsSection(title: "STRUMENTI", icon: "wrench.and.screwdriver") {
@@ -1296,6 +1363,13 @@ private struct SettingsView: View {
             TestLabView(session: session)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+    }
+
+    private var connectionSettingsLocked: Bool {
+        switch session.status {
+        case .connecting, .running: return true
+        case .idle, .simulating, .failed: return false
         }
     }
 
@@ -1643,19 +1717,374 @@ private struct DiagnosticsView: View {
 
     private var regenerationModeText: String {
         guard let mode = dpf.regenerationMode else {
-            return String(localized: "PID non disponibile")
+            return AppLocalization.string("PID non disponibile")
         }
         switch mode {
-        case .none: return String(localized: "0 · nessuna")
-        case .passive: return String(localized: "1 · passiva")
-        case .active: return String(localized: "2 · attiva")
+        case .none: return AppLocalization.string("0 · nessuna")
+        case .passive: return AppLocalization.string("1 · passiva")
+        case .active: return AppLocalization.string("2 · attiva")
         }
     }
 
     private var oilPressureDiagnosticText: String {
         guard let raw = dpf.oilPressureStatusRaw else {
-            return String(localized: "PID non disponibile")
+            return AppLocalization.string("PID non disponibile")
         }
-        return "\(raw) · \(dpf.oilPressureStatusText ?? String(localized: "Sconosciuto"))"
+        return "\(raw) · \(dpf.oilPressureStatusText ?? AppLocalization.string("Sconosciuto"))"
+    }
+}
+
+// MARK: - History
+
+private struct HistoryNavigationRow: View {
+    let action: () -> Void
+    let store: DPFHistoryStore?
+    @State private var sampleCount = 0
+    @State private var cycleCount = 0
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.cyan)
+                    .frame(width: 44, height: 44)
+                    .background(Color.cyan.opacity(0.12), in: Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Storico DPF")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text(summary)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(Brand.textDim)
+                }
+
+                Spacer()
+
+                if sampleCount > 0 || cycleCount > 0 {
+                    HStack(spacing: 10) {
+                        if sampleCount > 0 {
+                            Label("\(sampleCount)", systemImage: "chart.line.uptrend.xyaxis")
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.cyan)
+                        }
+                        if cycleCount > 0 {
+                            Label("\(cycleCount)", systemImage: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                    .padding(.trailing, 4)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Brand.textDim)
+            }
+            .padding(16)
+            .glassPanel(cornerRadius: 22)
+        }
+        .buttonStyle(.plain)
+        .onAppear { refreshCounts() }
+    }
+
+    private var summary: String {
+        if sampleCount == 0 && cycleCount == 0 {
+            return AppLocalization.string("Nessun dato registrato")
+        }
+        var parts: [String] = []
+        if sampleCount > 0 {
+            parts.append(AppLocalization.string("Campioni: \(sampleCount)"))
+        }
+        if cycleCount > 0 {
+            parts.append(AppLocalization.string("Cicli: \(cycleCount)"))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func refreshCounts() {
+        guard let store else { return }
+        sampleCount = store.samples().count
+        cycleCount = store.cycles().count
+    }
+}
+
+private struct DPFHistoryView: View {
+    let store: DPFHistoryStore?
+    @Environment(\.dismiss) private var dismiss
+    @State private var samples: [DPFHistorySample] = []
+    @State private var cycles: [DPFRegenCycle] = []
+    @State private var selectedTab = 0
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                DashboardBackground()
+
+                if samples.isEmpty && cycles.isEmpty {
+                    emptyState
+                } else {
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            chartSection
+                            cyclesSection
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.top, 8)
+                        .padding(.bottom, 30)
+                    }
+                    .scrollIndicators(.hidden)
+                }
+            }
+            .navigationTitle("Storico")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Fine") { dismiss() }
+                }
+            }
+            .task { loadData() }
+            .onAppear { loadData() }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .font(.system(size: 48, weight: .light))
+                .foregroundStyle(Brand.textDim)
+            Text("Nessun dato storico")
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+            Text("Connetti l'adattatore OBD per iniziare a registrare l'andamento del carico DPF e la cronologia delle rigenerazioni.")
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundStyle(Brand.textDim)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+        }
+    }
+
+    private var chartSection: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            SectionLabel(text: "ANDAMENTO CARICO", icon: "chart.line.uptrend.xyaxis")
+                .padding(.leading, 3)
+
+            VStack(spacing: 4) {
+                if samples.count < 2 {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 8) {
+                            Image(systemName: "chart.line.downtrend.xyaxis")
+                                .font(.system(size: 32, weight: .light))
+                                .foregroundStyle(Brand.textDim)
+                            Text("Almeno due campioni per il grafico")
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .foregroundStyle(Brand.textDim)
+                        }
+                        .padding(.vertical, 40)
+                        Spacer()
+                    }
+                } else {
+                    Chart(samples, id: \.timestamp) { sample in
+                        LineMark(
+                            x: .value("Ora", sample.timestamp),
+                            y: .value("Carico", sample.cloggingPercent)
+                        )
+                        .foregroundStyle(.cyan)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5))
+
+                        AreaMark(
+                            x: .value("Ora", sample.timestamp),
+                            y: .value("Carico", sample.cloggingPercent)
+                        )
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [
+                                    .cyan.opacity(0.35),
+                                    .cyan.opacity(0.05),
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                    }
+                    .chartYScale(domain: 0...100)
+                    .chartXAxis {
+                        AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                            AxisValueLabel(format: .dateTime.hour().minute())
+                                .foregroundStyle(Brand.textDim)
+                            AxisTick()
+                                .foregroundStyle(Brand.hairline)
+                            AxisGridLine()
+                                .foregroundStyle(Brand.hairline)
+                        }
+                    }
+                    .chartYAxis {
+                        AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                            AxisValueLabel {
+                                if let pct = value.as(Double.self) {
+                                    Text("\(Int(pct))%")
+                                        .foregroundStyle(Brand.textDim)
+                                }
+                            }
+                            AxisGridLine()
+                                .foregroundStyle(Brand.hairline)
+                        }
+                    }
+                    .frame(height: 220)
+
+                    // Legend
+                    HStack(spacing: 24) {
+                        legendItem(color: .green, label: "Basso (<45%)")
+                        legendItem(color: .orange, label: "Vicino (45–75%)")
+                        legendItem(color: Brand.redBright, label: "Critico (75+%)")
+                    }
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .padding(.top, 6)
+                }
+            }
+            .padding(16)
+            .glassPanel(cornerRadius: 22)
+        }
+    }
+
+    private func legendItem(color: Color, label: String) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(LocalizedStringKey(label))
+                .foregroundStyle(Brand.textDim)
+        }
+    }
+
+    private var cyclesSection: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            SectionLabel(text: "CICLI RIGENERAZIONE", icon: "arrow.triangle.2.circlepath")
+                .padding(.leading, 3)
+
+            VStack(spacing: 0) {
+                if cycles.isEmpty {
+                    HStack {
+                        Spacer()
+                        Text("Nessun ciclo registrato")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundStyle(Brand.textDim)
+                            .padding(.vertical, 24)
+                        Spacer()
+                    }
+                } else {
+                    ForEach(Array(cycles.enumerated()), id: \.element.id) { index, cycle in
+                        RegenCycleRow(cycle: cycle)
+                        if index < cycles.count - 1 {
+                            Divider()
+                                .overlay(Brand.hairline)
+                                .padding(.leading, 52)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .glassPanel(cornerRadius: 22)
+        }
+    }
+
+    private func loadData() {
+        guard let store else { return }
+        samples = store.samples()
+        cycles = store.cycles()
+    }
+}
+
+private struct RegenCycleRow: View {
+    let cycle: DPFRegenCycle
+
+    private var icon: String {
+        switch cycle.status {
+        case .completed: return "checkmark.circle.fill"
+        case .interrupted: return "xmark.circle.fill"
+        case .unconfirmed: return "questionmark.circle.fill"
+        case .active: return "flame.fill"
+        }
+    }
+
+    private var iconColor: Color {
+        switch cycle.status {
+        case .completed: return .green
+        case .interrupted: return .orange
+        case .unconfirmed: return Brand.textDim
+        case .active: return .cyan
+        }
+    }
+
+    private var statusLabel: String {
+        switch cycle.status {
+        case .completed: return AppLocalization.string("Completata")
+        case .interrupted: return AppLocalization.string("Interrotta")
+        case .unconfirmed: return AppLocalization.string("Esito non verificato")
+        case .active: return AppLocalization.string("In corso")
+        }
+    }
+
+    private var durationText: String? {
+        guard let finished = cycle.finishedAt else { return nil }
+        let seconds = finished.timeIntervalSince(cycle.startedAt)
+        let minutes = Int(seconds / 60)
+        let secs = Int(seconds.truncatingRemainder(dividingBy: 60))
+        return AppLocalization.string("\(minutes) min \(secs) s")
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(iconColor)
+                .frame(width: 36, height: 36)
+                .background(iconColor.opacity(0.12), in: Circle())
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(statusLabel)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Circle()
+                        .fill(iconColor)
+                        .frame(width: 5, height: 5)
+                }
+                HStack(spacing: 4) {
+                    Text(cycle.startedAt.formatted(date: .abbreviated, time: .shortened))
+                    if let duration = durationText {
+                        Text("· \(duration)")
+                    }
+                }
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(Brand.textDim)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                HStack(spacing: 3) {
+                    Text("\(Int(cycle.startingLoad))%")
+                        .font(.system(size: 15, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(.orange)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Brand.textDim)
+                    if let end = cycle.endingLoad {
+                        Text("\(Int(end))%")
+                            .font(.system(size: 15, weight: .bold, design: .rounded).monospacedDigit())
+                            .foregroundStyle(.green)
+                    } else {
+                        Text("—")
+                            .foregroundStyle(Brand.textDim)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 12)
     }
 }

@@ -7,6 +7,8 @@ private enum CarPlayDetailKind {
     case regeneration
     case distance
     case exhaust
+    case progress
+    case totalRegenerations
     case oil
     case battery
 }
@@ -16,6 +18,8 @@ private enum CarPlayDashboardIcon {
     case regeneration
     case distance
     case exhaust
+    case progress
+    case totalRegenerations
     case oil
     case battery
 
@@ -25,6 +29,8 @@ private enum CarPlayDashboardIcon {
         case .regeneration: return "arrow.triangle.2.circlepath"
         case .distance: return "road.lanes"
         case .exhaust: return "thermometer.high"
+        case .progress: return "gauge.with.dots.needle.50percent"
+        case .totalRegenerations: return "number.circle.fill"
         case .oil: return "oilcan.fill"
         case .battery: return "battery.75percent"
         }
@@ -105,10 +111,15 @@ private enum CarPlayDashboardArtwork {
         return image.withRenderingMode(.alwaysOriginal)
     }
 
-    static func barImage(symbolName: String, displayScale: CGFloat) -> UIImage {
-        // A transparent square canvas gives both the bell and warning triangle
-        // identical optical bounds, with enough breathing room inside the
-        // rounded CarPlay navigation-bar button.
+    static func barImage(
+        symbolName: String,
+        color: UIColor,
+        displayScale: CGFloat
+    ) -> UIImage {
+        // CPBarButton exposes its image, but not a public tint property. Draw
+        // the symbol in the user's accent and keep it original so CarPlay can
+        // display that supported customization without relying on private
+        // template/background APIs.
         let size = CGSize(width: 30, height: 30)
         let format = UIGraphicsImageRendererFormat()
         format.opaque = false
@@ -117,11 +128,11 @@ private enum CarPlayDashboardArtwork {
             drawSymbol(
                 named: symbolName,
                 in: CGRect(x: 6.5, y: 6.5, width: 17, height: 17),
-                color: .white,
+                color: color,
                 weight: .semibold
             )
         }
-        return image.withRenderingMode(.alwaysTemplate)
+        return image.withRenderingMode(.alwaysOriginal)
     }
 
     private static func drawDPFLamp(
@@ -370,10 +381,15 @@ final class CarPlaySceneDelegate: UIResponder,
         dashboardTemplate.updateGridButtons(makeGridButtons())
         configureNavigationButtons(on: dashboardTemplate)
         if let detailKind {
-            detailsTemplate?.items = makeInformationItems(for: detailKind)
+            detailsTemplate?.items = boundedInformationItems(
+                makeInformationItems(for: detailKind)
+            )
         }
 
-        let telemetryIsLive = session.status == .running && session.hasLiveTelemetry
+        let telemetryIsLive = CarPlayTelemetryPolicy.isLive(
+            status: session.status,
+            hasLiveTelemetry: session.hasLiveTelemetry
+        )
         let event = regenerationAlertTracker.observe(
             isRegenerating: session.dpf.regenActive,
             telemetryIsLive: telemetryIsLive
@@ -400,74 +416,120 @@ final class CarPlaySceneDelegate: UIResponder,
 
     private func makeGridButtons() -> [CPGridButton] {
         let dpf = session.carPlayDPFState
-        let isLive = session.status == .running && session.hasLiveTelemetry
-        let dpfColor = CarPlayDashboardArtwork.dpfColor(
-            for: dpf.loadAlertLevel,
-            isLive: isLive
+        let isLive = CarPlayTelemetryPolicy.isLive(
+            status: session.status,
+            hasLiveTelemetry: session.hasLiveTelemetry
         )
-        let regenerationColor = CarPlayDashboardArtwork.regenerationColor(
-            for: dpf.effectiveRegenerationMode,
-            isLive: isLive
-        )
-        return [
+        let buttons: [CPGridButton] = [
             makeMetricGridButton(
-                label: String(localized: "DPF"),
+                label: AppLocalization.string("DPF"),
                 value: compactFormatted(dpf.cloggingPercent, fractionDigits: 1, unit: "%"),
                 icon: .dpf,
-                accent: dpfColor,
-                illuminated: dpf.loadAlertLevel != .unavailable,
+                accent: dashboardIconColor(for: .dpf, state: dpf, isLive: isLive),
+                illuminated: isLive && dpf.loadAlertLevel != .unavailable,
                 detailKind: .dpf
             ),
             makeMetricGridButton(
-                label: String(localized: "Regen"),
+                label: AppLocalization.string("Regen"),
                 value: regenerationGridText(for: dpf),
                 icon: .regeneration,
-                accent: regenerationColor,
-                illuminated: dpf.effectiveRegenerationMode != .none,
+                accent: dashboardIconColor(for: .regeneration, state: dpf, isLive: isLive),
+                illuminated: isLive && dpf.effectiveRegenerationMode != .none,
                 detailKind: .regeneration
             ),
             makeMetricGridButton(
-                label: String(localized: "Dall’ultima"),
+                label: AppLocalization.string("Dall’ultima"),
                 value: compactFormatted(dpf.distanceSinceLastRegenKm, fractionDigits: 0, unit: "km"),
                 icon: .distance,
-                accent: CarPlayDashboardArtwork.neutral,
+                accent: dashboardIconColor(for: .distance, state: dpf, isLive: isLive),
                 illuminated: false,
-                shortLabel: String(localized: "Ultima"),
+                shortLabel: AppLocalization.string("Ultima"),
                 detailKind: .distance
             ),
             makeMetricGridButton(
-                label: String(localized: "Scarico"),
+                label: AppLocalization.string("Scarico"),
                 value: compactFormatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C"),
                 icon: .exhaust,
-                accent: CarPlayDashboardArtwork.neutral,
+                accent: dashboardIconColor(for: .exhaust, state: dpf, isLive: isLive),
                 illuminated: false,
                 detailKind: .exhaust
             ),
             makeMetricGridButton(
-                label: String(localized: "Olio"),
+                label: AppLocalization.string("Avanzamento"),
+                value: compactFormatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%"),
+                icon: .progress,
+                accent: dashboardIconColor(for: .progress, state: dpf, isLive: isLive),
+                illuminated: false,
+                detailKind: .progress
+            ),
+            makeMetricGridButton(
+                label: AppLocalization.string("Rigenerazioni"),
+                value: compactFormatted(dpf.totalRegenCount, fractionDigits: 0),
+                icon: .totalRegenerations,
+                accent: dashboardIconColor(for: .totalRegenerations, state: dpf, isLive: isLive),
+                illuminated: false,
+                detailKind: .totalRegenerations
+            ),
+            makeMetricGridButton(
+                label: AppLocalization.string("Olio"),
                 value: dpf.oilPressureStatusText ?? "—",
                 icon: .oil,
-                accent: CarPlayDashboardArtwork.neutral,
+                accent: dashboardIconColor(for: .oil, state: dpf, isLive: isLive),
                 illuminated: false,
                 detailKind: .oil
             ),
             makeMetricGridButton(
-                label: String(localized: "Batteria"),
+                label: AppLocalization.string("Batteria"),
                 value: compactFormatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V"),
                 icon: .battery,
-                accent: CarPlayDashboardArtwork.neutral,
+                accent: dashboardIconColor(for: .battery, state: dpf, isLive: isLive),
                 illuminated: false,
                 detailKind: .battery
             ),
         ]
+        guard buttons.count <= CarPlayDashboardPolicy.maximumTileCount else {
+            OBDLog.log("CarPlay: dashboard tile list exceeded the public maximum")
+            return Array(buttons.prefix(CarPlayDashboardPolicy.maximumTileCount))
+        }
+        return buttons
+    }
+
+    private var carPlayAccent: UIColor {
+        let rgb = session.appAccent.rgb
+        return UIColor(
+            red: CGFloat(rgb.red),
+            green: CGFloat(rgb.green),
+            blue: CGFloat(rgb.blue),
+            alpha: 1
+        )
+    }
+
+    private func dashboardIconColor(
+        for metric: CarPlayDashboardMetric,
+        state: DPFState,
+        isLive: Bool
+    ) -> UIColor {
+        switch CarPlayDashboardIconPolicy.tone(for: metric, state: state, isLive: isLive) {
+        case .neutral:
+            return CarPlayDashboardArtwork.neutral
+        case .accent:
+            return carPlayAccent
+        case .dpfSemantic(let level):
+            return CarPlayDashboardArtwork.dpfColor(for: level, isLive: true)
+        case .regenerationSemantic(let mode):
+            return CarPlayDashboardArtwork.regenerationColor(for: mode, isLive: true)
+        }
     }
 
     private var dashboardTitle: String {
-        let base = String(localized: "Alpha DPF Monitor")
+        let base = AppLocalization.string("Alpha DPF Monitor")
         guard session.carPlayDPFState.hasTelemetry else { return base }
-        let status = session.status == .running && session.hasLiveTelemetry
-            ? String(localized: "Live")
-            : String(localized: "Salvati")
+        let status = CarPlayTelemetryPolicy.isLive(
+            status: session.status,
+            hasLiveTelemetry: session.hasLiveTelemetry
+        )
+            ? AppLocalization.string("Live")
+            : AppLocalization.string("Salvati")
         return "\(base) · \(status)"
     }
 
@@ -514,9 +576,9 @@ final class CarPlaySceneDelegate: UIResponder,
     private func regenerationGridText(for dpf: DPFState) -> String {
         switch dpf.effectiveRegenerationMode {
         case .none:
-            return String(localized: "Non attiva")
+            return AppLocalization.string("Non attiva")
         case .passive:
-            return String(localized: "Passiva")
+            return AppLocalization.string("Passiva")
         case .active:
             return compactFormatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%")
         }
@@ -526,10 +588,16 @@ final class CarPlaySceneDelegate: UIResponder,
         let dpf = session.carPlayDPFState
         let hasTimestamp = dpf.hasTelemetry
         let timestamp = hasTimestamp
-            ? dpf.timestamp.formatted(date: .omitted, time: .standard)
+            ? dpf.timestamp.formatted(
+                Date.FormatStyle(
+                    date: .omitted,
+                    time: .standard,
+                    locale: session.appLanguage.locale
+                )
+            )
             : "—"
         let updated = CPInformationItem(
-            title: String(localized: "Ultimo aggiornamento"),
+            title: AppLocalization.string("Ultimo aggiornamento"),
             detail: timestamp
         )
 
@@ -537,15 +605,15 @@ final class CarPlaySceneDelegate: UIResponder,
         case .dpf:
             return [
                 CPInformationItem(
-                    title: String(localized: "Carico DPF"),
+                    title: AppLocalization.string("Carico DPF"),
                     detail: formatted(dpf.cloggingPercent, fractionDigits: 1, unit: "%")
                 ),
                 CPInformationItem(
-                    title: String(localized: "Distanza dall’ultima rigenerazione"),
+                    title: AppLocalization.string("Distanza dall’ultima rigenerazione"),
                     detail: formatted(dpf.distanceSinceLastRegenKm, fractionDigits: 1, unit: "km")
                 ),
                 CPInformationItem(
-                    title: String(localized: "Rigenerazioni totali"),
+                    title: AppLocalization.string("Rigenerazioni totali"),
                     detail: formatted(dpf.totalRegenCount, fractionDigits: 0)
                 ),
                 updated,
@@ -553,15 +621,15 @@ final class CarPlaySceneDelegate: UIResponder,
         case .regeneration:
             return [
                 CPInformationItem(
-                    title: String(localized: "Rigenerazione"),
+                    title: AppLocalization.string("Rigenerazione"),
                     detail: regenerationStatusText(for: dpf)
                 ),
                 CPInformationItem(
-                    title: String(localized: "Avanzamento rigenerazione"),
+                    title: AppLocalization.string("Avanzamento rigenerazione"),
                     detail: formatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%")
                 ),
                 CPInformationItem(
-                    title: String(localized: "Temperatura gas di scarico"),
+                    title: AppLocalization.string("Temperatura gas di scarico"),
                     detail: formatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C")
                 ),
                 updated,
@@ -569,11 +637,11 @@ final class CarPlaySceneDelegate: UIResponder,
         case .distance:
             return [
                 CPInformationItem(
-                    title: String(localized: "Distanza dall’ultima rigenerazione"),
+                    title: AppLocalization.string("Distanza dall’ultima rigenerazione"),
                     detail: formatted(dpf.distanceSinceLastRegenKm, fractionDigits: 1, unit: "km")
                 ),
                 CPInformationItem(
-                    title: String(localized: "Rigenerazioni totali"),
+                    title: AppLocalization.string("Rigenerazioni totali"),
                     detail: formatted(dpf.totalRegenCount, fractionDigits: 0)
                 ),
                 updated,
@@ -581,19 +649,47 @@ final class CarPlaySceneDelegate: UIResponder,
         case .exhaust:
             return [
                 CPInformationItem(
-                    title: String(localized: "Temperatura gas di scarico"),
+                    title: AppLocalization.string("Temperatura gas di scarico"),
                     detail: formatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C")
                 ),
                 CPInformationItem(
-                    title: String(localized: "Rigenerazione"),
+                    title: AppLocalization.string("Rigenerazione"),
                     detail: regenerationStatusText(for: dpf)
+                ),
+                updated,
+            ]
+        case .progress:
+            return [
+                CPInformationItem(
+                    title: AppLocalization.string("Avanzamento rigenerazione"),
+                    detail: formatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%")
+                ),
+                CPInformationItem(
+                    title: AppLocalization.string("Rigenerazione"),
+                    detail: regenerationStatusText(for: dpf)
+                ),
+                CPInformationItem(
+                    title: AppLocalization.string("Temperatura gas di scarico"),
+                    detail: formatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C")
+                ),
+                updated,
+            ]
+        case .totalRegenerations:
+            return [
+                CPInformationItem(
+                    title: AppLocalization.string("Rigenerazioni totali"),
+                    detail: formatted(dpf.totalRegenCount, fractionDigits: 0)
+                ),
+                CPInformationItem(
+                    title: AppLocalization.string("Distanza dall’ultima rigenerazione"),
+                    detail: formatted(dpf.distanceSinceLastRegenKm, fractionDigits: 1, unit: "km")
                 ),
                 updated,
             ]
         case .oil:
             return [
                 CPInformationItem(
-                    title: String(localized: "Stato pressione olio"),
+                    title: AppLocalization.string("Stato pressione olio"),
                     detail: dpf.oilPressureStatusText ?? "—"
                 ),
                 updated,
@@ -601,12 +697,17 @@ final class CarPlaySceneDelegate: UIResponder,
         case .battery:
             return [
                 CPInformationItem(
-                    title: String(localized: "Tensione batteria"),
+                    title: AppLocalization.string("Tensione batteria"),
                     detail: formatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V")
                 ),
                 updated,
             ]
         }
+    }
+
+    private func boundedInformationItems(_ items: [CPInformationItem]) -> [CPInformationItem] {
+        assert(items.count <= CarPlayDashboardPolicy.maximumInformationItemCount)
+        return Array(items.prefix(CarPlayDashboardPolicy.maximumInformationItemCount))
     }
 
     private func configureNavigationButtons(on template: CPGridTemplate) {
@@ -623,11 +724,11 @@ final class CarPlaySceneDelegate: UIResponder,
 
         switch action {
         case .connect:
-            title = String(localized: "Connetti")
+            title = AppLocalization.string("Connetti")
         case .cancel:
-            title = String(localized: "Annulla")
+            title = AppLocalization.string("Annulla")
         case .disconnect:
-            title = String(localized: "Disconnetti")
+            title = AppLocalization.string("Disconnetti")
         }
 
         let button = CPBarButton(title: title) { [weak self] _ in
@@ -642,6 +743,7 @@ final class CarPlaySceneDelegate: UIResponder,
         let button = CPBarButton(
             image: CarPlayDashboardArtwork.barImage(
                 symbolName: symbol,
+                color: carPlayAccent,
                 displayScale: carDisplayScale
             )
         ) { [weak self] _ in
@@ -658,6 +760,7 @@ final class CarPlaySceneDelegate: UIResponder,
         let button = CPBarButton(
             image: CarPlayDashboardArtwork.barImage(
                 symbolName: symbol,
+                color: carPlayAccent,
                 displayScale: carDisplayScale
             )
         ) { [weak self] _ in
@@ -680,7 +783,7 @@ final class CarPlaySceneDelegate: UIResponder,
         let details = CPInformationTemplate(
             title: detailTitle(for: kind),
             layout: .twoColumn,
-            items: makeInformationItems(for: kind),
+            items: boundedInformationItems(makeInformationItems(for: kind)),
             actions: []
         )
         detailKind = kind
@@ -696,12 +799,14 @@ final class CarPlaySceneDelegate: UIResponder,
 
     private func detailTitle(for kind: CarPlayDetailKind) -> String {
         switch kind {
-        case .dpf: return String(localized: "Carico DPF")
-        case .regeneration: return String(localized: "Rigenerazione")
-        case .distance: return String(localized: "Distanza dall’ultima rigenerazione")
-        case .exhaust: return String(localized: "Temperatura gas di scarico")
-        case .oil: return String(localized: "Stato pressione olio")
-        case .battery: return String(localized: "Tensione batteria")
+        case .dpf: return AppLocalization.string("Carico DPF")
+        case .regeneration: return AppLocalization.string("Rigenerazione")
+        case .distance: return AppLocalization.string("Distanza dall’ultima rigenerazione")
+        case .exhaust: return AppLocalization.string("Temperatura gas di scarico")
+        case .progress: return AppLocalization.string("Avanzamento rigenerazione")
+        case .totalRegenerations: return AppLocalization.string("Rigenerazioni totali")
+        case .oil: return AppLocalization.string("Stato pressione olio")
+        case .battery: return AppLocalization.string("Tensione batteria")
         }
     }
 
@@ -722,7 +827,7 @@ final class CarPlaySceneDelegate: UIResponder,
            session.alertAuthorization.authorization == .authorized
         {
             actions.append(CPAlertAction(
-                title: String(localized: "Test sistema · 10 s"),
+                title: AppLocalization.string("Test sistema · 10 s"),
                 style: .default
             ) { [weak self] _ in
                 guard let self else { return }
@@ -732,26 +837,26 @@ final class CarPlaySceneDelegate: UIResponder,
             })
         }
         actions.append(CPAlertAction(
-            title: String(localized: "Test alert CarPlay"),
+            title: AppLocalization.string("Test alert CarPlay"),
             style: .default
         ) { [weak self] _ in
             guard let self else { return }
             dismissPresentedTemplate { [weak self] in
                 self?.presentInformationalAlert([
-                    String(localized: "Alert CarPlay visibile correttamente."),
-                    String(localized: "Alert CarPlay OK"),
+                    AppLocalization.string("Alert CarPlay visibile correttamente."),
+                    AppLocalization.string("Alert CarPlay OK"),
                 ])
             }
         })
         actions.append(CPAlertAction(
-            title: String(localized: "Chiudi"),
+            title: AppLocalization.string("Chiudi"),
             style: .cancel
         ) { [weak self] _ in
             self?.dismissPresentedTemplate {}
         })
 
         let sheet = CPActionSheetTemplate(
-            title: String(localized: "Notifiche CarPlay"),
+            title: AppLocalization.string("Notifiche CarPlay"),
             message: notificationDiagnosticMessage,
             actions: actions
         )
@@ -766,45 +871,45 @@ final class CarPlaySceneDelegate: UIResponder,
 
     private var notificationDiagnosticMessage: String {
         let localStatus = session.carPlayAlertsEnabled
-            ? String(localized: "Avvisi Alpha su CarPlay attivi.")
-            : String(localized: "Avvisi Alpha su CarPlay disattivati.")
+            ? AppLocalization.string("Avvisi Alpha su CarPlay attivi.")
+            : AppLocalization.string("Avvisi Alpha su CarPlay disattivati.")
 
         guard #available(iOS 18.4, *) else {
             return localStatus + "\n"
-                + String(localized: "Le notifiche di sistema Driving Task richiedono iOS 18.4. Usa il test alert CarPlay.")
+                + AppLocalization.string("Le notifiche di sistema Driving Task richiedono iOS 18.4. Usa il test alert CarPlay.")
         }
 
         let issues = session.alertAuthorization.carPlayNotificationIssues
         let status: String
         if issues.isEmpty {
-            status = String(localized: "Mostra in CarPlay, Time Sensitive e suoni sono attivi.")
+            status = AppLocalization.string("Mostra in CarPlay, Time Sensitive e suoni sono attivi.")
                 + " "
-                + String(localized: "Full immersion Guida può comunque silenziare l’avviso.")
+                + AppLocalization.string("Full immersion Guida può comunque silenziare l’avviso.")
         } else {
             status = issues.map(notificationIssueText).joined(separator: " · ")
         }
         let instruction = session.alertAuthorization.authorization == .authorized
-            ? String(localized: "Per il test sistema, tocca il pulsante e torna subito alla Home CarPlay.")
-            : String(localized: "Concedi prima il permesso notifiche dall’iPhone.")
+            ? AppLocalization.string("Per il test sistema, tocca il pulsante e torna subito alla Home CarPlay.")
+            : AppLocalization.string("Concedi prima il permesso notifiche dall’iPhone.")
         return localStatus + "\n" + status + "\n" + instruction
     }
 
     private func notificationIssueText(_ issue: CarPlayNotificationIssue) -> String {
         switch issue {
         case .checking:
-            return String(localized: "Verifica impostazioni in corso")
+            return AppLocalization.string("Verifica impostazioni in corso")
         case .permissionRequired:
-            return String(localized: "Permesso notifiche non ancora concesso")
+            return AppLocalization.string("Permesso notifiche non ancora concesso")
         case .permissionDenied:
-            return String(localized: "Permesso notifiche negato")
+            return AppLocalization.string("Permesso notifiche negato")
         case .carPlayDisabled:
-            return String(localized: "Mostra in CarPlay disattivato")
+            return AppLocalization.string("Mostra in CarPlay disattivato")
         case .alertsDisabled:
-            return String(localized: "Banner notifiche disattivati")
+            return AppLocalization.string("Banner notifiche disattivati")
         case .timeSensitiveDisabled:
-            return String(localized: "Time Sensitive disattivate")
+            return AppLocalization.string("Time Sensitive disattivate")
         case .soundDisabled:
-            return String(localized: "Suoni disattivati")
+            return AppLocalization.string("Suoni disattivati")
         }
     }
 
@@ -818,8 +923,8 @@ final class CarPlaySceneDelegate: UIResponder,
                 return
             }
             presentInformationalAlert([
-                String(localized: "Impossibile accodare la notifica di test."),
-                String(localized: "Test notifica non riuscito"),
+                AppLocalization.string("Impossibile accodare la notifica di test."),
+                AppLocalization.string("Test notifica non riuscito"),
             ])
         }
     }
@@ -843,7 +948,7 @@ final class CarPlaySceneDelegate: UIResponder,
     private func presentInformationalAlert(_ titleVariants: [String]) {
         guard let interfaceController, !isPresentingAlert else { return }
         let dismissAction = CPAlertAction(
-            title: String(localized: "OK"),
+            title: AppLocalization.string("OK"),
             style: .default
         ) { [weak self] _ in
             self?.dismissPresentedTemplate {}
@@ -886,29 +991,29 @@ final class CarPlaySceneDelegate: UIResponder,
         switch session.status {
         case .idle:
             return session.carPlayDPFState.hasTelemetry
-                ? String(localized: "Disconnesso · ultimo dato salvato")
-                : String(localized: "Disconnesso")
+                ? AppLocalization.string("Disconnesso · ultimo dato salvato")
+                : AppLocalization.string("Disconnesso")
         case .connecting:
-            return String(localized: "Connessione all’adattatore…")
+            return AppLocalization.string("Connessione all’adattatore…")
         case .running:
             return session.hasLiveTelemetry
-                ? String(localized: "Connesso · dati live")
-                : String(localized: "Connesso · attesa dati ECU")
+                ? AppLocalization.string("Connesso · dati live")
+                : AppLocalization.string("Connesso · attesa dati ECU")
         case .simulating:
-            return String(localized: "Test disponibile solo su iPhone")
+            return AppLocalization.string("Test disponibile solo su iPhone")
         case .failed:
-            return String(localized: "Connessione interrotta · tocca Connetti")
+            return AppLocalization.string("Connessione interrotta · tocca Connetti")
         }
     }
 
     private func regenerationStatusText(for dpf: DPFState) -> String {
         switch dpf.effectiveRegenerationMode {
         case .none:
-            return String(localized: "Non attiva")
+            return AppLocalization.string("Non attiva")
         case .passive:
-            return String(localized: "Passiva")
+            return AppLocalization.string("Passiva")
         case .active:
-            return String(localized: "Attiva · non spegnere il motore")
+            return AppLocalization.string("Attiva · non spegnere il motore")
         }
     }
 
@@ -919,7 +1024,9 @@ final class CarPlaySceneDelegate: UIResponder,
     ) -> String {
         guard let value else { return "—" }
         let number = value.formatted(
-            .number.precision(.fractionLength(fractionDigits))
+            .number
+                .precision(.fractionLength(fractionDigits))
+                .locale(session.appLanguage.locale)
         )
         guard let unit else { return number }
         return "\(number) \(unit)"
@@ -932,7 +1039,9 @@ final class CarPlaySceneDelegate: UIResponder,
     ) -> String {
         guard let value else { return "—" }
         let number = value.formatted(
-            .number.precision(.fractionLength(fractionDigits))
+            .number
+                .precision(.fractionLength(fractionDigits))
+                .locale(session.appLanguage.locale)
         )
         guard let unit else { return number }
         return "\(number)\(unit)"
@@ -945,18 +1054,18 @@ final class CarPlaySceneDelegate: UIResponder,
         switch event {
         case .started:
             titleVariants = [
-                String(localized: "Rigenerazione DPF iniziata — non spegnere il motore."),
-                String(localized: "Rigenerazione DPF iniziata"),
+                AppLocalization.string("Rigenerazione DPF iniziata — non spegnere il motore."),
+                AppLocalization.string("Rigenerazione DPF iniziata"),
             ]
         case .finished:
             titleVariants = [
-                String(localized: "Rigenerazione DPF completata."),
-                String(localized: "Rigenerazione completata"),
+                AppLocalization.string("Rigenerazione DPF completata."),
+                AppLocalization.string("Rigenerazione completata"),
             ]
         }
 
         let dismissAction = CPAlertAction(
-            title: String(localized: "OK"),
+            title: AppLocalization.string("OK"),
             style: .default
         ) { [weak self] _ in
             guard let self else { return }

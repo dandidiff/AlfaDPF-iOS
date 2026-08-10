@@ -12,9 +12,20 @@ struct ELM327 {
 
     /// Boots the adapter into a known state. Called once after (re)connect.
     func initializeSession() async throws {
-        // ATZ reboots the chip and prints a version banner — give it longer
-        // than the default read timeout before declaring the adapter dead.
-        _ = try await connection.send("ATZ", timeout: 5.0)
+        // ATZ reboots the chip and prints a version banner. Some old clones
+        // reboot successfully but omit or delay the final prompt; in that case
+        // prove the command channel is alive instead of rejecting the adapter.
+        do {
+            let reset = try await connection.send("ATZ", timeout: 5.0)
+            if !Self.isAcceptedATResponse(reset) {
+                OBDLog.log("init: ATZ rejected (\(reset)); probing with ATI")
+                try await probeIdentityAfterReset()
+            }
+        } catch {
+            OBDLog.log("init: ATZ did not complete (\(error)); probing with ATI")
+            try await probeIdentityAfterReset()
+        }
+
         let boot = [
             "ATE0",        // echo off
             "ATL0",        // linefeeds off
@@ -27,20 +38,83 @@ struct ELM327 {
             "ATAT1"        // adaptive timing
         ]
         for cmd in boot {
-            _ = try await connection.send(cmd)
+            do {
+                let response = try await connection.send(cmd)
+                if !Self.isAcceptedATResponse(response) {
+                    OBDLog.log("init: optional \(cmd) rejected: \(response)")
+                }
+            } catch {
+                // Formatting and adaptive timing are optimizations. The parser
+                // already tolerates echo, spaces and linefeeds, so a clone that
+                // lacks one of these commands can still be usable.
+                OBDLog.log("init: optional \(cmd) unavailable: \(error)")
+            }
         }
 
-        // First real request triggers the protocol search ("SEARCHING..."),
-        // which can take several seconds. Do it once here with a generous
-        // timeout so the protocol is locked before the 2 s poll loops begin —
-        // otherwise the first poll cycle spuriously times out.
-        _ = try? await connection.send("0100", timeout: 8.0)
+        // First real request triggers the protocol search ("SEARCHING...").
+        // Keep the live session DPF-only: generic Mode 01 traffic can disturb
+        // the physical Mode 22 header context on real FCA vehicles. NO DATA is
+        // acceptable here because it still proves that ELM parsed and executed
+        // the diagnostic request; '?', adapter errors and silence are not.
+        let probe = try await connection.send(
+            "22380B",
+            header: "18DA10F1",
+            timeout: 12.0
+        )
+        guard Self.isAcceptedDiagnosticProbe(probe) else {
+            throw OBDError.protocolError("adapter rejected DPF protocol probe: \(probe)")
+        }
 
         // Log the negotiated protocol so a NO DATA problem is diagnosable from
         // the in-app console (e.g. "A6" = auto, CAN 11-bit 500k).
         if let proto = try? await connection.send("ATDPN") {
             OBDLog.log("protocol: \(proto.trimmingCharacters(in: .whitespacesAndNewlines))")
         }
+    }
+
+    private func probeIdentityAfterReset() async throws {
+        try await Task.sleep(for: .milliseconds(300))
+        let wake = try await connection.send("ATI", timeout: 3.0)
+        if !Self.isAcceptedATResponse(wake) {
+            // ATI is not universal on old clones. Do not fail yet: the DPF-only
+            // diagnostic probe below remains the mandatory proof of operation.
+            OBDLog.log("init: optional ATI rejected after reset: \(wake)")
+        }
+    }
+
+    static func isAcceptedATResponse(_ response: String) -> Bool {
+        let lines = response
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+        guard !lines.isEmpty else { return false }
+        return !lines.contains(where: {
+            $0 == "?"
+                || $0 == "NO DATA"
+                || $0 == "STOPPED"
+                || $0.contains("ERROR")
+                || $0.contains("UNABLE TO CONNECT")
+        })
+    }
+
+    static func isAcceptedDiagnosticProbe(_ response: String) -> Bool {
+        let lines = response
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+            .filter { !$0.isEmpty && !$0.hasPrefix("SEARCHING") }
+        guard !lines.isEmpty else { return false }
+        guard !lines.contains(where: {
+            $0 == "?"
+                || $0 == "STOPPED"
+                || $0.contains("ERROR")
+                || $0.contains("UNABLE TO CONNECT")
+        }) else { return false }
+
+        if lines.contains("NO DATA") { return true }
+        return lines.contains(where: { line in
+            let compact = line.filter { !$0.isWhitespace }
+            guard compact.allSatisfy(\.isHexDigit) else { return false }
+            return compact.contains("62380B") || compact.contains("7F22")
+        })
     }
 
     /// Requests a Mode 22 PID and returns the raw data bytes of the reply

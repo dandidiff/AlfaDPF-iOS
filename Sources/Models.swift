@@ -1,5 +1,132 @@
 import Foundation
 
+/// Language used by the phone app and CarPlay presentation. Widgets remain a
+/// separate process and continue to follow their own system locale.
+enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
+    case system
+    case italian = "it"
+    case english = "en"
+    case french = "fr"
+    case spanish = "es"
+
+    static let defaultsKey = "appLanguage.v1"
+
+    var id: String { rawValue }
+
+    var localeIdentifier: String? {
+        switch self {
+        case .system: return nil
+        case .italian: return "it"
+        case .english: return "en"
+        case .french: return "fr"
+        case .spanish: return "es"
+        }
+    }
+
+    var locale: Locale {
+        localeIdentifier.map(Locale.init(identifier:)) ?? .autoupdatingCurrent
+    }
+
+    /// Native language names stay recognizable even when the current UI is in
+    /// another language. Only the system option is a localized catalog key.
+    var displayNameKey: String {
+        switch self {
+        case .system: return "Sistema"
+        case .italian: return "Italiano"
+        case .english: return "English"
+        case .french: return "Français"
+        case .spanish: return "Español"
+        }
+    }
+
+    static func load(from defaults: UserDefaults = .standard) -> Self {
+        defaults.string(forKey: defaultsKey)
+            .flatMap(Self.init(rawValue:)) ?? .system
+    }
+}
+
+/// Resolves strings created outside SwiftUI's `Text` hierarchy with the same
+/// locale selected in-app. This uses public Foundation APIs and does not mutate
+/// `AppleLanguages`, replace Bundle classes, or require a forced relaunch.
+enum AppLocalization {
+    static var language: AppLanguage {
+        AppLanguage.load()
+    }
+
+    static func string(_ resource: LocalizedStringResource) -> String {
+        guard language.localeIdentifier != nil else {
+            return String(localized: resource)
+        }
+        var localized = resource
+        localized.locale = language.locale
+        return String(localized: localized)
+    }
+
+    /// Keep values already typed as localization keys on the same explicit-
+    /// locale path without converting them through a plain runtime string.
+    static func string(key: String.LocalizationValue) -> String {
+        guard language.localeIdentifier != nil else {
+            return String(localized: LocalizedStringResource(key, bundle: .main))
+        }
+        let resource = LocalizedStringResource(
+            key,
+            locale: language.locale,
+            bundle: .main
+        )
+        return String(localized: resource)
+    }
+}
+
+/// User-selected physical link to the ELM adapter. Both transports feed the
+/// same ELM line engine; only discovery/socket plumbing differs.
+enum OBDTransportKind: String, CaseIterable, Identifiable, Sendable {
+    case bluetooth
+    case wifi
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .bluetooth: return "Bluetooth LE"
+        case .wifi: return "Wi-Fi"
+        }
+    }
+
+    private static let defaultsKey = "obdTransportKind.v1"
+
+    static func load(from defaults: UserDefaults) -> Self {
+        defaults.string(forKey: defaultsKey)
+            .flatMap(Self.init(rawValue:)) ?? .bluetooth
+    }
+
+    func save(to defaults: UserDefaults) {
+        defaults.set(rawValue, forKey: Self.defaultsKey)
+    }
+}
+
+/// Manually configured TCP endpoint used by common Wi-Fi ELM327 adapters.
+/// Manual configuration is deliberate: adapters use several private subnets,
+/// and blind local-network scans are both unreliable and intrusive.
+struct WiFiAdapterEndpoint: Equatable, Sendable {
+    var host: String
+    var port: UInt16
+
+    static let commonDefault = WiFiAdapterEndpoint(host: "192.168.0.10", port: 35000)
+
+    static func parse(host: String, port: String) -> Self? {
+        let cleanHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanPort = port.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanHost.isEmpty,
+              !cleanHost.contains(where: { $0.isWhitespace || $0.isNewline }),
+              !cleanHost.contains("://"),
+              !cleanHost.contains("/"),
+              let parsedPort = UInt16(cleanPort),
+              parsedPort > 0
+        else { return nil }
+        return WiFiAdapterEndpoint(host: cleanHost, port: parsedPort)
+    }
+}
+
 /// Lifecycle of the phone-side monitor session. Declared outside
 /// `MonitorSession` so the pure UI policy below (idle timer) is testable
 /// without UIKit.
@@ -30,6 +157,76 @@ enum SessionStatus: Equatable, Sendable {
         case .connecting: return .cancel
         case .running: return .disconnect
         }
+    }
+}
+
+/// Conservative evidence that the engine stopped while a regeneration was
+/// active. A single low ATRV sample is not enough: smart alternators can run
+/// below 13 V, and a stale voltage says nothing about a later telemetry loss.
+/// Confirmation therefore requires a live running-voltage baseline followed
+/// by three low samples spanning at least five seconds while core DPF traffic
+/// is unavailable.
+struct RegenEngineOffDetector: Equatable, Sendable {
+    private static let runningVoltage = 13.5
+    private static let engineOffVoltage = 12.8
+    private static let minimumVoltageDrop = 0.8
+    private static let minimumLowSamples = 3
+    private static let minimumLowDuration: TimeInterval = 5
+
+    private var runningBaseline: Double?
+    private var lowVoltageStartedAt: Date?
+    private var lowSampleCount = 0
+
+    mutating func observe(
+        voltage: Double?,
+        at timestamp: Date,
+        coreTelemetryAvailable: Bool
+    ) -> Bool {
+        if coreTelemetryAvailable {
+            clearLowEvidence()
+            guard let voltage, voltage.isFinite, (0...100).contains(voltage) else {
+                runningBaseline = nil
+                return false
+            }
+            // Only the most recent live voltage can arm a later shutdown
+            // decision. A historical alternator peak is stale evidence if the
+            // last live sample had already dropped into the ambiguous range.
+            runningBaseline = voltage >= Self.runningVoltage ? voltage : nil
+            return false
+        }
+
+        guard let voltage, voltage.isFinite, (0...100).contains(voltage) else {
+            return false
+        }
+        guard let runningBaseline else { return false }
+        let lowThreshold = min(
+            Self.engineOffVoltage,
+            runningBaseline - Self.minimumVoltageDrop
+        )
+        guard voltage <= lowThreshold else {
+            if voltage >= Self.runningVoltage {
+                clearLowEvidence()
+            }
+            return false
+        }
+
+        if lowVoltageStartedAt == nil {
+            lowVoltageStartedAt = timestamp
+        }
+        lowSampleCount += 1
+        guard let lowVoltageStartedAt else { return false }
+        return lowSampleCount >= Self.minimumLowSamples
+            && timestamp.timeIntervalSince(lowVoltageStartedAt) >= Self.minimumLowDuration
+    }
+
+    mutating func reset() {
+        runningBaseline = nil
+        clearLowEvidence()
+    }
+
+    private mutating func clearLowEvidence() {
+        lowVoltageStartedAt = nil
+        lowSampleCount = 0
     }
 }
 
@@ -180,9 +377,77 @@ enum CarPlayTelemetryPolicy {
     static func displayState(
         current: DPFState,
         lastPersisted: DPFState?,
+        status: SessionStatus,
         hasLiveTelemetry: Bool
     ) -> DPFState {
-        hasLiveTelemetry ? current : (lastPersisted ?? DPFState())
+        isLive(status: status, hasLiveTelemetry: hasLiveTelemetry)
+            ? current
+            : (lastPersisted ?? DPFState())
+    }
+
+    /// A transport that is ready is not necessarily producing fresh ECU data.
+    /// CarPlay presentation is live only after the shared phone session has
+    /// accepted a recent core DPF sample while it is running.
+    static func isLive(
+        status: SessionStatus,
+        hasLiveTelemetry: Bool
+    ) -> Bool {
+        status == .running && hasLiveTelemetry
+    }
+}
+
+/// The eight glanceable CarPlay tiles. Each tile pushes one compact
+/// `CPInformationTemplate` detail surface; this type stays Foundation-only so
+/// the hierarchy can be tested without UIKit/CarPlay.
+enum CarPlayDashboardMetric: CaseIterable, Equatable, Sendable {
+    case dpf
+    case regeneration
+    case distance
+    case exhaust
+    case progress
+    case totalRegenerations
+    case oil
+    case battery
+}
+
+enum CarPlayDashboardPolicy {
+    static let maximumTileCount = 8
+    static let maximumInformationItemCount = 4
+}
+
+enum CarPlayDashboardIconTone: Equatable, Sendable {
+    case neutral
+    case accent
+    case dpfSemantic(DPFLoadAlertLevel)
+    case regenerationSemantic(DPFRegenerationMode)
+}
+
+/// Presentation policy for dashboard artwork. Cached or disconnected values
+/// may remain readable in the detail template, but every dashboard icon is
+/// deliberately neutral until the shared OBD session is live again.
+enum CarPlayDashboardIconPolicy {
+    static func tone(
+        for metric: CarPlayDashboardMetric,
+        state: DPFState,
+        isLive: Bool
+    ) -> CarPlayDashboardIconTone {
+        guard isLive else { return .neutral }
+
+        switch metric {
+        case .dpf:
+            return .dpfSemantic(state.loadAlertLevel)
+        case .regeneration:
+            switch state.effectiveRegenerationMode {
+            case .none:
+                // A live, idle tile uses the user's accent rather than the
+                // neutral cached-data treatment.
+                return .accent
+            case .passive, .active:
+                return .regenerationSemantic(state.effectiveRegenerationMode)
+            }
+        case .distance, .exhaust, .progress, .totalRegenerations, .oil, .battery:
+            return .accent
+        }
     }
 }
 
@@ -370,12 +635,12 @@ enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .distanceSinceRegeneration: return String(localized: "Distanza dall’ultima rigenerazione")
-        case .exhaustTemperature: return String(localized: "Temperatura gas di scarico")
-        case .regenerationProgress: return String(localized: "Avanzamento rigenerazione")
-        case .totalRegenerations: return String(localized: "Rigenerazioni totali")
-        case .oilPressure: return String(localized: "Stato pressione olio")
-        case .batteryVoltage: return String(localized: "Tensione batteria")
+        case .distanceSinceRegeneration: return AppLocalization.string("Distanza dall’ultima rigenerazione")
+        case .exhaustTemperature: return AppLocalization.string("Temperatura gas di scarico")
+        case .regenerationProgress: return AppLocalization.string("Avanzamento rigenerazione")
+        case .totalRegenerations: return AppLocalization.string("Rigenerazioni totali")
+        case .oilPressure: return AppLocalization.string("Stato pressione olio")
+        case .batteryVoltage: return AppLocalization.string("Tensione batteria")
         }
     }
 }
@@ -449,12 +714,12 @@ extension DPFState {
     var oilPressureStatusText: String? {
         guard let oilPressureStatusRaw else { return nil }
         switch oilPressureStatusRaw {
-        case 0: return String(localized: "Assente")
-        case 1: return String(localized: "Non significativa")
-        case 2: return String(localized: "Normale")
+        case 0: return AppLocalization.string("Assente")
+        case 1: return AppLocalization.string("Non significativa")
+        case 2: return AppLocalization.string("Normale")
         default:
             return String(
-                format: String(localized: "Stato %@"),
+                format: AppLocalization.string("Stato %@"),
                 String(oilPressureStatusRaw)
             )
         }

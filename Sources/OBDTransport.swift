@@ -10,35 +10,41 @@ enum OBDError: Error, Equatable, Sendable, LocalizedError {
     case bluetoothUnavailable
     case connectionFailed
     case incompatibleAdapter
+    case invalidWiFiEndpoint
+    case wifiConnectionTimeout
 
     var errorDescription: String? {
         switch self {
         case .notReady:
-            return String(localized: "L’adattatore OBD non è pronto.")
+            return AppLocalization.string("L’adattatore OBD non è pronto.")
         case .protocolError:
-            return String(localized: "Errore di comunicazione con l’adattatore OBD.")
+            return AppLocalization.string("Errore di comunicazione con l’adattatore OBD.")
         case .timeout:
-            return String(localized: "L’adattatore OBD non ha risposto in tempo.")
+            return AppLocalization.string("L’adattatore OBD non ha risposto in tempo.")
         case .connectionTimeout:
-            return String(localized: "Nessuna connessione con l’adattatore OBD entro 30 secondi. Verifica che sia alimentato e vicino.")
+            return AppLocalization.string("Nessuna connessione con l’adattatore OBD entro 30 secondi. Verifica che sia alimentato e vicino.")
         case .bluetoothUnauthorized:
-            return String(localized: "Accesso Bluetooth negato. Abilitalo nelle Impostazioni di iOS.")
+            return AppLocalization.string("Accesso Bluetooth negato. Abilitalo nelle Impostazioni di iOS.")
         case .bluetoothPoweredOff:
-            return String(localized: "Bluetooth è disattivato. Attivalo e riprova.")
+            return AppLocalization.string("Bluetooth è disattivato. Attivalo e riprova.")
         case .bluetoothUnavailable:
-            return String(localized: "Bluetooth non è disponibile su questo dispositivo.")
+            return AppLocalization.string("Bluetooth non è disponibile su questo dispositivo.")
         case .connectionFailed:
-            return String(localized: "Errore durante la connessione Bluetooth all’adattatore OBD.")
+            return AppLocalization.string("Errore durante la connessione Bluetooth all’adattatore OBD.")
         case .incompatibleAdapter:
-            return String(localized: "L’adattatore Bluetooth non espone una connessione ELM327 compatibile.")
+            return AppLocalization.string("L’adattatore Bluetooth non espone una connessione ELM327 compatibile.")
+        case .invalidWiFiEndpoint:
+            return AppLocalization.string("Impostazioni Wi-Fi non valide. Controlla indirizzo e porta.")
+        case .wifiConnectionTimeout:
+            return AppLocalization.string("Impossibile raggiungere l’adattatore OBD Wi-Fi entro 30 secondi. Verifica la rete, l’indirizzo e la porta.")
         }
     }
 }
 
 /// A byte transport that speaks the ELM327 line protocol: ASCII commands
 /// terminated by `\r`, responses terminated by the `>` prompt character.
-/// The app uses `BLEConnection` (Bluetooth Low Energy GATT). The legacy TCP
-/// implementation remains outside the app target only for transport tests.
+/// The app uses either `BLEConnection` (Bluetooth Low Energy GATT) or
+/// `OBDConnection` (a local Wi-Fi TCP socket).
 protocol OBDTransport: Actor {
     func start()
     func stop() async
@@ -82,6 +88,9 @@ actor ELMLineEngine {
     /// Last `ATSH` header applied to the adapter, so we only re-send it when
     /// it changes. Cleared by `reset()` (the adapter forgets it on reconnect).
     private var currentHeader: String?
+    /// First byte of a 29-bit CAN ID. Genuine ELM327 v1.5 firmware expects
+    /// this through ATCP, with ATSH carrying the remaining three bytes.
+    private var currentCANPriority: String?
 
     /// Runs one command/response exchange. `write` delivers the raw bytes to
     /// the wire; the engine owns everything before and after. When `header`
@@ -93,12 +102,11 @@ actor ELMLineEngine {
         await acquireSendSlot()
         defer { releaseSendSlot() }
 
-        if let header, header != currentHeader {
+        if let header, header.uppercased() != currentHeader {
             do {
-                _ = try await writeAndRead("ATSH" + header, timeout: timeout, write: write)
-                currentHeader = header
+                try await applyHeader(header, timeout: timeout, write: write)
             } catch {
-                OBDLog.log("✗ ATSH\(header): \(error)")
+                OBDLog.log("✗ header \(header): \(error)")
                 throw error
             }
         }
@@ -144,9 +152,88 @@ actor ELMLineEngine {
         resumePendingRead(with: CancellationError())
         rxBuffer.removeAll(keepingCapacity: false)
         currentHeader = nil
+        currentCANPriority = nil
     }
 
     // MARK: - Private
+
+    private func applyHeader(
+        _ rawHeader: String,
+        timeout: TimeInterval,
+        write: (Data) async throws -> Void
+    ) async throws {
+        let header = rawHeader.filter { !$0.isWhitespace }.uppercased()
+        guard header.allSatisfy(\.isHexDigit) else {
+            throw OBDError.protocolError("invalid request header: \(rawHeader)")
+        }
+
+        switch header.count {
+        case 8:
+            let priority = String(header.prefix(2))
+            let threeByteHeader = String(header.suffix(6))
+            do {
+                if priority != currentCANPriority {
+                    try await performATControl(
+                        "ATCP" + priority,
+                        timeout: timeout,
+                        write: write
+                    )
+                    currentCANPriority = priority
+                }
+                try await performATControl(
+                    "ATSH" + threeByteHeader,
+                    timeout: timeout,
+                    write: write
+                )
+            } catch let error as OBDError {
+                // Some newer ELM-compatible firmware accepts a complete
+                // four-byte CAN ID in ATSH but omits the legacy ATCP command.
+                guard case .protocolError = error else { throw error }
+                OBDLog.log("header: legacy ATCP/ATSH rejected; trying four-byte ATSH")
+                try await performATControl(
+                    "ATSH" + header,
+                    timeout: timeout,
+                    write: write
+                )
+                currentCANPriority = priority
+            }
+        case 3, 6:
+            try await performATControl("ATSH" + header, timeout: timeout, write: write)
+        default:
+            throw OBDError.protocolError("unsupported request header: \(rawHeader)")
+        }
+
+        currentHeader = header
+    }
+
+    private func performATControl(
+        _ command: String,
+        timeout: TimeInterval,
+        write: (Data) async throws -> Void
+    ) async throws {
+        let response = try await writeAndRead(command, timeout: timeout, write: write)
+        let shown = response.isEmpty
+            ? "(empty)"
+            : response.replacingOccurrences(of: "\n", with: " ⏎ ")
+        OBDLog.log("← \(shown)")
+        guard Self.isSuccessfulATResponse(response) else {
+            throw OBDError.protocolError("\(command) rejected: \(response)")
+        }
+    }
+
+    static func isSuccessfulATResponse(_ response: String) -> Bool {
+        let lines = response
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+        guard lines.contains("OK") else { return false }
+        return !lines.contains(where: {
+            $0 == "?"
+                || $0 == "NO DATA"
+                || $0 == "STOPPED"
+                || $0.contains("ERROR")
+                || $0.contains("UNABLE TO CONNECT")
+        })
+    }
 
     private func tryCompletePendingRead() {
         guard let cont = pendingRead,
