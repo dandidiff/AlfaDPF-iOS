@@ -23,18 +23,20 @@ enum BLECharacteristicPicker {
         var canWrite: Bool
     }
 
-    static func pick(from candidates: [Candidate]) -> (notify: CBUUID, write: CBUUID)? {
+    static func pick(
+        from candidates: [Candidate]
+    ) -> (service: CBUUID, notify: CBUUID, write: CBUUID)? {
         let known = candidates.filter { $0.service == vlinkService }
         if known.contains(where: { $0.characteristic == vlinkNotify && $0.canNotify }),
            known.contains(where: { $0.characteristic == vlinkWrite && $0.canWrite }) {
-            return (vlinkNotify, vlinkWrite)
+            return (vlinkService, vlinkNotify, vlinkWrite)
         }
 
         let konnwei = candidates.filter { $0.service == konnweiService }
         if konnwei.contains(where: {
             $0.characteristic == konnweiData && $0.canNotify && $0.canWrite
         }) {
-            return (konnweiData, konnweiData)
+            return (konnweiService, konnweiData, konnweiData)
         }
 
         let services = Set(candidates.map(\.service))
@@ -42,7 +44,7 @@ enum BLECharacteristicPicker {
             let inService = candidates.filter { $0.service == service }
             guard let notify = inService.first(where: \.canNotify),
                   let write = inService.first(where: \.canWrite) else { continue }
-            return (notify.characteristic, write.characteristic)
+            return (service, notify.characteristic, write.characteristic)
         }
         return nil
     }
@@ -94,6 +96,7 @@ actor BLEConnection: OBDTransport {
     /// the UI in "connecting" forever.
     private var connectionTimeoutTask: Task<Void, Never>?
     private var pendingCharacteristicDiscoveries = 0
+    private var characteristicDiscoveryFailures = 0
     /// True between `start()` and `stop()` — gates auto-reconnect.
     private var shouldRun = false
     private static let lastPeripheralIdentifierKey = "lastBLEOBDPeripheralIdentifier.v1"
@@ -140,6 +143,7 @@ actor BLEConnection: OBDTransport {
         notifyChar = nil
         writeChar = nil
         pendingCharacteristicDiscoveries = 0
+        characteristicDiscoveryFailures = 0
         await engine.reset()
         state = .idle
         resumeReadyContinuations(throwing: CancellationError())
@@ -238,6 +242,7 @@ actor BLEConnection: OBDTransport {
             return
         }
         pendingCharacteristicDiscoveries = services.count
+        characteristicDiscoveryFailures = 0
         for service in services {
             peripheral.discoverCharacteristics(nil, for: service)
         }
@@ -255,9 +260,14 @@ actor BLEConnection: OBDTransport {
         pendingCharacteristicDiscoveries = max(0, pendingCharacteristicDiscoveries - 1)
         if let error {
             OBDLog.log("BLE: characteristic discovery failed for \(service.uuid): \(error)")
-            failReadiness(with: OBDError.connectionFailed)
-            return
+            characteristicDiscoveryFailures += 1
         }
+
+        // CoreBluetooth reports each service independently and callback order
+        // is undefined. Wait for the whole peripheral before preferring the
+        // known FFF0/FFE0 layouts over a generic pair that happened to arrive
+        // first.
+        guard pendingCharacteristicDiscoveries == 0 else { return }
 
         let candidates = (peripheral.services ?? []).flatMap { service in
             (service.characteristics ?? []).map { chr in
@@ -271,19 +281,32 @@ actor BLEConnection: OBDTransport {
         }
         guard let picked = BLECharacteristicPicker.pick(from: candidates) else {
             if pendingCharacteristicDiscoveries == 0 {
-                OBDLog.log("BLE: no compatible notify/write characteristic pair")
+                OBDLog.log(
+                    "BLE: no compatible notify/write characteristic pair "
+                    + "(\(characteristicDiscoveryFailures) discovery failures)"
+                )
                 failReadiness(with: OBDError.incompatibleAdapter)
             }
             return
         }
 
-        let all = (peripheral.services ?? []).flatMap { $0.characteristics ?? [] }
-        notifyChar = all.first { $0.uuid == picked.notify }
-        writeChar = all.first { $0.uuid == picked.write }
-        if let notifyChar {
-            OBDLog.log("BLE: notify \(picked.notify.uuidString) / write \(picked.write.uuidString)")
-            peripheral.setNotifyValue(true, for: notifyChar)
+        let selectedService = (peripheral.services ?? []).first { service in
+            guard service.uuid == picked.service else { return false }
+            let characteristics = service.characteristics ?? []
+            return characteristics.contains { $0.uuid == picked.notify }
+                && characteristics.contains { $0.uuid == picked.write }
         }
+        let selectedCharacteristics = selectedService?.characteristics ?? []
+        guard let selectedNotify = selectedCharacteristics.first(where: { $0.uuid == picked.notify }),
+              let selectedWrite = selectedCharacteristics.first(where: { $0.uuid == picked.write })
+        else {
+            failReadiness(with: OBDError.incompatibleAdapter)
+            return
+        }
+        notifyChar = selectedNotify
+        writeChar = selectedWrite
+        OBDLog.log("BLE: notify \(picked.notify.uuidString) / write \(picked.write.uuidString)")
+        peripheral.setNotifyValue(true, for: selectedNotify)
     }
 
     fileprivate func notificationStateChanged(_ characteristic: CBCharacteristic, error: Error?) {
@@ -309,6 +332,8 @@ actor BLEConnection: OBDTransport {
 
     fileprivate func disconnected(_ peripheral: CBPeripheral, error: Error?) async {
         guard peripheral === self.peripheral else { return }
+        let wasReady: Bool
+        if case .ready = state { wasReady = true } else { wasReady = false }
         fastReconnectTask?.cancel()
         fastReconnectTask = nil
         OBDLog.log("BLE: disconnected\(error.map { ": \($0)" } ?? "")")
@@ -316,7 +341,18 @@ actor BLEConnection: OBDTransport {
         notifyChar = nil
         writeChar = nil
         pendingCharacteristicDiscoveries = 0
+        characteristicDiscoveryFailures = 0
         await engine.failPendingRead(with: error ?? OBDError.protocolError("BLE disconnected"))
+        await engine.reset()
+        if wasReady, shouldRun {
+            // A power-cycle clears the ELM AT state and CAN header. Returning
+            // straight to `.ready` would let the existing monitor continue on
+            // an uninitialised adapter. Make the loss terminal so Retry runs a
+            // complete transport + ELM bootstrap through MonitorSession.
+            OBDLog.log("BLE: live link lost; a fresh ELM session is required")
+            failReadiness(with: OBDError.connectionFailed)
+            return
+        }
         guard shouldRun, let central else {
             if case .failed = state {
                 // Preserve the useful readiness error until `stop()` resets it.
@@ -388,6 +424,7 @@ actor BLEConnection: OBDTransport {
         notifyChar = nil
         writeChar = nil
         pendingCharacteristicDiscoveries = 0
+        characteristicDiscoveryFailures = 0
         fastReconnectTask = nil
         startScan(central)
     }

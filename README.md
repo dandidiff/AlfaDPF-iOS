@@ -5,7 +5,7 @@ La versione corrente è volutamente concentrata sui dati del filtro e sulla
 rilevazione affidabile della rigenerazione. La dashboard mostra anche la
 tensione di alimentazione reale restituita dall’adattatore tramite `ATRV`.
 
-Versione in sviluppo: **1.3 (build 11)**.
+Versione in sviluppo: **1.3 (build 18)**.
 
 Il nome pubblico della versione App Store è **Alpha DPF Monitor** — non “Alfa
 DPF”: “Alpha” è il marchio pubblico, scelto per restare distintivo senza usare
@@ -104,16 +104,17 @@ Riferimenti Apple:
 [ActivityKit](https://developer.apple.com/documentation/activitykit),
 [Live Activities](https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities).
 
-## Localizzazione (1.2)
+## Localizzazione (1.3)
 
-- Notifiche localizzate IT/EN: `AlertService` usa `String(localized:)` con
+- Interfaccia e notifiche sono localizzate in IT/EN/FR/ES; `AlertService` usa
+  `String(localized:)` con
   carico (`%.0f%%`) e durata (`%d min.`) formattati; le traduzioni stanno in
   `App/Localizable.xcstrings`.
 - Il messaggio di autorizzazione Bluetooth è localizzato in
   `App/InfoPlist.xcstrings`.
 - Il widget mostra il nome pubblico `Alpha DPF Monitor` anche su Lock Screen.
-- Le stringhe della Live Activity hanno localizzazioni `it` ed `en` esplicite:
-  il bundle dell'estensione deve contenere entrambi gli `.lproj`.
+- Le stringhe della Live Activity seguono lo stesso catalogo a quattro lingue:
+  il bundle dell'estensione deve contenere i relativi `.lproj`.
 
 ## Test senza automobile
 
@@ -139,23 +140,27 @@ poi `…` o il triangolo diagnostico:
 
 In **Impostazioni → Notifiche → Alpha DPF Monitor** devono essere consentiti
 CarPlay, Schermata di blocco, Notifiche urgenti e Suoni. La Full immersion Guida
-può silenziare le notifiche delle app anche su CarPlay: per ricevere i banner in
-modo affidabile, configurarla su attivazione manuale oppure disabilitare
-**Attiva con CarPlay** in **Impostazioni → Full immersion → Guida → Durante la
-guida**. Attivare **Annuncia notifiche** dà a Siri la possibilità di leggerle,
-ma le app Driving Task non possono forzare la voce.
+riduce le distrazioni e va mantenuta attiva. iOS può limitare comunque gli
+avvisi delle app durante la guida; abilitare **Notifiche urgenti**, **Mostra in
+CarPlay** e **Annuncia notifiche** aumenta la probabilità che l’avviso sia
+presentato o letto, ma un’app Driving Task non può forzarlo. Non modificare
+queste impostazioni mentre si guida.
 
 Ogni scenario può anche essere selezionato singolarmente. Per provare soltanto
 il canale di notifica usare **Prova solo banner e suono**. Il simulatore usa lo
 stesso `RegenActivityTracker`, lo stesso `AlertService` e la stessa Live
 Activity della connessione reale: non è un mock soltanto grafico.
 
-Per QA automatica di una build Debug sono disponibili due variabili di lancio:
+Per QA automatica di una build Debug sono disponibili tre variabili di lancio:
 
 ```text
 ALFADPF_AUTORUN_TEST=1
 ALFADPF_SCENARIO=regenInProgress
+ALFADPF_SIMULATION_STEP_SECONDS=6
 ```
+
+La terza variabile è facoltativa e disponibile soltanto in Debug: rallenta ogni
+passaggio del ciclo automatico (1–30 secondi) per screenshot e QA visuale.
 
 ## Perché i dati motore non vengono letti
 

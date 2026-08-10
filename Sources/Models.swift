@@ -928,6 +928,136 @@ enum RegenEvent: Equatable {
     case finished(at: Date, duration: TimeInterval)
 }
 
+/// Conservative remaining-time estimate for an active regeneration. The ECU
+/// exposes progress, not an ETA, so this estimator only publishes a value
+/// after observing a meaningful increase over time. Missing samples preserve
+/// the last estimate; an inactive mode or a new progress cycle clears it.
+struct RegenTimeEstimator: Equatable, Sendable {
+    private struct Sample: Equatable, Sendable {
+        let progress: Double
+        let timestamp: Date
+    }
+
+    private static let minimumProgressDelta = 2.0
+    private static let minimumObservationDuration: TimeInterval = 30
+    private static let maximumSampleGap: TimeInterval = 10 * 60
+    private static let minimumPublishedETA: TimeInterval = 60
+    private static let maximumPublishedETA: TimeInterval = 60 * 60
+    // Keep enough history for fast adapters too: at one fresh sample per
+    // second, eight samples could never satisfy the 30-second observation
+    // window and the ETA would remain permanently hidden.
+    private static let maximumSamples = 120
+
+    private var samples: [Sample] = []
+    private(set) var estimatedTimeRemaining: TimeInterval?
+
+    @discardableResult
+    mutating func observe(
+        progressPercent: Double?,
+        regenerationMode: DPFRegenerationMode,
+        at timestamp: Date
+    ) -> TimeInterval? {
+        guard regenerationMode == .active else {
+            reset()
+            return nil
+        }
+
+        guard let progressPercent,
+              progressPercent.isFinite,
+              (0...100).contains(progressPercent)
+        else {
+            if let last = samples.last {
+                let gap = timestamp.timeIntervalSince(last.timestamp)
+                if gap < 0 || gap > Self.maximumSampleGap {
+                    reset()
+                }
+            }
+            return estimatedTimeRemaining
+        }
+
+        if progressPercent >= 99.5 {
+            estimatedTimeRemaining = nil
+            return nil
+        }
+
+        if let last = samples.last {
+            let gap = timestamp.timeIntervalSince(last.timestamp)
+            if gap < 0 || gap > Self.maximumSampleGap || progressPercent < last.progress - 2 {
+                reset()
+            } else if progressPercent <= last.progress + 0.05 {
+                return estimatedTimeRemaining
+            }
+        }
+
+        samples.append(Sample(progress: progressPercent, timestamp: timestamp))
+        if samples.count > Self.maximumSamples {
+            samples.removeFirst(samples.count - Self.maximumSamples)
+        }
+
+        guard let first = samples.first, let last = samples.last else { return nil }
+        let duration = last.timestamp.timeIntervalSince(first.timestamp)
+        let progressDelta = last.progress - first.progress
+        guard duration >= Self.minimumObservationDuration,
+              progressDelta >= Self.minimumProgressDelta
+        else {
+            return nil
+        }
+
+        let progressPerSecond = progressDelta / duration
+        let rawETA = (100 - last.progress) / progressPerSecond
+        guard rawETA >= Self.minimumPublishedETA,
+              rawETA <= Self.maximumPublishedETA
+        else {
+            estimatedTimeRemaining = nil
+            return nil
+        }
+
+        if let previous = estimatedTimeRemaining {
+            estimatedTimeRemaining = previous * 0.65 + rawETA * 0.35
+        } else {
+            estimatedTimeRemaining = rawETA
+        }
+        return estimatedTimeRemaining
+    }
+
+    mutating func reset() {
+        samples.removeAll(keepingCapacity: true)
+        estimatedTimeRemaining = nil
+    }
+}
+
+/// Keeps the history layer tri-state. `nil` means the latest poll could not
+/// prove either active or inactive and must never be converted into a finish
+/// edge. This is intentionally separate from UI presentation, where unknown
+/// may still use neutral styling.
+struct RegenHistoryTransition: Equatable, Sendable {
+    let previousKnownState: Bool?
+    let nextKnownState: Bool?
+    let didStart: Bool
+    let didFinish: Bool
+    let confirmedInitialInactivity: Bool
+
+    static func resolve(previous: Bool?, observed: Bool?) -> Self {
+        guard let observed else {
+            return Self(
+                previousKnownState: previous,
+                nextKnownState: previous,
+                didStart: false,
+                didFinish: false,
+                confirmedInitialInactivity: false
+            )
+        }
+
+        return Self(
+            previousKnownState: previous,
+            nextKnownState: observed,
+            didStart: observed && previous != true,
+            didFinish: !observed && previous == true,
+            confirmedInitialInactivity: !observed && previous == nil
+        )
+    }
+}
+
 /// Converts the continuous ECU "regen process" percentage into stable
 /// start/finish edges. It deliberately keeps its state across missing samples:
 /// a transient OBD timeout must not create a second start alert when data

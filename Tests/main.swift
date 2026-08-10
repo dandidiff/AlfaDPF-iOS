@@ -6,7 +6,8 @@ import CoreBluetooth
 // Runs on macOS without Xcode:
 //   swiftc Sources/Models.swift Sources/OBDLog.swift Sources/OBDTransport.swift \\
 //          Sources/OBDConnection.swift Sources/BLEConnection.swift Sources/ELM327.swift \\
-//          Sources/Mode01.swift Sources/DPFHistoryStore.swift Tests/main.swift -o /tmp/alfadpf_tests && /tmp/alfadpf_tests
+//          Sources/Mode01.swift Sources/DPFHistoryStore.swift Tests/main.swift \\
+//          -lsqlite3 -o /tmp/alfadpf_tests && /tmp/alfadpf_tests
 
 var failures = 0
 
@@ -205,6 +206,71 @@ expect(DPFLoadAlertLevel.resolve(loadPercent: 30, regenerationMode: .active) == 
        "carplay colors: active regeneration overrides the load band with blue")
 expect(DPFLoadAlertLevel.resolve(loadPercent: 88, regenerationMode: .passive) == .nearRegeneration,
        "carplay colors: passive regeneration preserves the load warning band")
+
+var regenTimeEstimator = RegenTimeEstimator()
+let estimatorStart = Date(timeIntervalSince1970: 2_000)
+expect(regenTimeEstimator.observe(
+    progressPercent: 10,
+    regenerationMode: .active,
+    at: estimatorStart
+) == nil, "regen ETA: one sample never fabricates an estimate")
+let publishedETA = regenTimeEstimator.observe(
+    progressPercent: 15,
+    regenerationMode: .active,
+    at: estimatorStart.addingTimeInterval(60)
+)
+expect(publishedETA.map { abs($0 - 1_020) < 0.001 } == true,
+       "regen ETA: progress rate produces a bounded remaining-time estimate")
+expect(regenTimeEstimator.observe(
+    progressPercent: nil,
+    regenerationMode: .active,
+    at: estimatorStart.addingTimeInterval(61)
+) == publishedETA, "regen ETA: a missing active sample preserves the estimate")
+expect(regenTimeEstimator.observe(
+    progressPercent: nil,
+    regenerationMode: .active,
+    at: estimatorStart.addingTimeInterval(661)
+) == nil, "regen ETA: a missing progress PID eventually expires the estimate")
+expect(regenTimeEstimator.observe(
+    progressPercent: 15,
+    regenerationMode: .none,
+    at: estimatorStart.addingTimeInterval(62)
+) == nil, "regen ETA: leaving active mode clears the estimate")
+expect(regenTimeEstimator.estimatedTimeRemaining == nil,
+       "regen ETA: reset removes stale published state")
+
+var fastRegenTimeEstimator = RegenTimeEstimator()
+var fastAdapterETA: TimeInterval?
+for second in 0...31 {
+    fastAdapterETA = fastRegenTimeEstimator.observe(
+        progressPercent: 10 + Double(second) * 0.1,
+        regenerationMode: .active,
+        at: estimatorStart.addingTimeInterval(Double(second))
+    )
+}
+expect(fastAdapterETA != nil,
+       "regen ETA: dense one-second samples retain the full observation window")
+
+let unknownHistoryTransition = RegenHistoryTransition.resolve(
+    previous: true,
+    observed: nil
+)
+expect(unknownHistoryTransition.nextKnownState == true
+       && !unknownHistoryTransition.didFinish,
+       "history transition: an unknown poll preserves an active cycle")
+let finishedHistoryTransition = RegenHistoryTransition.resolve(
+    previous: unknownHistoryTransition.nextKnownState,
+    observed: false
+)
+expect(finishedHistoryTransition.didFinish
+       && finishedHistoryTransition.nextKnownState == false,
+       "history transition: only confirmed inactivity closes an active cycle")
+let initialInactiveTransition = RegenHistoryTransition.resolve(
+    previous: nil,
+    observed: false
+)
+expect(initialInactiveTransition.confirmedInitialInactivity,
+       "history transition: first explicit idle sample can reconcile an orphan cycle")
 
 let nonLiveCarPlayStatuses: [SessionStatus] = [
     .idle,
@@ -1013,7 +1079,9 @@ do {
         BLECandidate(service: svcOther, characteristic: chrOther1, canNotify: true, canWrite: true),
         BLECandidate(service: svcKonnwei, characteristic: chrKonnweiData, canNotify: true, canWrite: true),
     ])
-    expect(picked?.notify == chrKonnweiData && picked?.write == chrKonnweiData,
+    expect(picked?.service == svcKonnwei
+           && picked?.notify == chrKonnweiData
+           && picked?.write == chrKonnweiData,
            "ble: Konnwei FFE0/FFE1 duplex layout preferred")
 }
 
@@ -1025,7 +1093,9 @@ do {
         BLECandidate(service: svcVlink, characteristic: chrNotifyVlink, canNotify: true, canWrite: false),
         BLECandidate(service: svcVlink, characteristic: chrWriteVlink, canNotify: false, canWrite: true),
     ])
-    expect(picked?.notify == chrNotifyVlink && picked?.write == chrWriteVlink,
+    expect(picked?.service == svcVlink
+           && picked?.notify == chrNotifyVlink
+           && picked?.write == chrWriteVlink,
            "ble: vlink FFF0/FFF1/FFF2 layout preferred")
 }
 
@@ -1035,7 +1105,9 @@ do {
         BLECandidate(service: svcOther, characteristic: chrOther1, canNotify: true, canWrite: false),
         BLECandidate(service: svcOther, characteristic: chrOther2, canNotify: false, canWrite: true),
     ])
-    expect(picked?.notify == chrOther1 && picked?.write == chrOther2,
+    expect(picked?.service == svcOther
+           && picked?.notify == chrOther1
+           && picked?.write == chrOther2,
            "ble: generic notify+write pair fallback")
 }
 
@@ -1535,6 +1607,41 @@ case .success(let store):
     expect(reconciled.first?.status == .unconfirmed
            && reconciled.first?.finishedAt == nil,
            "history: unconfirmed cycle keeps an honest unknown end time")
+
+    let insights = DPFHistoryInsights(cycles: reconciled)
+    expect(insights.completedCycles == 1
+           && insights.interruptedCycles == 1
+           && insights.unconfirmedCycles == 1,
+           "history insights: outcomes are counted without treating unknown as failure")
+    expect(insights.completionRate == 0.5,
+           "history insights: completion rate uses only observed outcomes")
+    expect(insights.averageDuration.map { abs($0 - 870) < 0.001 } == true,
+           "history insights: duration uses completed cycles only")
+    expect(insights.averageLoadReduction == 56,
+           "history insights: load reduction uses completed cycles only")
+
+    let storedInsights = store.insights()
+    expect(storedInsights == insights,
+           "history insights: SQL aggregate matches the complete stored history")
+
+    let manyCyclesURL = historyTestDirectory.appendingPathComponent("many-cycles.sqlite3")
+    if let manyCyclesStore = try? DPFHistoryStore(databaseURL: manyCyclesURL) {
+        for index in 0..<60 {
+            let start = now.addingTimeInterval(Double(index * 1_000))
+            _ = manyCyclesStore.recordRegenStart(at: start, load: 90)
+            _ = manyCyclesStore.recordRegenFinish(
+                at: start.addingTimeInterval(600),
+                endingLoad: 30
+            )
+        }
+        expect(manyCyclesStore.cycles().count == 50,
+               "history: visible cycle list remains bounded")
+        expect(manyCyclesStore.insights().completedCycles == 60,
+               "history insights: aggregate covers cycles beyond the visible list limit")
+    } else {
+        failures += 1
+        print("FAIL: history: many-cycle aggregate store init failed")
+    }
 
     print("PASS: history — all store tests")
 }

@@ -27,6 +27,7 @@ final class MonitorSession {
     private(set) var carPlayAlertsEnabled: Bool
     private(set) var needsDrivingFocusGuidance: Bool
     private(set) var historyStore: DPFHistoryStore?
+    private(set) var estimatedRegenerationTimeRemaining: TimeInterval? = nil
 
     var autoConnectEnabled: Bool {
         didSet {
@@ -70,6 +71,7 @@ final class MonitorSession {
     private var bootTask: Task<Void, Never>?
     private var pollTask: Task<Void, Never>?
     private var simulationTask: Task<Void, Never>?
+    private var workGeneration: UInt64 = 0
     private var simulationTracker = RegenActivityTracker()
     private let alerts: AlertService
     private let liveActivity = DPFLiveActivityController()
@@ -80,6 +82,7 @@ final class MonitorSession {
     private var reportedTelemetryInterruption = false
     private var lastLiveRegenState: Bool?
     private var engineOffDetector = RegenEngineOffDetector()
+    private var regenTimeEstimator = RegenTimeEstimator()
     private static let autoConnectDefaultsKey = "autoConnectEnabled.v1"
     private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
     private static let batteryMetricMigrationDefaultsKey = "batteryMetricAdded.v1"
@@ -172,6 +175,13 @@ final class MonitorSession {
         status == .connecting || (status == .running && !hasLiveTelemetry)
     }
 
+    /// Preserves a confirmed active cycle through transient unknown PID reads.
+    /// Used by safety-sensitive UI such as disconnect confirmation.
+    var isRegenerationInProgress: Bool {
+        if status == .simulating { return dpf.isRegenerating }
+        return status == .running && lastLiveRegenState == true
+    }
+
     /// Reads the current settings without triggering the system sheet, so the
     /// first-launch explanation can appear before iOS asks for permission.
     func prepareNotificationAuthorizationAtLaunch() async -> Bool {
@@ -226,6 +236,7 @@ final class MonitorSession {
             OBDLog.log("history: active regen from previous session marked unconfirmed")
         }
         cancelWork()
+        let generation = workGeneration
         let previousOBD = obd
         let previousMonitor = monitor
         obd = nil
@@ -239,12 +250,17 @@ final class MonitorSession {
         reportedTelemetryInterruption = false
         lastLiveRegenState = nil
         engineOffDetector.reset()
+        regenTimeEstimator.reset()
+        estimatedRegenerationTimeRemaining = nil
 
         bootTask = Task { [weak self] in
             await previousMonitor?.stop()
             await previousOBD?.stop()
-            guard !Task.isCancelled else { return }
-            await self?.boot()
+            guard let self,
+                  !Task.isCancelled,
+                  generation == self.workGeneration
+            else { return }
+            await self.boot(generation: generation)
         }
     }
 
@@ -253,6 +269,7 @@ final class MonitorSession {
             OBDLog.log("history: active regen marked unconfirmed on session stop")
         }
         cancelWork()
+        let generation = workGeneration
         persistCurrentState()
         let obd = self.obd
         let monitor = self.monitor
@@ -261,11 +278,14 @@ final class MonitorSession {
         activeScenario = nil
         status = .idle
         hasLiveTelemetry = false
+        regenTimeEstimator.reset()
+        estimatedRegenerationTimeRemaining = nil
 
-        Task {
+        Task { [weak self] in
             await monitor?.stop()
             await obd?.stop()
-            await liveActivity.end()
+            guard let self, generation == self.workGeneration else { return }
+            await self.liveActivity.end()
         }
     }
 
@@ -302,22 +322,26 @@ final class MonitorSession {
             OBDLog.log("history: active regen marked unconfirmed before simulation")
         }
         cancelWork()
+        let generation = workGeneration
 
         let obd = self.obd
         let monitor = self.monitor
         self.monitor = nil
         self.obd = nil
         simulationTracker = RegenActivityTracker()
+        regenTimeEstimator.reset()
+        estimatedRegenerationTimeRemaining = nil
         status = .simulating
         hasLiveTelemetry = false
         activeScenario = nil
         lastRegenEvent = "Ambiente di prova attivo"
 
-        Task {
+        Task { [weak self] in
             await monitor?.stop()
             await obd?.stop()
-            if !skipAlertSetupForVisualTest {
-                await alerts.configure()
+            guard let self, generation == self.workGeneration else { return }
+            if !self.skipAlertSetupForVisualTest {
+                await self.alerts.configure()
             }
         }
         setSimulationState(.clean)
@@ -335,6 +359,7 @@ final class MonitorSession {
     func runSimulationSequence() {
         startSimulation()
         let base = Date()
+        let generation = workGeneration
         simulationTask = Task { [weak self] in
             let sequence: [(DPFSimulationScenario, Date)] = [
                 (.clean, base),
@@ -345,10 +370,13 @@ final class MonitorSession {
             ]
 
             for (index, item) in sequence.enumerated() {
-                guard !Task.isCancelled else { return }
-                self?.setSimulationState(item.0, at: item.1)
+                guard let self,
+                      !Task.isCancelled,
+                      generation == self.workGeneration
+                else { return }
+                self.setSimulationState(item.0, at: item.1)
                 if index < sequence.count - 1 {
-                    try? await Task.sleep(for: .seconds(2))
+                    try? await Task.sleep(for: self.simulationStepDuration)
                 }
             }
         }
@@ -367,34 +395,49 @@ final class MonitorSession {
             regenerationMode: next.regenerationMode
         )
         next.regenActive = simulationTracker.isActive
+        estimatedRegenerationTimeRemaining = regenTimeEstimator.observe(
+            progressPercent: next.regenProgressPercent,
+            regenerationMode: next.effectiveRegenerationMode,
+            at: timestamp
+        )
         dpf = next
         activeScenario = scenario
 
         switch event {
         case .started(_, let load):
             lastRegenEvent = "Rigenerazione rilevata: avviso di inizio inviato"
-            Task { await alerts.notifyRegenStarted(cloggingPercent: load) }
+            runForCurrentGeneration {
+                await self.alerts.notifyRegenStarted(cloggingPercent: load)
+            }
         case .finished(_, let duration):
             lastRegenEvent = "Rigenerazione terminata: avviso di fine inviato"
-            Task { await alerts.notifyRegenFinished(duration: duration) }
+            runForCurrentGeneration {
+                await self.alerts.notifyRegenFinished(duration: duration)
+            }
         case nil:
             lastRegenEvent = scenario.title
         }
 
-        Task { await liveActivity.update(with: next) }
+        runForCurrentGeneration {
+            await self.liveActivity.update(with: next)
+        }
     }
 
     // MARK: - Real OBD session
 
-    private func boot() async {
+    private func boot(generation: UInt64) async {
+        guard generation == workGeneration else { return }
         let bootStartedAt = Date()
         // Notification settings and transport setup are independent. Running
         // them together removes an avoidable pause before connecting without
         // changing the adapter or ELM protocol sequence.
         let alertSetupTask = Task { [weak self, alerts] in
             let authorization = await alerts.configure()
-            guard !Task.isCancelled else { return }
-            self?.alertAuthorization = authorization
+            guard let self,
+                  !Task.isCancelled,
+                  generation == self.workGeneration
+            else { return }
+            self.alertAuthorization = authorization
         }
 
         let obd: any OBDTransport
@@ -414,11 +457,18 @@ final class MonitorSession {
         }
         self.obd = obd
         await obd.start()
+        guard !Task.isCancelled, generation == workGeneration else {
+            await obd.stop()
+            return
+        }
         do {
             try await obd.isReady()
         } catch {
             alertSetupTask.cancel()
-            guard !Task.isCancelled, !(error is CancellationError) else {
+            guard !Task.isCancelled,
+                  generation == workGeneration,
+                  !(error is CancellationError)
+            else {
                 await obd.stop()
                 return
             }
@@ -431,7 +481,7 @@ final class MonitorSession {
             await obd.stop()
             return
         }
-        guard !Task.isCancelled else {
+        guard !Task.isCancelled, generation == workGeneration else {
             await obd.stop()
             return
         }
@@ -448,7 +498,10 @@ final class MonitorSession {
             try await elm.initializeSession()
         } catch {
             alertSetupTask.cancel()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, generation == workGeneration else {
+                await obd.stop()
+                return
+            }
             OBDLog.log("connection: adapter initialization failed: \(error)")
             status = .failed(Self.userMessage(
                 for: error,
@@ -458,7 +511,7 @@ final class MonitorSession {
             await obd.stop()
             return
         }
-        guard !Task.isCancelled else {
+        guard !Task.isCancelled, generation == workGeneration else {
             await obd.stop()
             return
         }
@@ -466,6 +519,11 @@ final class MonitorSession {
         let monitor = DPFMonitor(elm: elm, alerts: alerts)
         self.monitor = monitor
         await monitor.start(interval: .seconds(2))
+        guard !Task.isCancelled, generation == workGeneration else {
+            await monitor.stop()
+            await obd.stop()
+            return
+        }
         status = .running
         OBDLog.log(
             String(
@@ -477,18 +535,30 @@ final class MonitorSession {
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 let monitorSnapshot = await monitor.snapshot
-                if monitorSnapshot.pollSequence != self?.lastAcceptedPollSequence {
-                    self?.lastAcceptedPollSequence = monitorSnapshot.pollSequence
+                guard let self,
+                      !Task.isCancelled,
+                      generation == self.workGeneration
+                else { return }
+                if monitorSnapshot.pollSequence != self.lastAcceptedPollSequence {
+                    self.lastAcceptedPollSequence = monitorSnapshot.pollSequence
 
                     if monitorSnapshot.hasRecentCoreTelemetry(),
                        !monitorSnapshot.freshPIDs.isEmpty,
                        monitorSnapshot.state.hasTelemetry {
-                        self?.acceptLive(monitorSnapshot.state)
-                        await self?.liveActivity.update(with: monitorSnapshot.state)
-                    } else if monitorSnapshot.pollSequence > 0,
-                              !monitorSnapshot.hasRecentCoreTelemetry() {
-                        self?.markTelemetryInterrupted(with: monitorSnapshot.state)
+                        self.acceptLive(monitorSnapshot.state)
+                        await self.liveActivity.update(with: monitorSnapshot.state)
+                        guard !Task.isCancelled,
+                              generation == self.workGeneration
+                        else { return }
                     }
+                }
+                // Freshness is a wall-clock property, not a poll-completion
+                // property. A long header probe or a blocked transport write
+                // must not leave the dashboard labelled Live indefinitely
+                // just because `pollSequence` has not advanced yet.
+                if monitorSnapshot.pollSequence > 0,
+                   !monitorSnapshot.hasRecentCoreTelemetry() {
+                    self.markTelemetryInterrupted(with: monitorSnapshot.state)
                 }
                 try? await Task.sleep(for: .seconds(1))
             }
@@ -508,6 +578,17 @@ final class MonitorSession {
             status = .running
         }
 
+        let historyTransition = RegenHistoryTransition.resolve(
+            previous: lastLiveRegenState,
+            observed: snapshot.regenActive
+        )
+        lastLiveRegenState = historyTransition.nextKnownState
+        estimatedRegenerationTimeRemaining = regenTimeEstimator.observe(
+            progressPercent: snapshot.regenProgressPercent,
+            regenerationMode: historyTransition.nextKnownState == true ? .active : .none,
+            at: snapshot.timestamp
+        )
+
         // History recording: sample on ≥1% load delta.
         if let store = historyStore, let load = snapshot.cloggingPercent {
             let delta = lastRecordedCloggingPercent.map { abs(load - $0) } ?? .infinity
@@ -516,7 +597,7 @@ final class MonitorSession {
                     timestamp: snapshot.timestamp,
                     cloggingPercent: load,
                     exhaustTempC: snapshot.exhaustTempC,
-                    regenActive: snapshot.effectiveRegenerationMode != .none,
+                    regenActive: historyTransition.nextKnownState == true,
                     distanceSinceLastRegenKm: snapshot.distanceSinceLastRegenKm
                 )
                 if recorded {
@@ -528,23 +609,20 @@ final class MonitorSession {
         // Regen cycle tracking is based only on fresh live edges. A cached
         // active state from a previous app run cannot prove whether that cycle
         // later completed or was interrupted.
-        let isRegenerating = snapshot.effectiveRegenerationMode != .none
-        if lastLiveRegenState == nil,
-           !isRegenerating,
+        if historyTransition.confirmedInitialInactivity,
            historyStore?.recordActiveRegenUnconfirmed() == true {
             OBDLog.log("history: unresolved regen from previous app lifecycle marked unconfirmed")
         }
-        if isRegenerating,
+        if historyTransition.nextKnownState == true,
            historyStore?.hasActiveRegen == false,
            let load = snapshot.cloggingPercent {
             _ = historyStore?.recordRegenStart(at: snapshot.timestamp, load: load)
-        } else if lastLiveRegenState == true, !isRegenerating {
+        } else if historyTransition.didFinish {
             _ = historyStore?.recordRegenFinish(
                 at: snapshot.timestamp,
                 endingLoad: snapshot.cloggingPercent
             )
         }
-        lastLiveRegenState = isRegenerating
 
         let last = lastPersistedState
         let elapsed = last.map { snapshot.timestamp.timeIntervalSince($0.timestamp) } ?? .infinity
@@ -568,7 +646,7 @@ final class MonitorSession {
             at: latestMonitorState.timestamp,
             coreTelemetryAvailable: false
         )
-        let wasRegenerating = dpf.effectiveRegenerationMode != .none
+        let wasRegenerating = lastLiveRegenState == true
         if wasRegenerating, engineOffConfirmed,
            historyStore?.recordRegenInterrupted(
                at: latestMonitorState.timestamp,
@@ -584,6 +662,8 @@ final class MonitorSession {
         guard !reportedTelemetryInterruption else { return }
         persistCurrentState()
         hasLiveTelemetry = false
+        regenTimeEstimator.reset()
+        estimatedRegenerationTimeRemaining = nil
         reportedTelemetryInterruption = true
         status = .failed(AppLocalization.string("Telemetria OBD interrotta. Mostro l’ultimo stato valido."))
         OBDLog.log("telemetry: no core DPF response for 8 s; preserving cached snapshot")
@@ -599,12 +679,23 @@ final class MonitorSession {
     }
 
     private func cancelWork() {
+        workGeneration &+= 1
         bootTask?.cancel()
         pollTask?.cancel()
         simulationTask?.cancel()
         bootTask = nil
         pollTask = nil
         simulationTask = nil
+    }
+
+    private func runForCurrentGeneration(
+        _ operation: @escaping @MainActor () async -> Void
+    ) {
+        let generation = workGeneration
+        Task { [weak self] in
+            guard let self, generation == self.workGeneration else { return }
+            await operation()
+        }
     }
 
     private func isFailed(_ status: Status) -> Bool {
@@ -625,5 +716,16 @@ final class MonitorSession {
 #else
         false
 #endif
+    }
+
+    private var simulationStepDuration: Duration {
+#if DEBUG
+        if let raw = ProcessInfo.processInfo.environment["ALFADPF_SIMULATION_STEP_SECONDS"],
+           let seconds = Double(raw),
+           (1...30).contains(seconds) {
+            return .seconds(seconds)
+        }
+#endif
+        return .seconds(2)
     }
 }
