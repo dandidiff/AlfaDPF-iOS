@@ -3,15 +3,14 @@
   "strings" : {
     "CFBundleDisplayName" : {
       "comment" : "Bundle display name",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
-        "it" : {
+        "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor"
           }
         },
-        "en" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor"
@@ -23,7 +22,7 @@
             "value" : "Alpha DPF Monitor"
           }
         },
-        "es" : {
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor"
@@ -33,15 +32,14 @@
     },
     "CFBundleName" : {
       "comment" : "Bundle name",
-      "extractionState" : "extracted_with_value",
       "localizations" : {
-        "it" : {
+        "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor"
           }
         },
-        "en" : {
+        "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor"
@@ -53,7 +51,7 @@
             "value" : "Alpha DPF Monitor"
           }
         },
-        "es" : {
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alpha DPF Monitor"
@@ -64,16 +62,16 @@
     "NSBluetoothAlwaysUsageDescription" : {
       "comment" : "Privacy - Bluetooth Always Usage Description",
       "localizations" : {
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Si connette all’adattatore OBD-II Bluetooth per leggere i dati DPF in tempo reale."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connects to the Bluetooth OBD-II adapter to read live DPF data."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se conecta al adaptador OBD-II Bluetooth para leer los datos del DPF en tiempo real."
           }
         },
         "fr" : {
@@ -82,10 +80,10 @@
             "value" : "Se connecte à l’adaptateur OBD-II Bluetooth pour lire les données DPF en temps réel."
           }
         },
-        "es" : {
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se conecta al adaptador OBD-II Bluetooth para leer los datos del DPF en tiempo real."
+            "value" : "Si connette all’adattatore OBD-II Bluetooth per leggere i dati DPF in tempo reale."
           }
         }
       }
@@ -93,16 +91,16 @@
     "NSLocalNetworkUsageDescription" : {
       "comment" : "Privacy - Local Network Usage Description",
       "localizations" : {
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Si connette all’adattatore OBD-II Wi-Fi sulla rete locale per leggere i dati DPF in tempo reale."
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Connects to the Wi-Fi OBD-II adapter on the local network to read live DPF data."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se conecta al adaptador OBD-II Wi-Fi de la red local para leer los datos del DPF en tiempo real."
           }
         },
         "fr" : {
@@ -111,10 +109,10 @@
             "value" : "Se connecte à l’adaptateur OBD-II Wi-Fi sur le réseau local pour lire les données DPF en temps réel."
           }
         },
-        "es" : {
+        "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se conecta al adaptador OBD-II Wi-Fi de la red local para leer los datos del DPF en tiempo real."
+            "value" : "Si connette all’adattatore OBD-II Wi-Fi sulla rete locale per leggere i dati DPF in tempo reale."
           }
         }
       }
