@@ -26,8 +26,10 @@ Le priorità emerse dalla review erano tre:
   Dynamic Type lo richiedono.
 - Soglie carico unificate con il modello condiviso da CarPlay:
   normale `<85%`, elevato `85–95%`, imminente `>95%`.
-- Comando di connessione prioritario: persistente alle taglie standard e in
-  testa al contenuto scorrevole alle taglie di accessibilità.
+- Comando di connessione flottante finché serve connettere o riprovare; durante
+  una sessione Live/Test diventa l’ultimo elemento della pagina e non copre i dati.
+- Tile dei dati veicolo con altezza uniforme anche quando le traduzioni vanno
+  su due righe; i valori restano allineati sul bordo inferiore.
 - Conferma esplicita prima di disconnettersi durante una rigenerazione.
 - Stato vuoto più utile: niente griglia di soli trattini e accesso diretto alla
   demo DPF.

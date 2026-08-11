@@ -139,7 +139,8 @@ struct PhoneRootView: View {
                         onAbout: { showAbout = true }
                     )
 
-                    if dynamicTypeSize.isAccessibilitySize {
+                    if dynamicTypeSize.isAccessibilitySize,
+                       !embedsConnectionDock {
                         ConnectionDock(session: session)
                     }
 
@@ -189,6 +190,10 @@ struct PhoneRootView: View {
                         EventStrip(text: event, simulated: session.status == .simulating)
                     }
 
+                    if embedsConnectionDock {
+                        ConnectionDock(session: session)
+                    }
+
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 10)
@@ -197,7 +202,8 @@ struct PhoneRootView: View {
             .scrollIndicators(.hidden)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !dynamicTypeSize.isAccessibilitySize {
+            if !dynamicTypeSize.isAccessibilitySize,
+               !embedsConnectionDock {
                 ConnectionDock(session: session)
                     .padding(.horizontal, 18)
                     .padding(.top, 8)
@@ -273,6 +279,10 @@ struct PhoneRootView: View {
     private func presentProjectSupportPrompt() {
         ProjectSupportPromptPolicy.markPresented()
         showProjectSupportPrompt = true
+    }
+
+    private var embedsConnectionDock: Bool {
+        session.status == .running || session.status == .simulating
     }
 
     private func applyDebugLaunchScenarioIfNeeded() {
@@ -1194,9 +1204,10 @@ private struct MetricCard: View {
     let unit: String
     let accent: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .body) private var cardHeight = 112.0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
                 Image(systemName: icon)
                     .foregroundStyle(accent)
@@ -1206,6 +1217,8 @@ private struct MetricCard: View {
             }
             .font(.caption2.weight(.bold))
             .foregroundStyle(Brand.textDim)
+
+            Spacer(minLength: 4)
 
             HStack(alignment: .lastTextBaseline, spacing: 5) {
                 Text(value ?? "—")
@@ -1223,8 +1236,14 @@ private struct MetricCard: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding(16)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: cardHeight,
+            maxHeight: cardHeight,
+            alignment: .leading
+        )
         .glassPanel(cornerRadius: 22)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(LocalizedStringKey(title)))
