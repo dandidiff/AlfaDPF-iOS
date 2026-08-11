@@ -593,15 +593,19 @@ final class MonitorSession {
         if let store = historyStore, let load = snapshot.cloggingPercent {
             let delta = lastRecordedCloggingPercent.map { abs(load - $0) } ?? .infinity
             if delta >= 1.0 {
-                let recorded = store.recordSample(
-                    timestamp: snapshot.timestamp,
-                    cloggingPercent: load,
-                    exhaustTempC: snapshot.exhaustTempC,
-                    regenActive: historyTransition.nextKnownState == true,
-                    distanceSinceLastRegenKm: snapshot.distanceSinceLastRegenKm
-                )
-                if recorded {
-                    lastRecordedCloggingPercent = load
+                let generation = workGeneration
+                Task { [weak self] in
+                    let recorded = await store.recordSampleAsync(
+                        timestamp: snapshot.timestamp,
+                        cloggingPercent: load,
+                        exhaustTempC: snapshot.exhaustTempC,
+                        regenActive: historyTransition.nextKnownState == true,
+                        distanceSinceLastRegenKm: snapshot.distanceSinceLastRegenKm
+                    )
+                    guard let self, generation == self.workGeneration else { return }
+                    if recorded {
+                        self.lastRecordedCloggingPercent = load
+                    }
                 }
             }
         }
@@ -613,8 +617,7 @@ final class MonitorSession {
            historyStore?.recordActiveRegenUnconfirmed() == true {
             OBDLog.log("history: unresolved regen from previous app lifecycle marked unconfirmed")
         }
-        if historyTransition.nextKnownState == true,
-           historyStore?.hasActiveRegen == false,
+        if historyTransition.didStart,
            let load = snapshot.cloggingPercent {
             _ = historyStore?.recordRegenStart(at: snapshot.timestamp, load: load)
         } else if historyTransition.didFinish {

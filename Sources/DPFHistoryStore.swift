@@ -190,6 +190,28 @@ final class DPFHistoryStore: @unchecked Sendable {
         }
     }
 
+    /// Records without blocking the caller. MonitorSession is main-actor
+    /// isolated, so its regular telemetry path must never wait for SQLite.
+    func recordSampleAsync(
+        timestamp: Date,
+        cloggingPercent: Double,
+        exhaustTempC: Double?,
+        regenActive: Bool,
+        distanceSinceLastRegenKm: Double?
+    ) async -> Bool {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                continuation.resume(returning: _recordSample(
+                    timestamp: timestamp,
+                    cloggingPercent: cloggingPercent,
+                    exhaustTempC: exhaustTempC,
+                    regenActive: regenActive,
+                    distanceSinceLastRegenKm: distanceSinceLastRegenKm
+                ))
+            }
+        }
+    }
+
     private func _recordSample(
         timestamp: Date,
         cloggingPercent: Double,

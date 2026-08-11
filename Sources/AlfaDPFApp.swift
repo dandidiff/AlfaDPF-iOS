@@ -107,7 +107,29 @@ private extension View {
                     lineWidth: 0.8
                 )
         )
-        .shadow(color: .black.opacity(0.24), radius: 22, y: 12)
+        .shadow(color: .black.opacity(0.18), radius: 10, y: 5)
+    }
+
+    /// Static dashboard surfaces avoid the per-frame backdrop sampling of
+    /// Material. Repeated cards use this cheaper treatment so scrolling stays
+    /// smooth while the hero and connection controls retain the glass accent.
+    func dashboardTile(cornerRadius: CGFloat = 22) -> some View {
+        background(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color(red: 0.105, green: 0.115, blue: 0.145).opacity(0.96))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.16), Color.white.opacity(0.045)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.8
+                )
+        )
+        .shadow(color: .black.opacity(0.14), radius: 5, y: 3)
     }
 }
 
@@ -704,15 +726,21 @@ private struct DashboardBackground: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            Circle()
-                .fill(appAccent.opacity(0.09))
+            RadialGradient(
+                colors: [appAccent.opacity(0.12), appAccent.opacity(0)],
+                center: .center,
+                startRadius: 0,
+                endRadius: 165
+            )
                 .frame(width: 330, height: 330)
-                .blur(radius: 80)
                 .offset(x: -170, y: -330)
-            Circle()
-                .fill(Color.orange.opacity(0.10))
+            RadialGradient(
+                colors: [Color.orange.opacity(0.12), Color.orange.opacity(0)],
+                center: .center,
+                startRadius: 0,
+                endRadius: 140
+            )
                 .frame(width: 280, height: 280)
-                .blur(radius: 100)
                 .offset(x: 190, y: 330)
         }
         .ignoresSafeArea()
@@ -960,14 +988,14 @@ private struct HeroGauge: View {
                 )
                 .rotationEffect(.degrees(-90))
                 .shadow(color: tint.opacity(0.38), radius: 10)
-                .animation(reduceMotion ? nil : .smooth(duration: 1.2), value: load)
+                .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: load)
 
             VStack(spacing: -2) {
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
                     Text(hasData ? String(format: "%.1f", load) : "—")
                         .font(.system(size: 49, weight: .bold, design: .rounded).monospacedDigit())
                         .contentTransition(.numericText())
-                        .animation(reduceMotion ? nil : .smooth(duration: 0.45), value: load)
+                        .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: load)
                     if hasData {
                         Text("%")
                             .font(.system(size: 21, weight: .semibold, design: .rounded))
@@ -1203,7 +1231,6 @@ private struct MetricCard: View {
     let value: String?
     let unit: String
     let accent: Color
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .body) private var cardHeight = 112.0
 
     var body: some View {
@@ -1226,8 +1253,6 @@ private struct MetricCard: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
-                    .contentTransition(.numericText())
-                    .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: value)
                 if value != nil, !unit.isEmpty {
                     Text(unit)
                         .font(.caption.weight(.medium))
@@ -1244,7 +1269,7 @@ private struct MetricCard: View {
             maxHeight: cardHeight,
             alignment: .leading
         )
-        .glassPanel(cornerRadius: 22)
+        .dashboardTile(cornerRadius: 22)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(LocalizedStringKey(title)))
         .accessibilityValue(accessibilityValue)
@@ -1270,7 +1295,7 @@ private struct EventStrip: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .glassPanel(cornerRadius: 18)
+        .dashboardTile(cornerRadius: 18)
     }
 }
 
@@ -2572,7 +2597,7 @@ private struct HistoryInsightCard: View {
         }
         .frame(maxWidth: .infinity, minHeight: 82, alignment: .leading)
         .padding(12)
-        .glassPanel(cornerRadius: 18)
+        .dashboardTile(cornerRadius: 18)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(LocalizedStringKey(title)))
         .accessibilityValue(Text(verbatim: value))

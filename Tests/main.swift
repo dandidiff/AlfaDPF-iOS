@@ -1542,6 +1542,22 @@ case .success(let store):
     let samples = store.samples()
     expect(samples.count == 2, "history: expected 2 isolated samples, got \(samples.count)")
 
+    let asyncStoreURL = historyTestDirectory.appendingPathComponent("async.sqlite3")
+    if let asyncStore = try? DPFHistoryStore(databaseURL: asyncStoreURL) {
+        let asyncRecorded = await asyncStore.recordSampleAsync(
+            timestamp: now,
+            cloggingPercent: 42.0,
+            exhaustTempC: 190.0,
+            regenActive: false,
+            distanceSinceLastRegenKm: 12.0
+        )
+        expect(asyncRecorded && asyncStore.samples().count == 1,
+               "history: asynchronous recording preserves sample semantics")
+    } else {
+        failures += 1
+        print("FAIL: history: async store init failed")
+    }
+
     let rollingStoreURL = historyTestDirectory.appendingPathComponent("rolling.sqlite3")
     if let rollingStore = try? DPFHistoryStore(databaseURL: rollingStoreURL) {
         _ = rollingStore.recordSample(
