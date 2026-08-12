@@ -66,6 +66,33 @@ enum BLEAdvertisementClassifier {
     }
 }
 
+/// Last GATT route that was proven to carry ELM traffic for one peripheral.
+/// UUIDs are persisted as strings so the cache stays independent of
+/// CoreBluetooth object lifetimes and is harmless after an adapter update.
+struct BLEGATTProfile: Codable, Equatable, Sendable {
+    var service: String
+    var notify: String
+    var write: String
+}
+
+enum BLEGATTProfileCache {
+    private static let keyPrefix = "bleOBDGATTProfile.v1."
+
+    static func load(peripheralID: UUID, from defaults: UserDefaults) -> BLEGATTProfile? {
+        guard let data = defaults.data(forKey: keyPrefix + peripheralID.uuidString) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(BLEGATTProfile.self, from: data)
+    }
+
+    static func save(_ profile: BLEGATTProfile,
+                     peripheralID: UUID,
+                     to defaults: UserDefaults) {
+        guard let data = try? JSONEncoder().encode(profile) else { return }
+        defaults.set(data, forKey: keyPrefix + peripheralID.uuidString)
+    }
+}
+
 /// Bluetooth Low Energy transport for Vlink-style ELM327 dongles (e.g. the
 /// Vgate iCar Pro BLE 4.0, which advertises as `IOS-VLINK`). No pairing is
 /// involved: we scan, connect, subscribe to the notify characteristic, and
@@ -81,6 +108,7 @@ actor BLEConnection: OBDTransport {
     private var writeChar: CBCharacteristic?
     private(set) var state: State = .idle
     private let connectionTimeout: TimeInterval
+    private let defaults: UserDefaults
     private var readyContinuations: [CheckedContinuation<Void, Error>] = []
     /// Single ordered consumer of inbound notification packets. BLE replies
     /// can span several packets; feeding them through one stream guarantees
@@ -97,12 +125,18 @@ actor BLEConnection: OBDTransport {
     private var connectionTimeoutTask: Task<Void, Never>?
     private var pendingCharacteristicDiscoveries = 0
     private var characteristicDiscoveryFailures = 0
+    /// A cached route is attempted first. Any mismatch or subscription error
+    /// clears this flag and falls back to the original full GATT discovery.
+    private var cachedGATTProfile: BLEGATTProfile?
+    private var isTryingCachedGATT = false
+    private var selectedCachedGATT = false
     /// True between `start()` and `stop()` — gates auto-reconnect.
     private var shouldRun = false
     private static let lastPeripheralIdentifierKey = "lastBLEOBDPeripheralIdentifier.v1"
 
-    init(connectionTimeout: TimeInterval = 30) {
+    init(connectionTimeout: TimeInterval = 30, defaults: UserDefaults = .standard) {
         self.connectionTimeout = connectionTimeout
+        self.defaults = defaults
     }
 
     func start() {
@@ -144,6 +178,9 @@ actor BLEConnection: OBDTransport {
         writeChar = nil
         pendingCharacteristicDiscoveries = 0
         characteristicDiscoveryFailures = 0
+        cachedGATTProfile = nil
+        isTryingCachedGATT = false
+        selectedCachedGATT = false
         await engine.reset()
         state = .idle
         resumeReadyContinuations(throwing: CancellationError())
@@ -160,6 +197,10 @@ actor BLEConnection: OBDTransport {
                 readyContinuations.append(cont)
             }
         }
+    }
+
+    func cacheIdentifier() -> String? {
+        peripheral.map { "ble:\($0.identifier.uuidString)" }
     }
 
     func send(_ command: String, header: String?, timeout: TimeInterval) async throws -> String {
@@ -219,23 +260,56 @@ actor BLEConnection: OBDTransport {
         guard shouldRun, peripheral === self.peripheral, let proxy else { return }
         fastReconnectTask?.cancel()
         fastReconnectTask = nil
-        UserDefaults.standard.set(
+        defaults.set(
             peripheral.identifier.uuidString,
             forKey: Self.lastPeripheralIdentifierKey
         )
         OBDLog.log("BLE: connected in \(connectionElapsedDescription)")
         peripheral.delegate = proxy
-        peripheral.discoverServices(nil)
+        cachedGATTProfile = BLEGATTProfileCache.load(
+            peripheralID: peripheral.identifier,
+            from: defaults
+        )
+        if let cachedGATTProfile {
+            isTryingCachedGATT = true
+            selectedCachedGATT = false
+            OBDLog.log("BLE: trying cached GATT service \(cachedGATTProfile.service)")
+            peripheral.discoverServices([CBUUID(string: cachedGATTProfile.service)])
+        } else {
+            beginFullGATTDiscovery(on: peripheral)
+        }
     }
 
     fileprivate func servicesDiscovered(_ peripheral: CBPeripheral, error: Error?) {
         guard shouldRun, peripheral === self.peripheral else { return }
         if let error {
+            if isTryingCachedGATT {
+                OBDLog.log("BLE: cached service unavailable; running full discovery")
+                beginFullGATTDiscovery(on: peripheral)
+                return
+            }
             OBDLog.log("BLE: service discovery failed: \(error)")
             failReadiness(with: OBDError.connectionFailed)
             return
         }
         let services = peripheral.services ?? []
+        if isTryingCachedGATT {
+            guard let cachedGATTProfile,
+                  let service = services.first(where: {
+                      $0.uuid == CBUUID(string: cachedGATTProfile.service)
+                  })
+            else {
+                OBDLog.log("BLE: cached service changed; running full discovery")
+                beginFullGATTDiscovery(on: peripheral)
+                return
+            }
+            pendingCharacteristicDiscoveries = 1
+            characteristicDiscoveryFailures = 0
+            let requested = Set([cachedGATTProfile.notify, cachedGATTProfile.write])
+                .map(CBUUID.init(string:))
+            peripheral.discoverCharacteristics(requested, for: service)
+            return
+        }
         guard !services.isEmpty else {
             OBDLog.log("BLE: adapter exposes no GATT services")
             failReadiness(with: OBDError.incompatibleAdapter)
@@ -279,7 +353,27 @@ actor BLEConnection: OBDTransport {
                 )
             }
         }
-        guard let picked = BLECharacteristicPicker.pick(from: candidates) else {
+        let picked: (service: CBUUID, notify: CBUUID, write: CBUUID)?
+        if isTryingCachedGATT, let cachedGATTProfile {
+            let service = CBUUID(string: cachedGATTProfile.service)
+            let notify = CBUUID(string: cachedGATTProfile.notify)
+            let write = CBUUID(string: cachedGATTProfile.write)
+            let notifyOK = candidates.contains {
+                $0.service == service && $0.characteristic == notify && $0.canNotify
+            }
+            let writeOK = candidates.contains {
+                $0.service == service && $0.characteristic == write && $0.canWrite
+            }
+            picked = notifyOK && writeOK ? (service, notify, write) : nil
+        } else {
+            picked = BLECharacteristicPicker.pick(from: candidates)
+        }
+        guard let picked else {
+            if isTryingCachedGATT {
+                OBDLog.log("BLE: cached characteristics changed; running full discovery")
+                beginFullGATTDiscovery(on: peripheral)
+                return
+            }
             if pendingCharacteristicDiscoveries == 0 {
                 OBDLog.log(
                     "BLE: no compatible notify/write characteristic pair "
@@ -305,6 +399,8 @@ actor BLEConnection: OBDTransport {
         }
         notifyChar = selectedNotify
         writeChar = selectedWrite
+        selectedCachedGATT = isTryingCachedGATT
+        isTryingCachedGATT = false
         OBDLog.log("BLE: notify \(picked.notify.uuidString) / write \(picked.write.uuidString)")
         peripheral.setNotifyValue(true, for: selectedNotify)
     }
@@ -312,16 +408,39 @@ actor BLEConnection: OBDTransport {
     fileprivate func notificationStateChanged(_ characteristic: CBCharacteristic, error: Error?) {
         guard shouldRun, characteristic === notifyChar else { return }
         if let error {
+            if selectedCachedGATT, let peripheral {
+                OBDLog.log("BLE: cached subscription failed; running full discovery")
+                beginFullGATTDiscovery(on: peripheral)
+                return
+            }
             OBDLog.log("BLE: subscribe failed: \(error)")
             failReadiness(with: OBDError.connectionFailed)
             return
         }
         guard characteristic.isNotifying else {
+            if selectedCachedGATT, let peripheral {
+                OBDLog.log("BLE: cached notify route is stale; running full discovery")
+                beginFullGATTDiscovery(on: peripheral)
+                return
+            }
             OBDLog.log("BLE: adapter did not enable notifications")
             failReadiness(with: OBDError.connectionFailed)
             return
         }
         OBDLog.log("BLE: ready")
+        if let peripheral, let notifyChar, let writeChar,
+           let service = notifyChar.service?.uuid {
+            BLEGATTProfileCache.save(
+                .init(
+                    service: service.uuidString,
+                    notify: notifyChar.uuid.uuidString,
+                    write: writeChar.uuid.uuidString
+                ),
+                peripheralID: peripheral.identifier,
+                to: defaults
+            )
+        }
+        selectedCachedGATT = false
         fastReconnectTask?.cancel()
         fastReconnectTask = nil
         connectionTimeoutTask?.cancel()
@@ -342,6 +461,9 @@ actor BLEConnection: OBDTransport {
         writeChar = nil
         pendingCharacteristicDiscoveries = 0
         characteristicDiscoveryFailures = 0
+        cachedGATTProfile = nil
+        isTryingCachedGATT = false
+        selectedCachedGATT = false
         await engine.failPendingRead(with: error ?? OBDError.protocolError("BLE disconnected"))
         await engine.reset()
         if wasReady, shouldRun {
@@ -388,7 +510,7 @@ actor BLEConnection: OBDTransport {
     }
 
     private func connectToRememberedPeripheral(using central: CBCentralManager) -> Bool {
-        guard let rawIdentifier = UserDefaults.standard.string(
+        guard let rawIdentifier = defaults.string(
             forKey: Self.lastPeripheralIdentifierKey
         ),
         let identifier = UUID(uuidString: rawIdentifier),
@@ -435,6 +557,17 @@ actor BLEConnection: OBDTransport {
         // Scan broadly: some clones don't advertise their serial service, so
         // filtering by service UUID would miss them; we match in `discovered`.
         central.scanForPeripherals(withServices: nil, options: nil)
+    }
+
+    private func beginFullGATTDiscovery(on peripheral: CBPeripheral) {
+        cachedGATTProfile = nil
+        isTryingCachedGATT = false
+        selectedCachedGATT = false
+        notifyChar = nil
+        writeChar = nil
+        pendingCharacteristicDiscoveries = 0
+        characteristicDiscoveryFailures = 0
+        peripheral.discoverServices(nil)
     }
 
     private func armConnectionTimeout() {

@@ -1058,6 +1058,46 @@ let chrOther2 = CBUUID(string: "ABC2")
 let svcKonnwei = CBUUID(string: "FFE0")
 let chrKonnweiData = CBUUID(string: "FFE1")
 
+let bleProfileSuite = "AlfaDPFTests.BLEGATTProfile.\(UUID().uuidString)"
+let bleProfileDefaults = UserDefaults(suiteName: bleProfileSuite)!
+let bleProfilePeripheralID = UUID()
+let rememberedGATT = BLEGATTProfile(service: "FFF0", notify: "FFF1", write: "FFF2")
+BLEGATTProfileCache.save(
+    rememberedGATT,
+    peripheralID: bleProfilePeripheralID,
+    to: bleProfileDefaults
+)
+expect(
+    BLEGATTProfileCache.load(
+        peripheralID: bleProfilePeripheralID,
+        from: bleProfileDefaults
+    ) == rememberedGATT,
+    "ble: validated GATT route persists per peripheral"
+)
+expect(
+    BLEGATTProfileCache.load(peripheralID: UUID(), from: bleProfileDefaults) == nil,
+    "ble: GATT route does not leak to another peripheral"
+)
+bleProfileDefaults.removePersistentDomain(forName: bleProfileSuite)
+
+let ecuProfileSuite = "AlfaDPFTests.ECUProfile.\(UUID().uuidString)"
+let ecuProfileDefaults = UserDefaults(suiteName: ecuProfileSuite)!
+let ecuProfileStore = DPFECUProfileStore(
+    identifier: "ble:test-adapter",
+    defaults: ecuProfileDefaults
+)
+let rememberedECU = DPFECUProfile(
+    headersByPID: ["380B": "18DA10F1", "18E4": "18DA18F1"],
+    lastGoodHeader: "18DA10F1",
+    preferredExhaustTemperaturePID: DPFPID.postDPFTempC.rawValue
+)
+ecuProfileStore.save(rememberedECU)
+expect(ecuProfileStore.load() == rememberedECU,
+       "dpf: validated ECU routes persist per adapter")
+expect(DPFECUProfileStore(identifier: "ble:other", defaults: ecuProfileDefaults).load() == nil,
+       "dpf: ECU routes do not leak to another adapter")
+ecuProfileDefaults.removePersistentDomain(forName: ecuProfileSuite)
+
 expect(BLEAdvertisementClassifier.matches(name: "KONNWEI-KW903", advertisedServices: []),
        "ble: Konnwei brand name accepted")
 expect(BLEAdvertisementClassifier.matches(name: "KW903", advertisedServices: []),

@@ -74,6 +74,10 @@ actor OBDConnection: OBDTransport {
         }
     }
 
+    func cacheIdentifier() -> String? {
+        "wifi:\(endpoint.host):\(endpoint.port)"
+    }
+
     func send(_ command: String, header: String?, timeout: TimeInterval) async throws -> String {
         guard case .ready = state, let connection else {
             throw OBDError.notReady

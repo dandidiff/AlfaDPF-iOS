@@ -444,7 +444,7 @@ final class MonitorSession {
         switch transportKind {
         case .bluetooth:
             OBDLog.log("connection: transport Bluetooth LE")
-            obd = BLEConnection()
+            obd = BLEConnection(defaults: defaults)
         case .wifi:
             guard let endpoint = WiFiAdapterEndpoint.parse(host: wifiHost, port: wifiPort) else {
                 alertSetupTask.cancel()
@@ -516,7 +516,15 @@ final class MonitorSession {
             return
         }
 
-        let monitor = DPFMonitor(elm: elm, alerts: alerts)
+        let cacheIdentifier = await obd.cacheIdentifier()
+        let profileStore = cacheIdentifier.map {
+            DPFECUProfileStore(identifier: $0, defaults: defaults)
+        }
+        let monitor = DPFMonitor(
+            elm: elm,
+            alerts: alerts,
+            profileStore: profileStore
+        )
         self.monitor = monitor
         await monitor.start(interval: .seconds(2))
         guard !Task.isCancelled, generation == workGeneration else {

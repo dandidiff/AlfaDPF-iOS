@@ -1353,3 +1353,33 @@ enum DPFPID: UInt16, Hashable, Sendable {
         }
     }
 }
+
+/// Validated ECU routing hints for one adapter endpoint. These are performance
+/// hints, never trusted data: DPFMonitor retries the full FCA header list when
+/// a remembered route does not answer on the current vehicle.
+struct DPFECUProfile: Codable, Equatable, Sendable {
+    var headersByPID: [String: String] = [:]
+    var lastGoodHeader: String?
+    var preferredExhaustTemperaturePID: UInt16?
+}
+
+final class DPFECUProfileStore: @unchecked Sendable {
+    private static let keyPrefix = "dpfECUProfile.v1."
+    private let defaults: UserDefaults
+    private let key: String
+
+    init(identifier: String, defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.key = Self.keyPrefix + identifier
+    }
+
+    func load() -> DPFECUProfile? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(DPFECUProfile.self, from: data)
+    }
+
+    func save(_ profile: DPFECUProfile) {
+        guard let data = try? JSONEncoder().encode(profile) else { return }
+        defaults.set(data, forKey: key)
+    }
+}

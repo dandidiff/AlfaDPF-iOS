@@ -39,6 +39,7 @@ actor DPFMonitor {
 
     private let elm: ELM327
     private let alerts: AlertService
+    private let profileStore: DPFECUProfileStore?
     private var pollTask: Task<Void, Never>?
 
     private(set) var latest = DPFState()
@@ -55,9 +56,25 @@ actor DPFMonitor {
     /// transitions off stale truth.
     private var consecutiveProgressFailures = 0
     private static let progressFailureThreshold = 3
-    init(elm: ELM327, alerts: AlertService) {
+    init(elm: ELM327,
+         alerts: AlertService,
+         profileStore: DPFECUProfileStore? = nil) {
         self.elm = elm
         self.alerts = alerts
+        self.profileStore = profileStore
+        if let profile = profileStore?.load() {
+            self.ecuHeaders = Dictionary(uniqueKeysWithValues: profile.headersByPID.compactMap {
+                key, value in
+                guard let raw = UInt16(key, radix: 16), let pid = DPFPID(rawValue: raw) else {
+                    return nil
+                }
+                return (pid, value)
+            })
+            self.lastGoodHeader = profile.lastGoodHeader
+            self.preferredExhaustTemperaturePID = profile.preferredExhaustTemperaturePID
+                .flatMap(DPFPID.init(rawValue:))
+            OBDLog.log("DPF: loaded \(self.ecuHeaders.count) remembered ECU routes")
+        }
     }
 
     func start(interval: Duration = .seconds(2)) {
@@ -266,6 +283,7 @@ actor DPFMonitor {
                 return (.postDPFTempC, try await read(.postDPFTempC))
             } catch {
                 preferredExhaustTemperaturePID = nil
+                persistProfile()
             }
         }
 
@@ -277,10 +295,12 @@ actor DPFMonitor {
         do {
             let reading = try await read(.postDPFTempC)
             preferredExhaustTemperaturePID = .postDPFTempC
+            persistProfile()
             return (.postDPFTempC, reading)
         } catch {
             let reading = try await read(.exhaustTempC)
             preferredExhaustTemperaturePID = .exhaustTempC
+            persistProfile()
             return (.exhaustTempC, reading)
         }
     }
@@ -297,6 +317,7 @@ actor DPFMonitor {
                 // yesterday's cached address. Re-probe instead of remaining
                 // permanently stuck on a dead header.
                 ecuHeaders[pid] = nil
+                persistProfile()
                 OBDLog.log("DPF \(pid.command): cached header \(header) failed; probing again")
             }
         }
@@ -319,6 +340,7 @@ actor DPFMonitor {
                 ecuHeaders[pid] = header
                 pidRetryAfter[pid] = nil
                 lastGoodHeader = header
+                persistProfile()
                 OBDLog.log("DPF: \(pid) locked to \(header)")
                 return reading
             } catch {
@@ -327,6 +349,18 @@ actor DPFMonitor {
         }
         pidRetryAfter[pid] = Date().addingTimeInterval(30)
         throw lastError
+    }
+
+    private func persistProfile() {
+        guard let profileStore else { return }
+        let headers = Dictionary(uniqueKeysWithValues: ecuHeaders.map {
+            (String(format: "%04X", $0.key.rawValue), $0.value)
+        })
+        profileStore.save(.init(
+            headersByPID: headers,
+            lastGoodHeader: lastGoodHeader,
+            preferredExhaustTemperaturePID: preferredExhaustTemperaturePID?.rawValue
+        ))
     }
 
     private func read(_ pid: DPFPID, header: String) async throws -> PIDReading {
