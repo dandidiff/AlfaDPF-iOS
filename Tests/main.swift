@@ -573,6 +573,10 @@ expectThrows("mode22: PID mismatch throws") {
     _ = try ELM327.parseMode22Response("7E8056218DE0CCD", expectedPID: 0x18E4)
 }
 
+expectBytes("mode22: coolant 221003 response",
+            { try ELM327.parseMode22Response("18DAF110056210031900", expectedPID: 0x1003) },
+            prefix: [0x19, 0x00])
+
 // MARK: - Adapter voltage
 
 do {
@@ -606,6 +610,13 @@ do {
     expect(abs(temp - 420.0) < 0.01, "decode: exhaust 420 °C")
     let postDPFTemp = try DPFPID.postDPFTempC.decode(bytes: [0x7D, 0x00])
     expect(abs(postDPFTemp - 600.0) < 0.01, "decode: post-DPF exhaust 600 °C")
+    let coolant = try DPFPID.coolantTemperatureC.decode(bytes: [0x19, 0x00])
+    expect(
+        coolant == 88
+            && DPFPID.coolantTemperatureC.command == "221003"
+            && DPFPID.coolantTemperatureC.formulaDescription == "raw×0.02−40 °C",
+        "decode: FCA coolant raw 0x1900 is 88 °C"
+    )
     let progress = try DPFPID.regenProgressPercent.decode(bytes: [0x80, 0x00])
     expect(abs(progress - 50.0) < 0.01, "decode: regen process ~50%")
     let distance = try DPFPID.distanceSinceRegenKm.decode(bytes: [0x00, 0x05, 0xE8])
@@ -623,6 +634,70 @@ expectThrows("decode: distance requires three bytes") {
     _ = try DPFPID.distanceSinceRegenKm.decode(bytes: [0x05, 0xE8])
 }
 
+expectThrows("decode: coolant requires two bytes") {
+    _ = try DPFPID.coolantTemperatureC.decode(bytes: [0x19])
+}
+expectThrows("decode: coolant rejects implausible value") {
+    _ = try DPFPID.coolantTemperatureC.decode(bytes: [0xFF, 0xFF])
+}
+expectThrows("decode: coolant rejects NaN") {
+    _ = try CoolantTelemetryPolicy.validated(.nan)
+}
+let coolantReadAt = Date(timeIntervalSince1970: 2_000)
+expect(
+    !CoolantTelemetryPolicy.isExpired(
+        lastValidSampleAt: coolantReadAt,
+        now: coolantReadAt.addingTimeInterval(29.9)
+    ),
+    "coolant: last valid value survives inside 30-second TTL"
+)
+expect(
+    CoolantTelemetryPolicy.isExpired(
+        lastValidSampleAt: coolantReadAt,
+        now: coolantReadAt.addingTimeInterval(30)
+    ),
+    "coolant: stale live value expires after 30 seconds"
+)
+
+let migratedCoolant = DashboardMetricPreference.load(
+    stored: [DashboardMetric.exhaustTemperature.rawValue],
+    migrated: false,
+    adding: .coolantTemperature
+)
+expect(
+    migratedCoolant.visible.contains(.coolantTemperature) && migratedCoolant.didMigrate,
+    "dashboard: existing users receive coolant card once"
+)
+let optedOutCoolant = DashboardMetricPreference.load(
+    stored: [DashboardMetric.exhaustTemperature.rawValue],
+    migrated: true,
+    adding: .coolantTemperature
+)
+expect(
+    !optedOutCoolant.visible.contains(.coolantTemperature) && !optedOutCoolant.didMigrate,
+    "dashboard: manual coolant opt-out survives later launches"
+)
+
+do {
+    let monitorSource = try String(contentsOfFile: "Sources/DPFMonitor.swift", encoding: .utf8)
+    let appSource = try String(contentsOfFile: "Sources/AlfaDPFApp.swift", encoding: .utf8)
+    expect(
+        monitorSource.contains("case 4:")
+            && monitorSource.contains("read(.coolantTemperatureC)")
+            && !monitorSource.contains("readCoolantTemperature"),
+        "coolant live path: secondary slot uses Mode 22 and never Mode 01"
+    )
+    expect(
+        appSource.contains("title: \"LIQUIDO MOTORE\"")
+            && appSource.contains("unit: \"°C\"")
+            && appSource.contains("dpf.coolantTemperatureC"),
+        "coolant UI: vehicle-data card uses Celsius and optional fallback"
+    )
+} catch {
+    failures += 1
+    print("FAIL: coolant source regression — \(error)")
+}
+
 // MARK: - Last real DPF snapshot
 
 let snapshotSuite = "AlfaDPF.Tests.\(UUID().uuidString)"
@@ -631,6 +706,7 @@ let savedAt = Date(timeIntervalSince1970: 1_750_000_000)
 let savedSnapshot = DPFState(
     cloggingPercent: 67,
     exhaustTempC: 412,
+    coolantTemperatureC: 88,
     distanceSinceLastRegenKm: 238,
     regenProgressPercent: 0,
     totalRegenCount: 304,
@@ -684,6 +760,7 @@ var newSignals = DPFState(timestamp: partialAt.addingTimeInterval(20))
 newSignals.regenerationMode = .passive
 newSignals.oilPressureStatusRaw = 2
 newSignals.exhaustTempC = 601
+newSignals.coolantTemperatureC = 92
 newSignals.exhaustTemperaturePID = DPFPID.postDPFTempC.rawValue
 let mergedNewSignals = mergedSnapshot.mergingFreshTelemetry(from: newSignals)
 expect(
@@ -691,6 +768,7 @@ expect(
         && mergedNewSignals.isRegenerating
         && mergedNewSignals.oilPressureStatusText == "Normale"
         && mergedNewSignals.batteryVoltage == savedSnapshot.batteryVoltage
+        && mergedNewSignals.coolantTemperatureC == 92
         && mergedNewSignals.exhaustTemperaturePID == DPFPID.postDPFTempC.rawValue,
     "snapshot: passive regen, oil state and temperature source merge safely"
 )
@@ -908,7 +986,9 @@ expect(
 )
 expect(
     DPFSimulationScenario.clean.state().cloggingPercent == 28 &&
-    DPFSimulationScenario.unavailable.state().cloggingPercent == nil,
+    DPFSimulationScenario.clean.state().coolantTemperatureC == 88 &&
+    DPFSimulationScenario.unavailable.state().cloggingPercent == nil &&
+    DPFSimulationScenario.unavailable.state().coolantTemperatureC == nil,
     "simulation: clean and unavailable fixtures"
 )
 

@@ -1157,6 +1157,14 @@ private struct DPFDetailGrid: View {
                 unit: "°C",
                 accent: isCached ? .gray : .orange
             )
+        case .coolantTemperature:
+            MetricCard(
+                icon: "thermometer.medium",
+                title: "LIQUIDO MOTORE",
+                value: dpf.coolantTemperatureC.map { String(format: "%.0f", $0) },
+                unit: "°C",
+                accent: isCached || dpf.coolantTemperatureC == nil ? .gray : .cyan
+            )
         case .regenerationProgress:
             MetricCard(
                 icon: "arrow.triangle.2.circlepath",

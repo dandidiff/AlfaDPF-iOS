@@ -50,6 +50,7 @@ actor DPFMonitor {
     private var lastSuccessfulCoreReadAt: Date?
     private var pidRetryAfter: [DPFPID: Date] = [:]
     private var preferredExhaustTemperaturePID: DPFPID?
+    private var lastCoolantReadAt: Date?
 
     /// Number of consecutive polls where the regen-progress read failed.
     /// After a few, we drop the state to unknown so we don't keep firing
@@ -154,6 +155,9 @@ actor DPFMonitor {
         )
         fresh.regenActive = regenTracker.isActive
         var next = latest.mergingFreshTelemetry(from: fresh)
+        if CoolantTelemetryPolicy.isExpired(lastValidSampleAt: lastCoolantReadAt, now: sampledAt) {
+            next.coolantTemperatureC = nil
+        }
         if consecutiveProgressFailures >= Self.progressFailureThreshold {
             // The tracker deliberately keeps its internal edge state so a
             // recovered zero can still emit a finish event. The display,
@@ -232,6 +236,15 @@ actor DPFMonitor {
             // Adapter voltage is intentionally secondary: a slow clone must
             // never delay regeneration detection or make core DPF data stale.
             secondary.batteryVoltage = try? await elm.readBatteryVoltage()
+        case 4:
+            do {
+                let reading = try await read(.coolantTemperatureC)
+                secondary.coolantTemperatureC = reading.value
+                lastCoolantReadAt = sampledAt
+                freshPIDs.insert(.coolantTemperatureC)
+            } catch {
+                failedPIDs.insert(.coolantTemperatureC)
+            }
         default:
             break
         }
@@ -372,7 +385,8 @@ actor DPFMonitor {
             || pid == .regenProgressPercent
             || pid == .oilPressureStatus
             || pid == .exhaustTempC
-            || pid == .postDPFTempC {
+            || pid == .postDPFTempC
+            || pid == .coolantTemperatureC {
             OBDLog.log(
                 String(
                     format: "DPF %@ header=%@ bytes=%@ raw=%u formula=%@ value=%.3f",
