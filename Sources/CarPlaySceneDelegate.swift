@@ -7,10 +7,12 @@ private enum CarPlayDetailKind: Equatable, Sendable {
     case regeneration
     case distance
     case exhaust
+    case coolant
     case progress
     case totalRegenerations
     case oil
     case battery
+    case overflow([CarPlayDashboardMetric])
 }
 
 private enum CarPlayDashboardIcon {
@@ -18,10 +20,12 @@ private enum CarPlayDashboardIcon {
     case regeneration
     case distance
     case exhaust
+    case coolant
     case progress
     case totalRegenerations
     case oil
     case battery
+    case overflow
 
     var symbolName: String? {
         switch self {
@@ -29,10 +33,12 @@ private enum CarPlayDashboardIcon {
         case .regeneration: return "arrow.triangle.2.circlepath"
         case .distance: return "road.lanes"
         case .exhaust: return "thermometer.high"
+        case .coolant: return "thermometer.medium"
         case .progress: return "gauge.with.dots.needle.50percent"
         case .totalRegenerations: return "number.circle.fill"
         case .oil: return "oilcan.fill"
         case .battery: return "battery.75percent"
+        case .overflow: return "rectangle.grid.2x2"
         }
     }
 }
@@ -286,6 +292,8 @@ private enum CarPlayDashboardArtwork {
 
 private struct CarPlayDashboardRenderSignature: Equatable, Sendable {
     var title: String
+    var metrics: [CarPlayDashboardMetric]
+    var overflowMetrics: [CarPlayDashboardMetric]
     var tileValues: [String]
     var iconTones: [CarPlayDashboardIconTone]
     var connectionAction: CarPlayConnectionAction
@@ -492,21 +500,21 @@ final class CarPlaySceneDelegate: UIResponder,
             status: session.status,
             hasLiveTelemetry: session.hasLiveTelemetry
         )
-        let tileValues = [
-            compactFormatted(dpf.cloggingPercent, fractionDigits: 1, unit: "%"),
-            regenerationGridText(for: dpf),
-            compactFormatted(dpf.distanceSinceLastRegenKm, fractionDigits: 0, unit: "km"),
-            compactFormatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C"),
-            compactFormatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%"),
-            compactFormatted(dpf.totalRegenCount, fractionDigits: 0),
-            dpf.oilPressureStatusText ?? "—",
-            batteryTileValue(for: dpf),
-        ]
-        let iconTones = CarPlayDashboardMetric.allCases.map {
+        let metrics = CarPlayDashboardLayout.primaryMetrics(
+            visibleDashboardMetrics: session.visibleDashboardMetrics
+        )
+        let overflowMetrics = CarPlayDashboardLayout.overflowMetrics(
+            visibleDashboardMetrics: session.visibleDashboardMetrics
+        )
+        let tileValues = metrics.map { gridValue(for: $0, dpf: dpf) }
+            + (overflowMetrics.isEmpty ? [] : ["+\(overflowMetrics.count)"])
+        let iconTones = metrics.map {
             CarPlayDashboardIconPolicy.tone(for: $0, state: dpf, isLive: isLive)
-        }
+        } + (overflowMetrics.isEmpty ? [] : [.accent])
         return CarPlayDashboardRenderSignature(
             title: dashboardTitle,
+            metrics: metrics,
+            overflowMetrics: overflowMetrics,
             tileValues: tileValues,
             iconTones: iconTones,
             connectionAction: session.status.carPlayConnectionAction,
@@ -516,6 +524,20 @@ final class CarPlaySceneDelegate: UIResponder,
             language: session.appLanguage.rawValue,
             displayScale: Double(carDisplayScale)
         )
+    }
+
+    private func gridValue(for metric: CarPlayDashboardMetric, dpf: DPFState) -> String {
+        switch metric {
+        case .dpf: return compactFormatted(dpf.cloggingPercent, fractionDigits: 1, unit: "%")
+        case .regeneration: return regenerationGridText(for: dpf)
+        case .distance: return compactFormatted(dpf.distanceSinceLastRegenKm, fractionDigits: 0, unit: "km")
+        case .exhaust: return compactFormatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C")
+        case .coolant: return compactFormatted(dpf.coolantTemperatureC, fractionDigits: 0, unit: "°C")
+        case .progress: return compactFormatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%")
+        case .totalRegenerations: return compactFormatted(dpf.totalRegenCount, fractionDigits: 0)
+        case .oil: return dpf.oilPressureStatusText ?? "—"
+        case .battery: return batteryTileValue(for: dpf)
+        }
     }
 
     private func makeDetailRenderSignature() -> CarPlayDetailRenderSignature? {
@@ -590,83 +612,56 @@ final class CarPlaySceneDelegate: UIResponder,
     }
 
     private func makeGridButtons() -> [CPGridButton] {
+        let visibleMetrics = session.visibleDashboardMetrics
+        let primaryMetrics = CarPlayDashboardLayout.primaryMetrics(
+            visibleDashboardMetrics: visibleMetrics
+        )
+        let overflowMetrics = CarPlayDashboardLayout.overflowMetrics(
+            visibleDashboardMetrics: visibleMetrics
+        )
+        var buttons = primaryMetrics.map(makeMetricGridButton)
+        if !overflowMetrics.isEmpty {
+            buttons.append(makeOverflowGridButton(metrics: overflowMetrics))
+        }
+        assert(buttons.count <= CarPlayDashboardPolicy.maximumTileCount)
+        return buttons
+    }
+
+    private func makeMetricGridButton(_ metric: CarPlayDashboardMetric) -> CPGridButton {
         let dpf = session.carPlayDPFState
         let isLive = CarPlayTelemetryPolicy.isLive(
             status: session.status,
             hasLiveTelemetry: session.hasLiveTelemetry
         )
-        let buttons: [CPGridButton] = [
-            makeMetricGridButton(
-                label: AppLocalization.string("DPF"),
-                value: compactFormatted(dpf.cloggingPercent, fractionDigits: 1, unit: "%"),
-                icon: .dpf,
-                accent: dashboardIconColor(for: .dpf, state: dpf, isLive: isLive),
-                illuminated: isLive && dpf.loadAlertLevel != .unavailable,
-                detailKind: .dpf
-            ),
-            makeMetricGridButton(
-                label: AppLocalization.string("Regen"),
-                value: regenerationGridText(for: dpf),
-                icon: .regeneration,
-                accent: dashboardIconColor(for: .regeneration, state: dpf, isLive: isLive),
-                illuminated: isLive && dpf.effectiveRegenerationMode != .none,
-                detailKind: .regeneration
-            ),
-            makeMetricGridButton(
-                label: AppLocalization.string("Dall’ultima"),
-                value: compactFormatted(dpf.distanceSinceLastRegenKm, fractionDigits: 0, unit: "km"),
-                icon: .distance,
-                accent: dashboardIconColor(for: .distance, state: dpf, isLive: isLive),
-                illuminated: false,
-                shortLabel: AppLocalization.string("Ultima"),
-                detailKind: .distance
-            ),
-            makeMetricGridButton(
-                label: AppLocalization.string("Scarico"),
-                value: compactFormatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C"),
-                icon: .exhaust,
-                accent: dashboardIconColor(for: .exhaust, state: dpf, isLive: isLive),
-                illuminated: false,
-                detailKind: .exhaust
-            ),
-            makeMetricGridButton(
-                label: AppLocalization.string("Avanzamento"),
-                value: compactFormatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%"),
-                icon: .progress,
-                accent: dashboardIconColor(for: .progress, state: dpf, isLive: isLive),
-                illuminated: false,
-                detailKind: .progress
-            ),
-            makeMetricGridButton(
-                label: AppLocalization.string("Rigenerazioni"),
-                value: compactFormatted(dpf.totalRegenCount, fractionDigits: 0),
-                icon: .totalRegenerations,
-                accent: dashboardIconColor(for: .totalRegenerations, state: dpf, isLive: isLive),
-                illuminated: false,
-                detailKind: .totalRegenerations
-            ),
-            makeMetricGridButton(
-                label: AppLocalization.string("Olio"),
-                value: dpf.oilPressureStatusText ?? "—",
-                icon: .oil,
-                accent: dashboardIconColor(for: .oil, state: dpf, isLive: isLive),
-                illuminated: false,
-                detailKind: .oil
-            ),
-            makeMetricGridButton(
-                label: AppLocalization.string("Batteria"),
-                value: batteryTileValue(for: dpf),
-                icon: .battery,
-                accent: dashboardIconColor(for: .battery, state: dpf, isLive: isLive),
-                illuminated: false,
-                detailKind: .battery
-            ),
-        ]
-        guard buttons.count <= CarPlayDashboardPolicy.maximumTileCount else {
-            OBDLog.log("CarPlay: dashboard tile list exceeded the public maximum")
-            return Array(buttons.prefix(CarPlayDashboardPolicy.maximumTileCount))
+        switch metric {
+        case .dpf:
+            return makeMetricGridButton(label: AppLocalization.string("DPF"), value: compactFormatted(dpf.cloggingPercent, fractionDigits: 1, unit: "%"), icon: .dpf, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: isLive && dpf.loadAlertLevel != .unavailable, detailKind: .dpf)
+        case .regeneration:
+            return makeMetricGridButton(label: AppLocalization.string("Regen"), value: regenerationGridText(for: dpf), icon: .regeneration, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: isLive && dpf.effectiveRegenerationMode != .none, detailKind: .regeneration)
+        case .distance:
+            return makeMetricGridButton(label: AppLocalization.string("Dall’ultima"), value: compactFormatted(dpf.distanceSinceLastRegenKm, fractionDigits: 0, unit: "km"), icon: .distance, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, shortLabel: AppLocalization.string("Ultima"), detailKind: .distance)
+        case .exhaust:
+            return makeMetricGridButton(label: AppLocalization.string("Scarico"), value: compactFormatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C"), icon: .exhaust, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .exhaust)
+        case .coolant:
+            return makeMetricGridButton(label: AppLocalization.string("Temperatura liquido motore"), value: compactFormatted(dpf.coolantTemperatureC, fractionDigits: 0, unit: "°C"), icon: .coolant, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .coolant)
+        case .progress:
+            return makeMetricGridButton(label: AppLocalization.string("Avanzamento"), value: compactFormatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%"), icon: .progress, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .progress)
+        case .totalRegenerations:
+            return makeMetricGridButton(label: AppLocalization.string("Rigenerazioni"), value: compactFormatted(dpf.totalRegenCount, fractionDigits: 0), icon: .totalRegenerations, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .totalRegenerations)
+        case .oil:
+            return makeMetricGridButton(label: AppLocalization.string("Olio"), value: dpf.oilPressureStatusText ?? "—", icon: .oil, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .oil)
+        case .battery:
+            return makeMetricGridButton(label: AppLocalization.string("Batteria"), value: batteryTileValue(for: dpf), icon: .battery, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .battery)
         }
-        return buttons
+    }
+
+    private func makeOverflowGridButton(metrics: [CarPlayDashboardMetric]) -> CPGridButton {
+        CPGridButton(
+            titleVariants: ["DATI VEICOLO · +\(metrics.count)", "DATI VEICOLO"],
+            image: CarPlayDashboardArtwork.gridImage(icon: .overflow, accent: carPlayAccent, illuminated: false, displayScale: carDisplayScale)
+        ) { [weak self] _ in
+            self?.showDetails(.overflow(metrics))
+        }
     }
 
     private var carPlayAccent: UIColor {
@@ -833,6 +828,14 @@ final class CarPlaySceneDelegate: UIResponder,
                 ),
                 updated,
             ]
+        case .coolant:
+            return [
+                CPInformationItem(
+                    title: AppLocalization.string("Temperatura liquido motore"),
+                    detail: formatted(dpf.coolantTemperatureC, fractionDigits: 0, unit: "°C")
+                ),
+                updated,
+            ]
         case .progress:
             return [
                 CPInformationItem(
@@ -882,6 +885,33 @@ final class CarPlaySceneDelegate: UIResponder,
                 ),
                 updated,
             ]
+        case .overflow(let metrics):
+            return metrics.map { overflowInformationItem(for: $0, dpf: dpf) }
+        }
+    }
+
+    private func overflowInformationItem(
+        for metric: CarPlayDashboardMetric,
+        dpf: DPFState
+    ) -> CPInformationItem {
+        switch metric {
+        case .distance:
+            return CPInformationItem(title: AppLocalization.string("Distanza dall’ultima rigenerazione"), detail: gridValue(for: metric, dpf: dpf))
+        case .exhaust:
+            return CPInformationItem(title: AppLocalization.string("Temperatura gas di scarico"), detail: gridValue(for: metric, dpf: dpf))
+        case .coolant:
+            return CPInformationItem(title: AppLocalization.string("Temperatura liquido motore"), detail: gridValue(for: metric, dpf: dpf))
+        case .progress:
+            return CPInformationItem(title: AppLocalization.string("Avanzamento rigenerazione"), detail: gridValue(for: metric, dpf: dpf))
+        case .totalRegenerations:
+            return CPInformationItem(title: AppLocalization.string("Rigenerazioni totali"), detail: gridValue(for: metric, dpf: dpf))
+        case .oil:
+            return CPInformationItem(title: AppLocalization.string("Stato pressione olio"), detail: gridValue(for: metric, dpf: dpf))
+        case .battery:
+            return CPInformationItem(title: AppLocalization.string("Batteria"), detail: batteryTileValue(for: dpf))
+        case .dpf, .regeneration:
+            assertionFailure("Only optional metrics can overflow")
+            return CPInformationItem(title: "—", detail: "—")
         }
     }
 
@@ -1027,10 +1057,12 @@ final class CarPlaySceneDelegate: UIResponder,
         case .regeneration: return AppLocalization.string("Rigenerazione")
         case .distance: return AppLocalization.string("Distanza dall’ultima rigenerazione")
         case .exhaust: return AppLocalization.string("Temperatura gas di scarico")
+        case .coolant: return AppLocalization.string("Temperatura liquido motore")
         case .progress: return AppLocalization.string("Avanzamento rigenerazione")
         case .totalRegenerations: return AppLocalization.string("Rigenerazioni totali")
         case .oil: return AppLocalization.string("Stato pressione olio")
         case .battery: return AppLocalization.string("Batteria")
+        case .overflow: return AppLocalization.string("DATI VEICOLO")
         }
     }
 

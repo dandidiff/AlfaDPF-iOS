@@ -54,6 +54,9 @@ final class MonitorSession {
         didSet {
             let values = visibleDashboardMetrics.map(\.rawValue).sorted()
             defaults.set(values, forKey: Self.dashboardMetricsDefaultsKey)
+            if oldValue != visibleDashboardMetrics {
+                publishCarPlayRefresh(.interaction)
+            }
         }
     }
 

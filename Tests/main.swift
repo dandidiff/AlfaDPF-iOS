@@ -439,8 +439,9 @@ do {
     } else {
         expect(false, "carplay refresh QA: refresh body remains source-auditable")
     }
-    expect(monitorSource.contains("bufferingPolicy: .bufferingNewest(1)"),
-           "carplay refresh QA: suspended consumers cannot accumulate an event backlog")
+    expect(monitorSource.contains("bufferingPolicy: .bufferingNewest(1)")
+           && monitorSource.contains("publishCarPlayRefresh(.interaction)"),
+           "carplay refresh QA: suspended consumers coalesce events and phone metric choices refresh CarPlay")
     expect(carPlaySource.contains("periodicRefreshTask?.cancel()")
            && carPlaySource.contains("eventRefreshTask?.cancel()")
            && carPlaySource.contains("deferredRefreshTask?.cancel()"),
@@ -622,8 +623,32 @@ expect(CarPlayDashboardIconPolicy.tone(
     isLive: true
 ) == .regenerationSemantic(.active),
        "carplay artwork: active regeneration keeps its semantic color")
-expect(CarPlayDashboardMetric.allCases.count == CarPlayDashboardPolicy.maximumTileCount,
-       "carplay dashboard: glanceable grid stays within eight tiles")
+expect(CarPlayDashboardPolicy.maximumTileCount == 8,
+       "carplay dashboard: Apple's CPGridTemplate limit remains eight buttons")
+let allPhoneMetrics = Set(DashboardMetric.allCases)
+let carPlaySelectedMetrics = CarPlayDashboardLayout.selectedMetrics(
+    visibleDashboardMetrics: allPhoneMetrics
+)
+let carPlayPrimaryMetrics = CarPlayDashboardLayout.primaryMetrics(
+    visibleDashboardMetrics: allPhoneMetrics
+)
+let carPlayOverflowMetrics = CarPlayDashboardLayout.overflowMetrics(
+    visibleDashboardMetrics: allPhoneMetrics
+)
+expect(carPlaySelectedMetrics.count == 9
+       && carPlayPrimaryMetrics.count == 7
+       && carPlayOverflowMetrics.count == 2
+       && carPlayPrimaryMetrics.count + 1 == CarPlayDashboardPolicy.maximumTileCount
+       && carPlayPrimaryMetrics + carPlayOverflowMetrics == carPlaySelectedMetrics,
+       "carplay dashboard: all nine selected telemetry metrics remain reachable within Apple's eight-button grid limit")
+let coolantOnlyCarPlayMetrics = CarPlayDashboardLayout.selectedMetrics(
+    visibleDashboardMetrics: [.coolantTemperature]
+)
+expect(coolantOnlyCarPlayMetrics == [.dpf, .regeneration, .coolant]
+       && CarPlayDashboardLayout.overflowMetrics(
+            visibleDashboardMetrics: [.coolantTemperature]
+       ).isEmpty,
+       "carplay dashboard: phone visibility choices drive the CarPlay metric set")
 expect(CarPlayDashboardPolicy.maximumInformationItemCount == 4,
        "carplay dashboard: detail surfaces stay compact")
 

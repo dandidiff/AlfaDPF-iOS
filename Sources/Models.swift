@@ -266,12 +266,15 @@ enum CarPlayRefreshEvent: Sendable {
     case telemetry
     case regenerationEdge
     case liveness
+    /// A driver changed the phone dashboard selection; this is not telemetry.
+    case interaction
 
     var trigger: CarPlayRefreshTrigger {
         switch self {
         case .telemetry: return .telemetry
         case .regenerationEdge: return .regenerationEdge
         case .liveness: return .liveness
+        case .interaction: return .interaction
         }
     }
 }
@@ -555,23 +558,72 @@ enum CarPlayTelemetryPolicy {
     }
 }
 
-/// The eight glanceable CarPlay tiles. Each tile pushes one compact
-/// `CPInformationTemplate` detail surface; this type stays Foundation-only so
-/// the hierarchy can be tested without UIKit/CarPlay.
+/// Telemetry tiles supported by CarPlay. A `CPGridTemplate` can show only
+/// eight buttons, so `CarPlayDashboardLayout` keeps every selected metric
+/// accessible through a compact overflow details surface when necessary.
+/// This type stays Foundation-only so the hierarchy can be tested without
+/// UIKit/CarPlay.
 enum CarPlayDashboardMetric: CaseIterable, Equatable, Sendable {
     case dpf
     case regeneration
     case distance
     case exhaust
+    case coolant
     case progress
     case totalRegenerations
     case oil
     case battery
+
+    var dashboardMetric: DashboardMetric? {
+        switch self {
+        case .dpf, .regeneration: return nil
+        case .distance: return .distanceSinceRegeneration
+        case .exhaust: return .exhaustTemperature
+        case .coolant: return .coolantTemperature
+        case .progress: return .regenerationProgress
+        case .totalRegenerations: return .totalRegenerations
+        case .oil: return .oilPressure
+        case .battery: return .batteryVoltage
+        }
+    }
 }
 
 enum CarPlayDashboardPolicy {
     static let maximumTileCount = 8
     static let maximumInformationItemCount = 4
+}
+
+/// Mirrors the driver's iPhone dashboard choices in a deterministic order.
+/// DPF load and regeneration remain the fixed driving-critical tiles. When
+/// more than six chosen secondary metrics remain, the eighth tile opens the
+/// compact overflow details rather than silently dropping a selection.
+enum CarPlayDashboardLayout {
+    static func selectedMetrics(
+        visibleDashboardMetrics: Set<DashboardMetric>
+    ) -> [CarPlayDashboardMetric] {
+        CarPlayDashboardMetric.allCases.filter { metric in
+            metric.dashboardMetric.map(visibleDashboardMetrics.contains) ?? true
+        }
+    }
+
+    static func primaryMetrics(
+        visibleDashboardMetrics: Set<DashboardMetric>
+    ) -> [CarPlayDashboardMetric] {
+        let selected = selectedMetrics(visibleDashboardMetrics: visibleDashboardMetrics)
+        let capacity = selected.count > CarPlayDashboardPolicy.maximumTileCount
+            ? CarPlayDashboardPolicy.maximumTileCount - 1
+            : CarPlayDashboardPolicy.maximumTileCount
+        return Array(selected.prefix(capacity))
+    }
+
+    static func overflowMetrics(
+        visibleDashboardMetrics: Set<DashboardMetric>
+    ) -> [CarPlayDashboardMetric] {
+        let selected = selectedMetrics(visibleDashboardMetrics: visibleDashboardMetrics)
+        return Array(selected.dropFirst(primaryMetrics(
+            visibleDashboardMetrics: visibleDashboardMetrics
+        ).count))
+    }
 }
 
 enum CarPlayDashboardIconTone: Equatable, Sendable {
@@ -604,7 +656,7 @@ enum CarPlayDashboardIconPolicy {
             case .passive, .active:
                 return .regenerationSemantic(state.effectiveRegenerationMode)
             }
-        case .distance, .exhaust, .progress, .totalRegenerations, .oil, .battery:
+        case .distance, .exhaust, .coolant, .progress, .totalRegenerations, .oil, .battery:
             return .accent
         }
     }
