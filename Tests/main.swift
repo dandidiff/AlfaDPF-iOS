@@ -464,23 +464,60 @@ expect(!CarPlayTelemetryPolicy.displayState(
        "carplay telemetry: no real state displays unavailable values")
 
 var carPlayAlertTracker = CarPlayRegenerationAlertTracker()
-expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: false) == nil,
-       "carplay alert: cached telemetry never creates an event")
-expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: true) == nil,
-       "carplay alert: first live sample arms without a false event")
-expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == .started,
-       "carplay alert: inactive-to-active edge starts regeneration")
-expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
-       "carplay alert: stable active state does not repeat")
-expect(carPlayAlertTracker.observe(isRegenerating: nil, telemetryIsLive: true) == nil,
-       "carplay alert: unknown regeneration sample does not emit a false finish")
-expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
-       "carplay alert: recovery from unknown preserves the active edge")
-expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: true) == .finished,
-       "carplay alert: active-to-inactive edge finishes regeneration")
-expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: false) == nil
-       && carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
-       "carplay alert: telemetry interruption rearms without a false event")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: false,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: false
+) == nil, "carplay alert: cached telemetry never creates an event")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: false,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == nil, "carplay alert: first live sample arms without a false event")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: true,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == .started, "carplay alert: inactive-to-active edge starts regeneration")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: true,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == nil, "carplay alert: stable active state does not repeat")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: nil,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == nil, "carplay alert: unknown regeneration sample does not emit a false finish")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: true,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == nil, "carplay alert: recovery from unknown preserves the active edge")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: false,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == nil, "carplay alert: inactive edge waits for distance-reset confirmation")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: false,
+    finishConfirmationSequence: 1,
+    telemetryIsLive: true
+) == .finished, "carplay alert: confirmed distance reset finishes regeneration")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: false,
+    finishConfirmationSequence: 1,
+    telemetryIsLive: true
+) == nil, "carplay alert: stable confirmation sequence does not duplicate finish")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: true,
+    finishConfirmationSequence: 1,
+    telemetryIsLive: false
+) == nil && carPlayAlertTracker.observe(
+    isRegenerating: true,
+    finishConfirmationSequence: 1,
+    telemetryIsLive: true
+) == nil, "carplay alert: telemetry interruption rearms without a false event")
 
 for error in [
     OBDError.notReady,
@@ -881,6 +918,80 @@ for (offset, load) in [21.1, 20.8, 20.4, 20.0].enumerated() {
 expect(
     postRegenTailTracker.isActive == false,
     "regen fallback: hot post-regeneration tail cannot create a second start"
+)
+
+// MARK: - Delayed regeneration-finish notification
+
+let delayedFinishStartedAt = Date(timeIntervalSince1970: 3_000)
+let delayedFinishEndedAt = delayedFinishStartedAt.addingTimeInterval(11 * 60)
+let delayedStartEvent = RegenEvent.started(
+    at: delayedFinishStartedAt,
+    cloggingPercent: 91
+)
+let delayedFinishEvent = RegenEvent.finished(
+    at: delayedFinishEndedAt,
+    duration: 11 * 60
+)
+
+var delayedFinishGate = RegenFinishNotificationGate()
+expect(
+    delayedFinishGate.observe(delayedStartEvent) == delayedStartEvent,
+    "regen finish gate: start notifications remain immediate"
+)
+expect(
+    delayedFinishGate.observe(delayedFinishEvent) == nil
+        && delayedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: falling load stages finish without notifying"
+)
+expect(
+    delayedFinishGate.confirm(freshDistanceRaw: 27) == nil
+        && delayedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: nonzero distance cannot release finish"
+)
+expect(
+    delayedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: missing distance keeps finish pending without notifying"
+)
+expect(
+    delayedFinishGate.confirm(freshDistanceRaw: 0x01_00_00_00) == nil
+        && delayedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: invalid UInt24 distance cannot release finish"
+)
+expect(
+    delayedFinishGate.confirm(freshDistanceRaw: 0) == delayedFinishEvent
+        && !delayedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: first fresh zero releases the staged finish"
+)
+expect(
+    delayedFinishGate.confirm(freshDistanceRaw: 0) == nil
+        && delayedFinishGate.confirm(freshDistanceRaw: 0) == nil,
+    "regen finish gate: later zero updates never duplicate the notification"
+)
+
+var reorderedFinishGate = RegenFinishNotificationGate()
+expect(
+    reorderedFinishGate.confirm(freshDistanceRaw: 0) == nil,
+    "regen finish gate: zero received before the finish edge is ignored"
+)
+expect(
+    reorderedFinishGate.observe(delayedFinishEvent) == nil
+        && reorderedFinishGate.confirm(freshDistanceRaw: 8) == nil
+        && reorderedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: reordered updates cannot notify prematurely"
+)
+expect(
+    reorderedFinishGate.confirm(freshDistanceRaw: 0) == delayedFinishEvent
+        && reorderedFinishGate.confirm(freshDistanceRaw: 0) == nil,
+    "regen finish gate: a fresh post-edge zero releases exactly once"
+)
+
+var resetFinishGate = RegenFinishNotificationGate()
+_ = resetFinishGate.observe(delayedFinishEvent)
+resetFinishGate.reset()
+expect(
+    resetFinishGate.confirm(freshDistanceRaw: 0) == nil
+        && !resetFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: reset cancels a pending finish"
 )
 
 // MARK: - Test Lab scenarios
