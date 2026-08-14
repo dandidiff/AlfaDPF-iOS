@@ -244,6 +244,7 @@ actor DPFMonitor {
                 freshPIDs.insert(.coolantTemperatureC)
             } catch {
                 failedPIDs.insert(.coolantTemperatureC)
+                OBDLog.log("DPF 221003 unavailable: \(error.localizedDescription)")
             }
         default:
             break

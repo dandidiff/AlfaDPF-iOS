@@ -644,6 +644,13 @@ expectThrows("decode: coolant rejects NaN") {
     _ = try CoolantTelemetryPolicy.validated(.nan)
 }
 let coolantReadAt = Date(timeIntervalSince1970: 2_000)
+var lastGoodCoolant = DPFState(timestamp: coolantReadAt)
+lastGoodCoolant.coolantTemperatureC = 88
+let missingCoolant = DPFState(timestamp: coolantReadAt.addingTimeInterval(10))
+expect(
+    lastGoodCoolant.mergingFreshTelemetry(from: missingCoolant).coolantTemperatureC == 88,
+    "coolant: transient missing sample retains the last valid value"
+)
 expect(
     !CoolantTelemetryPolicy.isExpired(
         lastValidSampleAt: coolantReadAt,
@@ -681,11 +688,17 @@ expect(
 do {
     let monitorSource = try String(contentsOfFile: "Sources/DPFMonitor.swift", encoding: .utf8)
     let appSource = try String(contentsOfFile: "Sources/AlfaDPFApp.swift", encoding: .utf8)
+    let criticalPublish = monitorSource.range(of: "snapshot = DPFMonitorSnapshot(")
+    let coolantRead = monitorSource.range(of: "read(.coolantTemperatureC)")
     expect(
         monitorSource.contains("case 4:")
+            && monitorSource.contains("switch cadenceSequence % 5")
             && monitorSource.contains("read(.coolantTemperatureC)")
-            && !monitorSource.contains("readCoolantTemperature"),
-        "coolant live path: secondary slot uses Mode 22 and never Mode 01"
+            && !monitorSource.contains("\"0105\"")
+            && criticalPublish.map { published in
+                coolantRead.map { published.lowerBound < $0.lowerBound } ?? false
+            } == true,
+        "coolant live path: every-fifth secondary slot follows critical publication and never sends 0105"
     )
     expect(
         appSource.contains("title: \"LIQUIDO MOTORE\"")
