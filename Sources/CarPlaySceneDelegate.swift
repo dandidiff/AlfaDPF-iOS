@@ -552,6 +552,7 @@ final class CarPlaySceneDelegate: UIResponder,
         )
         let event = regenerationAlertTracker.observe(
             isRegenerating: session.dpf.regenActive,
+            finishConfirmationSequence: session.dpf.finishConfirmationSequence ?? 0,
             telemetryIsLive: telemetryIsLive
         )
         guard let event else { return }

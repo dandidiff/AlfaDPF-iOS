@@ -45,6 +45,8 @@ actor DPFMonitor {
     private(set) var latest = DPFState()
     private(set) var snapshot = DPFMonitorSnapshot()
     private var regenTracker = RegenActivityTracker()
+    private var finishNotificationGate = RegenFinishNotificationGate()
+    private var finishConfirmationSequence: UInt64 = 0
     private var pollSequence: UInt64 = 0
     private var lastSuccessfulReadAt: Date?
     private var lastSuccessfulCoreReadAt: Date?
@@ -174,9 +176,11 @@ actor DPFMonitor {
         // poller can render the edge without waiting for secondary ECU reads.
         latest = next
 
-        // Queue the notification as part of this background work item. An
+        // Queue start notifications as part of this background work item. A
         // unstructured Task could be suspended before reaching the system.
-        if let event { await emit(event) }
+        if let event, let immediateEvent = finishNotificationGate.observe(event) {
+            await emit(immediateEvent)
+        }
 
         // Make the established signals observable before any optional Mode 22
         // request. Actor reentrancy lets the UI poll this snapshot while the
@@ -204,6 +208,7 @@ actor DPFMonitor {
         // Non-critical telemetry comes last. A slow or unsupported PID cannot
         // delay the transition detector or its local notification.
         var secondary = DPFState(timestamp: sampledAt)
+        var confirmedFinish: RegenEvent?
         // These values change slowly and are not needed for a regeneration
         // edge. Polling every fifth cycle keeps unsupported optional PIDs away
         // from the critical 2-second path.
@@ -213,6 +218,11 @@ actor DPFMonitor {
                 let reading = try await read(.distanceSinceRegenKm)
                 secondary.distanceSinceLastRegenKm = reading.value
                 freshPIDs.insert(.distanceSinceRegenKm)
+                if let event = finishNotificationGate.confirm(freshDistanceRaw: reading.raw) {
+                    finishConfirmationSequence &+= 1
+                    secondary.finishConfirmationSequence = finishConfirmationSequence
+                    confirmedFinish = event
+                }
             } catch {
                 failedPIDs.insert(.distanceSinceRegenKm)
             }
@@ -283,6 +293,9 @@ actor DPFMonitor {
             lastSuccessfulReadAt: lastSuccessfulReadAt,
             lastSuccessfulCoreReadAt: lastSuccessfulCoreReadAt
         )
+        if let confirmedFinish {
+            await emit(confirmedFinish)
+        }
     }
 
     /// Candidate request headers for enhanced (Mode 22) PIDs. The DPF data

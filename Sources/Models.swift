@@ -591,13 +591,16 @@ enum CarPlayRegenerationAlertEvent: Equatable, Sendable {
 /// telemetry interruption resets it so reconnection cannot replay stale data.
 struct CarPlayRegenerationAlertTracker: Equatable, Sendable {
     private var previousIsRegenerating: Bool?
+    private var previousFinishConfirmationSequence: UInt64?
 
     mutating func observe(
         isRegenerating: Bool?,
+        finishConfirmationSequence: UInt64,
         telemetryIsLive: Bool
     ) -> CarPlayRegenerationAlertEvent? {
         guard telemetryIsLive else {
             previousIsRegenerating = nil
+            previousFinishConfirmationSequence = nil
             return nil
         }
 
@@ -607,12 +610,19 @@ struct CarPlayRegenerationAlertTracker: Equatable, Sendable {
 
         guard let previousIsRegenerating else {
             self.previousIsRegenerating = isRegenerating
+            previousFinishConfirmationSequence = finishConfirmationSequence
             return nil
         }
 
         self.previousIsRegenerating = isRegenerating
-        guard previousIsRegenerating != isRegenerating else { return nil }
-        return isRegenerating ? .started : .finished
+        let finishWasConfirmed = previousFinishConfirmationSequence
+            .map { $0 != finishConfirmationSequence } ?? false
+        previousFinishConfirmationSequence = finishConfirmationSequence
+
+        if isRegenerating {
+            return previousIsRegenerating ? nil : .started
+        }
+        return finishWasConfirmed ? .finished : nil
     }
 }
 
@@ -811,6 +821,9 @@ struct DPFState: Codable, Equatable, Sendable {
     var regenProgressPercent: Double?     // 0 when idle, >0 while a regen is running
     var totalRegenCount: Double?
     var regenActive: Bool?                // derived: progress > hysteresis
+    /// Advances only when a fresh post-finish distance PID confirms zero.
+    /// Optional keeps snapshots persisted by older app versions decodable.
+    var finishConfirmationSequence: UInt64?
     var regenerationMode: DPFRegenerationMode?
     /// EDC17C69 exposes a pressure state, not a trustworthy pressure in bar.
     var oilPressureStatusRaw: UInt8?
@@ -913,6 +926,8 @@ extension DPFState {
         merged.regenProgressPercent =
             fresh.regenProgressPercent ?? regenProgressPercent
         merged.totalRegenCount = fresh.totalRegenCount ?? totalRegenCount
+        merged.finishConfirmationSequence =
+            fresh.finishConfirmationSequence ?? finishConfirmationSequence
         merged.regenerationMode = fresh.regenerationMode ?? regenerationMode
         merged.oilPressureStatusRaw =
             fresh.oilPressureStatusRaw ?? oilPressureStatusRaw
@@ -1194,6 +1209,41 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
 enum RegenEvent: Equatable {
     case started(at: Date, cloggingPercent: Double?)
     case finished(at: Date, duration: TimeInterval)
+}
+
+/// Delays a regeneration-finished notification until a fresh ECU distance
+/// sample confirms that the distance-since-regeneration counter reset to zero.
+struct RegenFinishNotificationGate: Equatable, Sendable {
+    private var pendingFinish: RegenEvent?
+
+    var isWaitingForDistanceReset: Bool {
+        pendingFinish != nil
+    }
+
+    mutating func observe(_ event: RegenEvent) -> RegenEvent? {
+        switch event {
+        case .started:
+            pendingFinish = nil
+            return event
+        case .finished:
+            pendingFinish = event
+            return nil
+        }
+    }
+
+    mutating func confirm(freshDistanceRaw: UInt32) -> RegenEvent? {
+        guard freshDistanceRaw <= 0xFF_FF_FF,
+              freshDistanceRaw == 0,
+              let pendingFinish
+        else { return nil }
+
+        self.pendingFinish = nil
+        return pendingFinish
+    }
+
+    mutating func reset() {
+        pendingFinish = nil
+    }
 }
 
 /// Conservative remaining-time estimate for an active regeneration. The ECU
