@@ -191,8 +191,8 @@ expect(SessionStatus.running.carPlayConnectionAction == .disconnect,
        "carplay: running state offers disconnect")
 expect(CarPlayRefreshPolicy.interval >= .seconds(10),
        "carplay: periodic dashboard refresh respects Apple's 10-second minimum")
-expect(CarPlayRefreshPolicy.minimumEventInterval >= 2
-       && CarPlayRefreshPolicy.minimumEventInterval < 10,
+expect(CarPlayRefreshPolicy.minimumRenderInterval >= 2
+       && CarPlayRefreshPolicy.minimumRenderInterval < 10,
        "carplay: change-driven refresh is responsive without becoming an unbounded real-time loop")
 
 let carPlayRefreshStart = Date(timeIntervalSince1970: 3_000)
@@ -206,13 +206,13 @@ expect(carPlayRefreshGate.evaluate(
 expect(carPlayRefreshGate.evaluate(
     signature: "idle",
     at: carPlayRefreshStart.addingTimeInterval(0.5),
-    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
 ) == .skipDuplicate,
        "carplay refresh: unchanged presentation is deduplicated")
 let throttledRefresh = carPlayRefreshGate.evaluate(
     signature: "regen-started",
     at: carPlayRefreshStart.addingTimeInterval(1),
-    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
 )
 if case .deferFor(let delay) = throttledRefresh {
     expect(abs(delay - 1) < 0.001,
@@ -223,7 +223,7 @@ if case .deferFor(let delay) = throttledRefresh {
 let allowedRefresh = carPlayRefreshGate.evaluate(
     signature: "regen-started",
     at: carPlayRefreshStart.addingTimeInterval(2),
-    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
 )
 if case .render(let effectiveInterval) = allowedRefresh {
     expect(effectiveInterval.map { abs($0 - 2) < 0.001 } == true,
@@ -234,9 +234,27 @@ if case .render(let effectiveInterval) = allowedRefresh {
 expect(carPlayRefreshGate.evaluate(
     signature: "regen-started",
     at: carPlayRefreshStart.addingTimeInterval(10),
-    minimumInterval: 0
+    minimumInterval: CarPlayRefreshTrigger.periodic.minimumInterval
 ) == .skipDuplicate,
        "carplay refresh: periodic deadline also skips unchanged content")
+
+var periodicCollisionGate = CarPlayRefreshGate<String>()
+_ = periodicCollisionGate.evaluate(
+    signature: "before-periodic-collision",
+    at: carPlayRefreshStart.addingTimeInterval(9.5),
+    minimumInterval: 0
+)
+_ = periodicCollisionGate.evaluate(
+    signature: "changed-before-periodic-tick",
+    at: carPlayRefreshStart.addingTimeInterval(9.9),
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
+)
+expect(periodicCollisionGate.evaluate(
+    signature: "changed-before-periodic-tick",
+    at: carPlayRefreshStart.addingTimeInterval(10),
+    minimumInterval: CarPlayRefreshTrigger.periodic.minimumInterval
+) == .deferFor(1.5),
+       "carplay refresh: periodic tick cannot bypass the global render throttle")
 
 var carPlayRefreshMetrics = CarPlayRefreshMetrics()
 carPlayRefreshMetrics.recordRequest(trigger: .telemetry)
@@ -286,19 +304,19 @@ _ = latestValueGate.evaluate(
 expect(latestValueGate.evaluate(
     signature: "sample-b",
     at: carPlayRefreshStart.addingTimeInterval(0.5),
-    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
 ) == .deferFor(1.5),
        "carplay refresh QA: first burst change waits for the remaining budget")
 expect(latestValueGate.evaluate(
     signature: "sample-c",
     at: carPlayRefreshStart.addingTimeInterval(1),
-    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
 ) == .deferFor(1),
        "carplay refresh QA: a newer deferred value replaces stale work")
 expect(latestValueGate.evaluate(
     signature: "sample-c",
     at: carPlayRefreshStart.addingTimeInterval(2),
-    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
 ) == .render(effectiveInterval: 2),
        "carplay refresh QA: newest burst value renders at the two-second boundary")
 
@@ -330,14 +348,14 @@ _ = resumedGate.evaluate(
 expect(resumedGate.evaluate(
     signature: "latest-after-resume",
     at: carPlayRefreshStart.addingTimeInterval(60),
-    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
 ) == .render(effectiveInterval: 60),
        "carplay refresh QA: latest state renders immediately after a long suspension")
 resumedGate.reset()
 expect(resumedGate.evaluate(
     signature: "reconnected",
     at: carPlayRefreshStart.addingTimeInterval(61),
-    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
 ) == .render(effectiveInterval: nil),
        "carplay refresh QA: scene reconnect resets stale timing and content state")
 
