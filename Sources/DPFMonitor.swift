@@ -37,6 +37,17 @@ actor DPFMonitor {
         var header: String
     }
 
+    private struct BatteryVoltageReading {
+        var pid: DPFPID
+        var value: Double
+    }
+
+    private struct BatteryTelemetryReading {
+        var source: BatteryStateOfChargeSource
+        var stateOfCharge: PIDReading
+        var voltage: BatteryVoltageReading?
+    }
+
     private let elm: ELM327
     private let alerts: AlertService
     private let profileStore: DPFECUProfileStore?
@@ -178,7 +189,11 @@ actor DPFMonitor {
 
         // Queue start notifications as part of this background work item. A
         // unstructured Task could be suspended before reaching the system.
-        if let event, let immediateEvent = finishNotificationGate.observe(event) {
+        if let event,
+           let immediateEvent = finishNotificationGate.observe(
+               event,
+               distanceBeforeFinishRaw: next.distanceSinceLastRegenRaw
+           ) {
             await emit(immediateEvent)
         }
 
@@ -209,14 +224,12 @@ actor DPFMonitor {
         // delay the transition detector or its local notification.
         var secondary = DPFState(timestamp: sampledAt)
         var confirmedFinish: RegenEvent?
-        // These values change slowly and are not needed for a regeneration
-        // edge. Polling every fifth cycle keeps unsupported optional PIDs away
-        // from the critical 2-second path.
-        switch cadenceSequence % 5 {
-        case 0:
+        switch DPFSecondaryPollSlot.resolve(sequence: cadenceSequence) {
+        case .distanceSinceRegeneration:
             do {
                 let reading = try await read(.distanceSinceRegenKm)
                 secondary.distanceSinceLastRegenKm = reading.value
+                secondary.distanceSinceLastRegenRaw = reading.raw
                 freshPIDs.insert(.distanceSinceRegenKm)
                 if let event = finishNotificationGate.confirm(freshDistanceRaw: reading.raw) {
                     finishConfirmationSequence &+= 1
@@ -226,7 +239,7 @@ actor DPFMonitor {
             } catch {
                 failedPIDs.insert(.distanceSinceRegenKm)
             }
-        case 1:
+        case .totalRegenerations:
             do {
                 let reading = try await read(.totalRegenCount)
                 secondary.totalRegenCount = reading.value
@@ -234,7 +247,7 @@ actor DPFMonitor {
             } catch {
                 failedPIDs.insert(.totalRegenCount)
             }
-        case 2:
+        case .oilPressure:
             do {
                 let reading = try await read(.oilPressureStatus)
                 guard reading.raw <= UInt32(UInt8.max) else {
@@ -245,11 +258,11 @@ actor DPFMonitor {
             } catch {
                 failedPIDs.insert(.oilPressureStatus)
             }
-        case 3:
-            // Adapter voltage is intentionally secondary: a slow clone must
-            // never delay regeneration detection or make core DPF data stale.
+        case .adapterVoltage:
+            // ATRV is kept solely as independent evidence for engine-off
+            // detection. It is not displayed as battery voltage.
             secondary.batteryVoltage = try? await elm.readBatteryVoltage()
-        case 4:
+        case .coolantTemperature:
             do {
                 let reading = try await read(.coolantTemperatureC)
                 secondary.coolantTemperatureC = reading.value
@@ -259,13 +272,18 @@ actor DPFMonitor {
                 failedPIDs.insert(.coolantTemperatureC)
                 OBDLog.log("DPF 221003 unavailable: \(error.localizedDescription)")
             }
-        default:
+        case .batteryIBS:
             do {
-                let (source, reading) = try await readBatteryStateOfCharge()
-                secondary.batteryStateOfChargePercent = reading.value
-                secondary.batteryStateOfChargeSource = source
+                let reading = try await readBatteryTelemetry()
+                secondary.batteryStateOfChargePercent = reading.stateOfCharge.value
+                secondary.batteryStateOfChargeSource = reading.source
                 secondary.batteryStateOfChargeUpdatedAt = sampledAt
-                freshPIDs.insert(source.pid)
+                freshPIDs.insert(reading.source.pid)
+                if let voltage = reading.voltage {
+                    secondary.batterySystemVoltage = voltage.value
+                    secondary.batterySystemVoltageUpdatedAt = sampledAt
+                    freshPIDs.insert(voltage.pid)
+                }
             } catch {
                 failedPIDs.insert(.batteryStateOfChargeDirect)
                 failedPIDs.insert(.batteryStateOfChargeMirror)
@@ -344,6 +362,48 @@ actor DPFMonitor {
         }
     }
 
+    private func readBatteryTelemetry() async throws -> BatteryTelemetryReading {
+        let (source, stateOfCharge) = try await readBatteryStateOfCharge()
+        let voltage: BatteryVoltageReading?
+
+        if source == .ibsDirect,
+           let embedded = try? BatteryTelemetryPolicy.directEmbeddedVoltage(
+               bytes: stateOfCharge.bytes
+           ) {
+            voltage = .init(pid: .batteryStateOfChargeDirect, value: embedded)
+        } else if let fallback = try? await readBatteryVoltage(
+            pid: source.voltagePID,
+            header: stateOfCharge.header
+        ) {
+            voltage = .init(pid: source.voltagePID, value: fallback.value)
+        } else {
+            voltage = nil
+        }
+
+        return .init(
+            source: source,
+            stateOfCharge: stateOfCharge,
+            voltage: voltage
+        )
+    }
+
+    private func readBatteryVoltage(
+        pid: DPFPID,
+        header: String
+    ) async throws -> PIDReading {
+        if let retryAt = pidRetryAfter[pid], retryAt > Date() {
+            throw OBDError.protocolError("\(pid.command) temporarily unavailable")
+        }
+        do {
+            let reading = try await read(pid, header: header)
+            pidRetryAfter[pid] = nil
+            return reading
+        } catch {
+            pidRetryAfter[pid] = Date().addingTimeInterval(30)
+            throw error
+        }
+    }
+
     /// Reads the IBS ECU directly first, then falls back to the engine ECU's
     /// mirror. Once validated, the working route is remembered per adapter.
     private func readBatteryStateOfCharge() async throws
@@ -382,7 +442,15 @@ actor DPFMonitor {
             throw OBDError.protocolError("\(pid.command) temporarily unavailable")
         }
         do {
-            let reading = try await read(pid, header: source.requestHeader)
+            let reading: PIDReading
+            switch source {
+            case .ibsDirect:
+                reading = try await read(pid, header: source.requestHeader)
+            case .engineECUMirror:
+                // The engine mirror can move between FCA ECU addresses; use
+                // the same per-PID discovery/cache path as the DPF signals.
+                reading = try await read(pid)
+            }
             pidRetryAfter[pid] = nil
             return reading
         } catch {
@@ -462,6 +530,8 @@ actor DPFMonitor {
             || pid == .postDPFTempC
             || pid == .batteryStateOfChargeDirect
             || pid == .batteryStateOfChargeMirror
+            || pid == .batteryVoltageDirect
+            || pid == .batteryVoltageMirror
             || pid == .coolantTemperatureC {
             OBDLog.log(
                 String(

@@ -84,6 +84,7 @@ final class MonitorSession {
     private var lastAcceptedPollSequence: UInt64 = 0
     private var reportedTelemetryInterruption = false
     private var lastLiveRegenState: Bool?
+    private var historyStartGate = RegenHistoryStartGate()
     private var engineOffDetector = RegenEngineOffDetector()
     private var regenTimeEstimator = RegenTimeEstimator()
     private var carPlayRefreshSubscribers: [
@@ -289,6 +290,7 @@ final class MonitorSession {
         lastRecordedCloggingPercent = nil
         reportedTelemetryInterruption = false
         lastLiveRegenState = nil
+        historyStartGate.reset()
         engineOffDetector.reset()
         regenTimeEstimator.reset()
         estimatedRegenerationTimeRemaining = nil
@@ -691,10 +693,18 @@ final class MonitorSession {
            historyStore?.recordActiveRegenUnconfirmed() == true {
             OBDLog.log("history: unresolved regen from previous app lifecycle marked unconfirmed")
         }
-        if historyTransition.didStart,
-           let load = snapshot.cloggingPercent {
-            _ = historyStore?.recordRegenStart(at: snapshot.timestamp, load: load)
-        } else if historyTransition.didFinish {
+        let historyStartRecord = historyStartGate.observe(
+            transition: historyTransition,
+            at: snapshot.timestamp,
+            load: snapshot.cloggingPercent
+        )
+        if let historyStartRecord {
+            _ = historyStore?.recordRegenStart(
+                at: historyStartRecord.startedAt,
+                load: historyStartRecord.startingLoad
+            )
+        }
+        if historyTransition.didFinish {
             _ = historyStore?.recordRegenFinish(
                 at: snapshot.timestamp,
                 endingLoad: snapshot.cloggingPercent

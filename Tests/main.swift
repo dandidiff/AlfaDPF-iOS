@@ -191,9 +191,13 @@ expect(SessionStatus.running.carPlayConnectionAction == .disconnect,
        "carplay: running state offers disconnect")
 expect(CarPlayRefreshPolicy.interval >= .seconds(10),
        "carplay: periodic dashboard refresh respects Apple's 10-second minimum")
-expect(CarPlayRefreshPolicy.minimumRenderInterval >= 2
-       && CarPlayRefreshPolicy.minimumRenderInterval < 10,
-       "carplay: change-driven refresh is responsive without becoming an unbounded real-time loop")
+expect(CarPlayRefreshTrigger.telemetry.minimumInterval >= 10
+       && CarPlayRefreshTrigger.periodic.minimumInterval >= 10,
+       "carplay: periodic and telemetry refreshes respect Apple's 10-second limit")
+expect(CarPlayRefreshTrigger.regenerationEdge.minimumInterval <= 2
+       && CarPlayRefreshTrigger.liveness.minimumInterval <= 2
+       && CarPlayRefreshTrigger.deferredEvent.minimumInterval == 0,
+       "carplay: discrete safety/liveness edges stay responsive without double-throttling deferred work")
 
 let carPlayRefreshStart = Date(timeIntervalSince1970: 3_000)
 var carPlayRefreshGate = CarPlayRefreshGate<String>()
@@ -206,13 +210,13 @@ expect(carPlayRefreshGate.evaluate(
 expect(carPlayRefreshGate.evaluate(
     signature: "idle",
     at: carPlayRefreshStart.addingTimeInterval(0.5),
-    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
 ) == .skipDuplicate,
        "carplay refresh: unchanged presentation is deduplicated")
 let throttledRefresh = carPlayRefreshGate.evaluate(
     signature: "regen-started",
     at: carPlayRefreshStart.addingTimeInterval(1),
-    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
+    minimumInterval: CarPlayRefreshTrigger.regenerationEdge.minimumInterval
 )
 if case .deferFor(let delay) = throttledRefresh {
     expect(abs(delay - 1) < 0.001,
@@ -223,7 +227,7 @@ if case .deferFor(let delay) = throttledRefresh {
 let allowedRefresh = carPlayRefreshGate.evaluate(
     signature: "regen-started",
     at: carPlayRefreshStart.addingTimeInterval(2),
-    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
+    minimumInterval: CarPlayRefreshTrigger.regenerationEdge.minimumInterval
 )
 if case .render(let effectiveInterval) = allowedRefresh {
     expect(effectiveInterval.map { abs($0 - 2) < 0.001 } == true,
@@ -253,7 +257,7 @@ expect(periodicCollisionGate.evaluate(
     signature: "changed-before-periodic-tick",
     at: carPlayRefreshStart.addingTimeInterval(10),
     minimumInterval: CarPlayRefreshTrigger.periodic.minimumInterval
-) == .deferFor(1.5),
+) == .deferFor(9.5),
        "carplay refresh: periodic tick cannot bypass the global render throttle")
 
 var carPlayRefreshMetrics = CarPlayRefreshMetrics()
@@ -304,21 +308,21 @@ _ = latestValueGate.evaluate(
 expect(latestValueGate.evaluate(
     signature: "sample-b",
     at: carPlayRefreshStart.addingTimeInterval(0.5),
-    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
-) == .deferFor(1.5),
-       "carplay refresh QA: first burst change waits for the remaining budget")
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
+) == .deferFor(9.5),
+       "carplay refresh QA: first burst change waits for the remaining ten-second budget")
 expect(latestValueGate.evaluate(
     signature: "sample-c",
     at: carPlayRefreshStart.addingTimeInterval(1),
-    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
-) == .deferFor(1),
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
+) == .deferFor(9),
        "carplay refresh QA: a newer deferred value replaces stale work")
 expect(latestValueGate.evaluate(
     signature: "sample-c",
-    at: carPlayRefreshStart.addingTimeInterval(2),
-    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
-) == .render(effectiveInterval: 2),
-       "carplay refresh QA: newest burst value renders at the two-second boundary")
+    at: carPlayRefreshStart.addingTimeInterval(10),
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
+) == .render(effectiveInterval: 10),
+       "carplay refresh QA: newest burst value renders at the ten-second boundary")
 
 var failureGate = CarPlayRefreshGate<String>()
 _ = failureGate.evaluate(
@@ -348,14 +352,14 @@ _ = resumedGate.evaluate(
 expect(resumedGate.evaluate(
     signature: "latest-after-resume",
     at: carPlayRefreshStart.addingTimeInterval(60),
-    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
 ) == .render(effectiveInterval: 60),
        "carplay refresh QA: latest state renders immediately after a long suspension")
 resumedGate.reset()
 expect(resumedGate.evaluate(
     signature: "reconnected",
     at: carPlayRefreshStart.addingTimeInterval(61),
-    minimumInterval: CarPlayRefreshPolicy.minimumRenderInterval
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
 ) == .render(effectiveInterval: nil),
        "carplay refresh QA: scene reconnect resets stale timing and content state")
 
@@ -896,6 +900,18 @@ do {
     expect(abs(direct - 82.0) < 0.01, "ibs: direct 221005 uses payload byte B → 82%")
     let mirror = try DPFPID.batteryStateOfChargeMirror.decode(bytes: [0x4B])
     expect(abs(mirror - 75.0) < 0.01, "ibs: mirror 2219BD uses payload byte A → 75%")
+    let directVoltage = try DPFPID.batteryVoltageDirect.decode(bytes: [0x80])
+    let mirrorVoltage = try DPFPID.batteryVoltageMirror.decode(bytes: [0x64, 0x00])
+    expect(abs(directVoltage - 12.8) < 0.001,
+           "ibs voltage: direct 221004 uses byte A ÷ 10")
+    expect(abs(mirrorVoltage - 12.8) < 0.001,
+           "ibs voltage: engine mirror 221955 uses raw × 0.0005")
+    var directIBSPayload = Array(repeating: UInt8(0), count: 13)
+    directIBSPayload[1] = 82
+    directIBSPayload[9] = 0x28
+    directIBSPayload[10] = 0x00
+    expect(abs(try BatteryTelemetryPolicy.directEmbeddedVoltage(bytes: directIBSPayload) - 12.8) < 0.001,
+           "ibs voltage: 221005 bytes J/K expose the battery voltage used by other diagnostic apps")
     expect(try DPFPID.batteryStateOfChargeDirect.decode(bytes: [0x00, 0x00]) == 0,
            "ibs: 0% is a valid boundary")
     expect(try DPFPID.batteryStateOfChargeMirror.decode(bytes: [0x64]) == 100,
@@ -918,7 +934,10 @@ do {
     ), "ibs: raw ECU frames propagate through Mode 22 parsing and PID decoding")
     expect(BatteryStateOfChargeSource.ibsDirect.pid == .batteryStateOfChargeDirect
            && BatteryStateOfChargeSource.engineECUMirror.pid == .batteryStateOfChargeMirror,
-           "ibs: source maps to the right PID")
+           "ibs: source maps to the right SOC PID")
+    expect(BatteryStateOfChargeSource.ibsDirect.voltagePID == .batteryVoltageDirect
+           && BatteryStateOfChargeSource.engineECUMirror.voltagePID == .batteryVoltageMirror,
+           "ibs: source maps to the right battery-voltage fallback PID")
     expect(BatteryStateOfChargeSource.ibsDirect.requestHeader == "18DA40F1"
            && BatteryStateOfChargeSource.engineECUMirror.requestHeader == "18DA10F1",
            "ibs: direct routes to 18DA40F1, mirror to 18DA10F1")
@@ -929,6 +948,12 @@ do {
 
 expectThrows("ibs: direct requires at least two payload bytes") {
     _ = try DPFPID.batteryStateOfChargeDirect.decode(bytes: [0x52])
+}
+expectThrows("ibs voltage: embedded 221005 voltage requires bytes J/K") {
+    _ = try BatteryTelemetryPolicy.directEmbeddedVoltage(bytes: [0x00, 0x52])
+}
+expectThrows("ibs voltage: implausible direct battery voltage is rejected") {
+    _ = try DPFPID.batteryVoltageDirect.decode(bytes: [0xFF])
 }
 expectThrows("ibs: mirror requires at least one payload byte") {
     _ = try DPFPID.batteryStateOfChargeMirror.decode(bytes: [])
@@ -961,24 +986,33 @@ var ibsFresh = DPFState(timestamp: ibsAt)
 ibsFresh.batteryStateOfChargePercent = 82
 ibsFresh.batteryStateOfChargeSource = .ibsDirect
 ibsFresh.batteryStateOfChargeUpdatedAt = ibsAt
+ibsFresh.batterySystemVoltage = 12.8
+ibsFresh.batterySystemVoltageUpdatedAt = ibsAt
 let ibsStaleAt = ibsAt.addingTimeInterval(45)
 var ibsStale = ibsFresh
 ibsStale.timestamp = ibsStaleAt
 ibsStale.batteryStateOfChargeUpdatedAt = ibsStaleAt
+ibsStale.batterySystemVoltageUpdatedAt = ibsStaleAt
 expect(ibsFresh.freshBatteryStateOfChargePercent(at: ibsAt.addingTimeInterval(10)) == 82,
-       "ibs freshness: a recent sample is live")
+       "ibs freshness: a recent SOC sample is live")
+expect(ibsFresh.freshBatterySystemVoltage(at: ibsAt.addingTimeInterval(10)) == 12.8,
+       "ibs freshness: a recent battery-ECU voltage sample is live")
 expect(ibsStale.freshBatteryStateOfChargePercent(at: ibsStaleAt.addingTimeInterval(40)) == nil,
-       "ibs freshness: a sample older than the 30-second window is not live")
+       "ibs freshness: a SOC sample older than the 30-second window is not live")
+expect(ibsStale.freshBatterySystemVoltage(at: ibsStaleAt.addingTimeInterval(40)) == nil,
+       "ibs freshness: a battery voltage older than the 30-second window is not live")
 expect(DPFState().freshBatteryStateOfChargePercent() == nil,
        "ibs freshness: absent sample stays unavailable")
 var ibsBase = DPFState(timestamp: ibsAt)
-ibsBase.batteryVoltage = 14.1
+ibsBase.batteryVoltage = 14.1 // ATRV: internal only, never shown in the card.
 let ibsMerged = ibsBase.mergingFreshTelemetry(from: ibsFresh)
 expect(ibsMerged.batteryStateOfChargePercent == 82
        && ibsMerged.batteryStateOfChargeSource == .ibsDirect
        && ibsMerged.batteryStateOfChargeUpdatedAt == ibsAt
+       && ibsMerged.batterySystemVoltage == 12.8
+       && ibsMerged.batterySystemVoltageUpdatedAt == ibsAt
        && ibsMerged.batteryVoltage == 14.1,
-       "ibs merge: value, source and timestamp propagate while voltage survives")
+       "ibs merge: SOC and battery voltage propagate independently from ATRV")
 let ibsEmpty = DPFState(timestamp: ibsAt.addingTimeInterval(1))
 let ibsNoRefresh = ibsMerged.mergingFreshTelemetry(from: ibsEmpty)
 expect(ibsNoRefresh.batteryStateOfChargePercent == 82,
@@ -992,7 +1026,7 @@ let liveBatteryPresentation = BatteryMetricPresentation.resolve(
 )
 expect(liveBatteryPresentation == .init(
     headline: .stateOfChargePercent(82),
-    voltageDetail: 14.1
+    voltageDetail: 12.8
 ), "ibs presentation: live iPhone/CarPlay headline receives SOC with voltage detail")
 for boundary in [0.0, 100.0] {
     var boundaryState = ibsMerged
@@ -1008,35 +1042,35 @@ expect(BatteryMetricPresentation.resolve(
     state: ibsMerged,
     isLive: false,
     at: ibsAt.addingTimeInterval(10)
-) == .init(headline: .voltage(14.1), voltageDetail: nil),
-       "ibs presentation: cached telemetry hides SOC and falls back to voltage")
+) == .init(headline: .voltage(12.8), voltageDetail: nil),
+       "ibs presentation: cached telemetry hides SOC and shows the saved IBS voltage")
 expect(BatteryMetricPresentation.resolve(
     state: ibsMerged,
     isLive: true,
     at: ibsAt.addingTimeInterval(31)
-) == .init(headline: .voltage(14.1), voltageDetail: nil),
-       "ibs presentation: stale SOC falls back to voltage")
+) == .init(headline: .unavailable, voltageDetail: nil),
+       "ibs presentation: stale live IBS data never falls back to ATRV")
 var ibsInvalidPresentation = ibsMerged
 ibsInvalidPresentation.batteryStateOfChargePercent = .nan
 expect(BatteryMetricPresentation.resolve(
     state: ibsInvalidPresentation,
     isLive: true,
     at: ibsAt.addingTimeInterval(10)
-) == .init(headline: .voltage(14.1), voltageDetail: nil),
+) == .init(headline: .voltage(12.8), voltageDetail: nil),
        "ibs presentation: non-finite SOC cannot reach the UI")
 ibsInvalidPresentation.batteryStateOfChargePercent = -0.1
 expect(BatteryMetricPresentation.resolve(
     state: ibsInvalidPresentation,
     isLive: true,
     at: ibsAt.addingTimeInterval(10)
-) == .init(headline: .voltage(14.1), voltageDetail: nil),
+) == .init(headline: .voltage(12.8), voltageDetail: nil),
        "ibs presentation: negative SOC cannot reach the UI")
 ibsInvalidPresentation.batteryStateOfChargePercent = 100.1
 expect(BatteryMetricPresentation.resolve(
     state: ibsInvalidPresentation,
     isLive: true,
     at: ibsAt.addingTimeInterval(10)
-) == .init(headline: .voltage(14.1), voltageDetail: nil),
+) == .init(headline: .voltage(12.8), voltageDetail: nil),
        "ibs presentation: SOC above 100 cannot reach the UI")
 expect(BatteryMetricPresentation.resolve(
     state: DPFState(timestamp: ibsAt),
@@ -1044,6 +1078,14 @@ expect(BatteryMetricPresentation.resolve(
     at: ibsAt
 ) == .init(headline: .unavailable, voltageDetail: nil),
        "ibs presentation: absent or unsupported telemetry stays unavailable")
+var adapterOnlyBatteryState = DPFState(timestamp: ibsAt)
+adapterOnlyBatteryState.batteryVoltage = 14.4
+expect(BatteryMetricPresentation.resolve(
+    state: adapterOnlyBatteryState,
+    isLive: true,
+    at: ibsAt
+) == .init(headline: .unavailable, voltageDetail: nil),
+       "ibs presentation: ATRV is internal evidence and never appears as battery voltage")
 
 // Old persisted snapshots without the new fields must still decode.
 let legacySuiteName = "AlfaDPF.Tests.Legacy.\(UUID().uuidString)"
@@ -1114,15 +1156,19 @@ do {
     let appSource = try String(contentsOfFile: "Sources/AlfaDPFApp.swift", encoding: .utf8)
     let criticalPublish = monitorSource.range(of: "snapshot = DPFMonitorSnapshot(")
     let coolantRead = monitorSource.range(of: "read(.coolantTemperatureC)")
+    let slots = (0..<12).map { DPFSecondaryPollSlot.resolve(sequence: UInt64($0)) }
     expect(
-        monitorSource.contains("case 4:")
-            && monitorSource.contains("switch cadenceSequence % 5")
+        slots.filter { $0 == .coolantTemperature }.count == 2
+            && slots.filter { $0 == .batteryIBS }.count == 2
+            && slots[5] == .batteryIBS
+            && monitorSource.contains("switch DPFSecondaryPollSlot.resolve(sequence: cadenceSequence)")
+            && monitorSource.contains("readBatteryTelemetry()")
             && monitorSource.contains("read(.coolantTemperatureC)")
             && !monitorSource.contains("\"0105\"")
             && criticalPublish.map { published in
                 coolantRead.map { published.lowerBound < $0.lowerBound } ?? false
             } == true,
-        "coolant live path: every-fifth secondary slot follows critical publication and never sends 0105"
+        "secondary cadence: coolant and IBS each occupy one reachable six-slot branch after critical publication"
     )
     expect(
         appSource.contains("title: \"LIQUIDO MOTORE\"")
@@ -1417,9 +1463,12 @@ expect(
     "regen finish gate: start notifications remain immediate"
 )
 expect(
-    delayedFinishGate.observe(delayedFinishEvent) == nil
+    delayedFinishGate.observe(
+        delayedFinishEvent,
+        distanceBeforeFinishRaw: 2_300
+    ) == nil
         && delayedFinishGate.isWaitingForDistanceReset,
-    "regen finish gate: falling load stages finish without notifying"
+    "regen finish gate: falling load stages finish with the pre-reset distance"
 )
 expect(
     delayedFinishGate.confirm(freshDistanceRaw: 27) == nil
@@ -1436,14 +1485,14 @@ expect(
     "regen finish gate: invalid UInt24 distance cannot release finish"
 )
 expect(
-    delayedFinishGate.confirm(freshDistanceRaw: 0) == delayedFinishEvent
+    delayedFinishGate.confirm(freshDistanceRaw: 1) == delayedFinishEvent
         && !delayedFinishGate.isWaitingForDistanceReset,
-    "regen finish gate: first fresh zero releases the staged finish"
+    "regen finish gate: first plausible post-reset sample releases even when zero was skipped"
 )
 expect(
     delayedFinishGate.confirm(freshDistanceRaw: 0) == nil
-        && delayedFinishGate.confirm(freshDistanceRaw: 0) == nil,
-    "regen finish gate: later zero updates never duplicate the notification"
+        && delayedFinishGate.confirm(freshDistanceRaw: 1) == nil,
+    "regen finish gate: later reset-range updates never duplicate the notification"
 )
 
 var reorderedFinishGate = RegenFinishNotificationGate()
@@ -1452,10 +1501,13 @@ expect(
     "regen finish gate: zero received before the finish edge is ignored"
 )
 expect(
-    reorderedFinishGate.observe(delayedFinishEvent) == nil
+    reorderedFinishGate.observe(
+        delayedFinishEvent,
+        distanceBeforeFinishRaw: 8
+    ) == nil
         && reorderedFinishGate.confirm(freshDistanceRaw: 8) == nil
         && reorderedFinishGate.isWaitingForDistanceReset,
-    "regen finish gate: reordered updates cannot notify prematurely"
+    "regen finish gate: a small value that did not decrease cannot notify prematurely"
 )
 expect(
     reorderedFinishGate.confirm(freshDistanceRaw: 0) == delayedFinishEvent

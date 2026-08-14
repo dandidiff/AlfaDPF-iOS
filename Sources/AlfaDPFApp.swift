@@ -1199,14 +1199,13 @@ private struct DPFDetailGrid: View {
     }
 
     private var batteryVoltageAccent: Color {
-        let voltage = dpf.batteryVoltage
         guard !isCached else { return .gray }
-        if let voltage {
-            if voltage < 11.8 { return Brand.redBright }
-            if voltage < 12.2 { return .orange }
+        if let percent = dpf.freshBatteryStateOfChargePercent() {
+            if percent < 20 { return Brand.redBright }
+            if percent < 50 { return .orange }
             return .green
         }
-        return dpf.freshBatteryStateOfChargePercent() != nil ? .green : .gray
+        return dpf.freshBatterySystemVoltage() != nil ? .green : .gray
     }
 
     private var oilPressureAccent: Color {

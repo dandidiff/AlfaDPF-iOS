@@ -494,7 +494,7 @@ final class CarPlaySceneDelegate: UIResponder,
             compactFormatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%"),
             compactFormatted(dpf.totalRegenCount, fractionDigits: 0),
             dpf.oilPressureStatusText ?? "—",
-            compactFormatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V"),
+            batteryTileValue(for: dpf),
         ]
         let iconTones = CarPlayDashboardMetric.allCases.map {
             CarPlayDashboardIconPolicy.tone(for: $0, state: dpf, isLive: isLive)
@@ -945,7 +945,9 @@ final class CarPlaySceneDelegate: UIResponder,
         let button = CPBarButton(
             image: CarPlayDashboardArtwork.barImage(
                 symbolName: symbol,
-                color: carPlayAccent,
+                color: session.carPlayAlertsEnabled
+                    ? carPlayAccent
+                    : CarPlayDashboardArtwork.neutral,
                 displayScale: carDisplayScale
             )
         ) { [weak self] _ in
@@ -977,6 +979,10 @@ final class CarPlaySceneDelegate: UIResponder,
             guard let self else { return }
             await session.toggleCarPlayAlerts()
             refreshDashboard()
+            let message = session.carPlayAlertsEnabled
+                ? AppLocalization.string("Avvisi CarPlay attivi. Gli avvisi di rigenerazione possono apparire anche sul display dell’auto.")
+                : AppLocalization.string("Avvisi CarPlay disattivati. Gli avvisi di rigenerazione restano attivi su iPhone.")
+            presentInformationalAlert([message])
         }
     }
 

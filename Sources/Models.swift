@@ -240,10 +240,14 @@ enum CarPlayConnectionAction: Equatable, Sendable {
 /// than once every ten seconds. Keep the deadline unchanged and allow only
 /// bounded, change-driven updates between periodic checks.
 enum CarPlayRefreshPolicy {
+    /// Apple’s current CarPlay Developer Guide limits periodic Driving Task
+    /// data-item refreshes to no more than once every ten seconds.
     static let interval: Duration = .seconds(10)
-    /// Fresh ECU snapshots normally arrive every two seconds. Matching that
-    /// cadence bounds perceived latency without introducing a faster UI timer.
-    static let minimumRenderInterval: TimeInterval = 2
+    static let periodicDataMinimumInterval: TimeInterval = 10
+    /// True state transitions are not periodic engine-data refreshes. Keep a
+    /// small global guard so duplicate edge/liveness callbacks cannot thrash
+    /// the template while still reaching the driver promptly.
+    static let eventMinimumRenderInterval: TimeInterval = 2
     static let metricsLogInterval: TimeInterval = 30
 }
 
@@ -280,10 +284,12 @@ enum CarPlayRefreshTrigger: String, Sendable {
 
     var minimumInterval: TimeInterval {
         switch self {
-        case .interaction:
+        case .interaction, .deferredEvent:
             return 0
-        case .periodic, .telemetry, .regenerationEdge, .liveness, .deferredEvent:
-            return CarPlayRefreshPolicy.minimumRenderInterval
+        case .periodic, .telemetry:
+            return CarPlayRefreshPolicy.periodicDataMinimumInterval
+        case .regenerationEdge, .liveness:
+            return CarPlayRefreshPolicy.eventMinimumRenderInterval
         }
     }
 }
@@ -787,6 +793,21 @@ enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
     }
 }
 
+/// Deterministic six-slot wheel for non-critical ECU reads. Keeping this pure
+/// makes it impossible to hide a telemetry branch in an unreachable `default`.
+enum DPFSecondaryPollSlot: Int, CaseIterable, Equatable, Sendable {
+    case distanceSinceRegeneration
+    case totalRegenerations
+    case oilPressure
+    case adapterVoltage
+    case coolantTemperature
+    case batteryIBS
+
+    static func resolve(sequence: UInt64) -> Self {
+        allCases[Int(sequence % UInt64(allCases.count))]
+    }
+}
+
 /// FCA source that supplied the IBS state of charge. The direct IBS ECU is
 /// preferred; the engine-ECU mirror exists as a compatibility fallback.
 enum BatteryStateOfChargeSource: String, Codable, Equatable, Sendable {
@@ -806,6 +827,35 @@ enum BatteryStateOfChargeSource: String, Codable, Equatable, Sendable {
         case .engineECUMirror: return "18DA10F1"
         }
     }
+
+    var voltagePID: DPFPID {
+        switch self {
+        case .ibsDirect: return .batteryVoltageDirect
+        case .engineECUMirror: return .batteryVoltageMirror
+        }
+    }
+}
+
+/// Published FCA/Giulia/Stelvio formulas used by compatible diagnostic apps:
+/// direct IBS `221005` carries SOC in byte B and voltage in bytes J/K ÷ 800;
+/// `221004` and engine-ECU `221955` are voltage fallbacks.
+enum BatteryTelemetryPolicy {
+    static let validVoltageRange = 6.0...18.0
+
+    static func validatedVoltage(_ value: Double) throws -> Double {
+        guard value.isFinite, validVoltageRange.contains(value) else {
+            throw OBDError.protocolError("invalid IBS battery voltage")
+        }
+        return value
+    }
+
+    static func directEmbeddedVoltage(bytes: [UInt8]) throws -> Double {
+        guard bytes.count >= 11 else {
+            throw OBDError.protocolError("IBS 221005 needs bytes J/K for voltage")
+        }
+        let raw = UInt16(bytes[9]) << 8 | UInt16(bytes[10])
+        return try validatedVoltage(Double(raw) / 800.0)
+    }
 }
 
 /// Live DPF state derived from the ECU. All fields optional — not every ECU
@@ -818,6 +868,9 @@ struct DPFState: Codable, Equatable, Sendable {
     var exhaustTempC: Double?
     var coolantTemperatureC: Double?
     var distanceSinceLastRegenKm: Double?
+    /// Raw UInt24 counter retained so a post-finish reset can be detected even
+    /// when the exact zero sample is skipped.
+    var distanceSinceLastRegenRaw: UInt32?
     var regenProgressPercent: Double?     // 0 when idle, >0 while a regen is running
     var totalRegenCount: Double?
     var regenActive: Bool?                // derived: progress > hysteresis
@@ -827,9 +880,12 @@ struct DPFState: Codable, Equatable, Sendable {
     var regenerationMode: DPFRegenerationMode?
     /// EDC17C69 exposes a pressure state, not a trustworthy pressure in bar.
     var oilPressureStatusRaw: UInt8?
-    /// Supply voltage reported by the ELM327 (`ATRV`). This is the adapter's
-    /// measured vehicle voltage, not an Alfa-specific ECU PID.
+    /// Supply voltage reported by the ELM327 (`ATRV`). Kept only as an
+    /// independent engine-off signal; it is never presented as battery data.
     var batteryVoltage: Double?
+    /// Battery voltage reported by the FCA IBS/battery ECU.
+    var batterySystemVoltage: Double?
+    var batterySystemVoltageUpdatedAt: Date?
     /// Battery state of charge reported by the IBS, in the inclusive 0...100
     /// percent range. Unsupported, malformed and out-of-range replies stay nil.
     var batteryStateOfChargePercent: Double?
@@ -858,6 +914,7 @@ extension DPFState {
             || regenerationMode != nil
             || oilPressureStatusRaw != nil
             || batteryVoltage != nil
+            || batterySystemVoltage != nil
             || batteryStateOfChargePercent != nil
     }
 
@@ -914,6 +971,20 @@ extension DPFState {
         return value
     }
 
+    func freshBatterySystemVoltage(
+        at now: Date = .init(),
+        maximumAge: TimeInterval = 30
+    ) -> Double? {
+        guard let value = batterySystemVoltage,
+              let updatedAt = batterySystemVoltageUpdatedAt,
+              now.timeIntervalSince(updatedAt) <= maximumAge,
+              updatedAt.timeIntervalSince(now) <= 1,
+              value.isFinite,
+              BatteryTelemetryPolicy.validVoltageRange.contains(value)
+        else { return nil }
+        return value
+    }
+
     /// Applies only values that were actually read in the new sample.
     /// `nil` means “not refreshed”, never “replace the last valid value”.
     func mergingFreshTelemetry(from fresh: DPFState) -> DPFState {
@@ -923,6 +994,8 @@ extension DPFState {
         merged.coolantTemperatureC = fresh.coolantTemperatureC ?? coolantTemperatureC
         merged.distanceSinceLastRegenKm =
             fresh.distanceSinceLastRegenKm ?? distanceSinceLastRegenKm
+        merged.distanceSinceLastRegenRaw =
+            fresh.distanceSinceLastRegenRaw ?? distanceSinceLastRegenRaw
         merged.regenProgressPercent =
             fresh.regenProgressPercent ?? regenProgressPercent
         merged.totalRegenCount = fresh.totalRegenCount ?? totalRegenCount
@@ -932,6 +1005,10 @@ extension DPFState {
         merged.oilPressureStatusRaw =
             fresh.oilPressureStatusRaw ?? oilPressureStatusRaw
         merged.batteryVoltage = fresh.batteryVoltage ?? batteryVoltage
+        if fresh.batterySystemVoltage != nil {
+            merged.batterySystemVoltage = fresh.batterySystemVoltage
+            merged.batterySystemVoltageUpdatedAt = fresh.batterySystemVoltageUpdatedAt
+        }
         if fresh.batteryStateOfChargePercent != nil {
             merged.batteryStateOfChargePercent = fresh.batteryStateOfChargePercent
             merged.batteryStateOfChargeSource = fresh.batteryStateOfChargeSource
@@ -956,9 +1033,8 @@ extension DPFState {
 }
 
 /// Pure presentation policy shared by the iPhone and CarPlay battery tiles.
-/// A valid, fresh IBS reading wins only while telemetry is live; otherwise the
-/// adapter voltage remains the truthful fallback instead of exposing stale or
-/// malformed state of charge as a percentage.
+/// The card displays only battery-ECU/IBS data. `ATRV` remains an internal
+/// adapter signal for engine-off detection and never appears as battery data.
 enum BatteryMetricHeadline: Equatable, Sendable {
     case stateOfChargePercent(Double)
     case voltage(Double)
@@ -974,13 +1050,14 @@ struct BatteryMetricPresentation: Equatable, Sendable {
         isLive: Bool,
         at now: Date = .init()
     ) -> BatteryMetricPresentation {
+        let liveVoltage = isLive ? state.freshBatterySystemVoltage(at: now) : nil
         if isLive, let percent = state.freshBatteryStateOfChargePercent(at: now) {
             return .init(
                 headline: .stateOfChargePercent(percent),
-                voltageDetail: state.batteryVoltage
+                voltageDetail: liveVoltage
             )
         }
-        if let voltage = state.batteryVoltage {
+        if let voltage = liveVoltage ?? (!isLive ? state.batterySystemVoltage : nil) {
             return .init(headline: .voltage(voltage), voltageDetail: nil)
         }
         return .init(headline: .unavailable, voltageDetail: nil)
@@ -1127,6 +1204,8 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 12.6,
+                batterySystemVoltage: 12.7,
+                batterySystemVoltageUpdatedAt: timestamp,
                 batteryStateOfChargePercent: 82,
                 batteryStateOfChargeSource: .ibsDirect,
                 batteryStateOfChargeUpdatedAt: timestamp,
@@ -1144,6 +1223,8 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.2,
+                batterySystemVoltage: 14.1,
+                batterySystemVoltageUpdatedAt: timestamp,
                 batteryStateOfChargePercent: 74,
                 batteryStateOfChargeSource: .ibsDirect,
                 batteryStateOfChargeUpdatedAt: timestamp,
@@ -1161,6 +1242,8 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: .active,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.1,
+                batterySystemVoltage: 14.0,
+                batterySystemVoltageUpdatedAt: timestamp,
                 batteryStateOfChargePercent: 71,
                 batteryStateOfChargeSource: .ibsDirect,
                 batteryStateOfChargeUpdatedAt: timestamp,
@@ -1178,6 +1261,8 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: .active,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.0,
+                batterySystemVoltage: 13.9,
+                batterySystemVoltageUpdatedAt: timestamp,
                 batteryStateOfChargePercent: 70,
                 batteryStateOfChargeSource: .ibsDirect,
                 batteryStateOfChargeUpdatedAt: timestamp,
@@ -1195,6 +1280,8 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 13.9,
+                batterySystemVoltage: 13.8,
+                batterySystemVoltageUpdatedAt: timestamp,
                 batteryStateOfChargePercent: 69,
                 batteryStateOfChargeSource: .ibsDirect,
                 batteryStateOfChargeUpdatedAt: timestamp,
@@ -1212,37 +1299,57 @@ enum RegenEvent: Equatable {
 }
 
 /// Delays a regeneration-finished notification until a fresh ECU distance
-/// sample confirms that the distance-since-regeneration counter reset to zero.
+/// sample proves that the distance-since-regeneration counter reset. The first
+/// post-reset sample may already be above zero, so a small plausible value is
+/// accepted only when it is lower than the pre-finish baseline.
 struct RegenFinishNotificationGate: Equatable, Sendable {
+    private static let maximumPostResetRaw: UInt32 = 10 // 1.0 km
     private var pendingFinish: RegenEvent?
+    private var distanceBeforeFinishRaw: UInt32?
 
     var isWaitingForDistanceReset: Bool {
         pendingFinish != nil
     }
 
-    mutating func observe(_ event: RegenEvent) -> RegenEvent? {
+    mutating func observe(
+        _ event: RegenEvent,
+        distanceBeforeFinishRaw: UInt32? = nil
+    ) -> RegenEvent? {
         switch event {
         case .started:
             pendingFinish = nil
+            self.distanceBeforeFinishRaw = nil
             return event
         case .finished:
             pendingFinish = event
+            self.distanceBeforeFinishRaw = distanceBeforeFinishRaw
             return nil
         }
     }
 
     mutating func confirm(freshDistanceRaw: UInt32) -> RegenEvent? {
         guard freshDistanceRaw <= 0xFF_FF_FF,
-              freshDistanceRaw == 0,
               let pendingFinish
         else { return nil }
 
+        let isExactReset = freshDistanceRaw == 0
+        let isMissedZeroAfterReset: Bool
+        if let distanceBeforeFinishRaw {
+            isMissedZeroAfterReset = freshDistanceRaw <= Self.maximumPostResetRaw
+                && freshDistanceRaw < distanceBeforeFinishRaw
+        } else {
+            isMissedZeroAfterReset = freshDistanceRaw <= Self.maximumPostResetRaw
+        }
+        guard isExactReset || isMissedZeroAfterReset else { return nil }
+
         self.pendingFinish = nil
+        distanceBeforeFinishRaw = nil
         return pendingFinish
     }
 
     mutating func reset() {
         pendingFinish = nil
+        distanceBeforeFinishRaw = nil
     }
 }
 
@@ -1373,6 +1480,42 @@ struct RegenHistoryTransition: Equatable, Sendable {
             didFinish: !observed && previous == true,
             confirmedInitialInactivity: !observed && previous == nil
         )
+    }
+}
+
+struct RegenHistoryStartRecord: Equatable, Sendable {
+    let startedAt: Date
+    let startingLoad: Double
+}
+
+/// Holds a start edge until a valid load sample arrives. Without this gate a
+/// one-poll timeout of the load PID consumes `didStart` and loses the entire
+/// regeneration cycle from history.
+struct RegenHistoryStartGate: Equatable, Sendable {
+    private var pendingStartedAt: Date?
+
+    mutating func observe(
+        transition: RegenHistoryTransition,
+        at timestamp: Date,
+        load: Double?
+    ) -> RegenHistoryStartRecord? {
+        if transition.didStart {
+            pendingStartedAt = timestamp
+        }
+        if transition.didFinish || transition.nextKnownState != true {
+            pendingStartedAt = nil
+            return nil
+        }
+        guard let startedAt = pendingStartedAt,
+              let load,
+              load.isFinite
+        else { return nil }
+        pendingStartedAt = nil
+        return .init(startedAt: startedAt, startingLoad: load)
+    }
+
+    mutating func reset() {
+        pendingStartedAt = nil
     }
 }
 
@@ -1606,8 +1749,10 @@ enum DPFPID: UInt16, Hashable, Sendable {
     case regenProgressPercent = 0x380B
     case distanceSinceRegenKm = 0x3807
     case oilPressureStatus    = 0x194D
+    case batteryVoltageDirect = 0x1004
     case batteryStateOfChargeDirect = 0x1005
     case batteryStateOfChargeMirror = 0x19BD
+    case batteryVoltageMirror = 0x1955
     case coolantTemperatureC  = 0x1003
 
     var mode: UInt8 { 0x22 }
@@ -1634,6 +1779,10 @@ enum DPFPID: UInt16, Hashable, Sendable {
             return "byte B, 0...100%"
         case .batteryStateOfChargeMirror:
             return "byte A, 0...100%"
+        case .batteryVoltageDirect:
+            return "byte A÷10 V"
+        case .batteryVoltageMirror:
+            return "raw×0.0005 V"
         }
     }
 
@@ -1647,7 +1796,7 @@ enum DPFPID: UInt16, Hashable, Sendable {
                 UInt32(bytes[2])
         }
 
-        if self == .oilPressureStatus {
+        if self == .oilPressureStatus || self == .batteryVoltageDirect {
             guard let first = bytes.first else {
                 throw OBDError.protocolError("\(self) needs at least 1 byte")
             }
@@ -1697,6 +1846,10 @@ enum DPFPID: UInt16, Hashable, Sendable {
                 throw OBDError.protocolError("invalid IBS state of charge \(Int(raw))%")
             }
             return raw
+        case .batteryVoltageDirect:
+            return try BatteryTelemetryPolicy.validatedVoltage(raw / 10.0)
+        case .batteryVoltageMirror:
+            return try BatteryTelemetryPolicy.validatedVoltage(raw * 0.0005)
         }
     }
 }
