@@ -17,6 +17,9 @@ final class MonitorSession {
     private(set) var status: Status = .idle {
         didSet {
             UIApplication.shared.isIdleTimerDisabled = status.keepsScreenAwake
+            if oldValue != status {
+                publishCarPlayRefresh(.liveness)
+            }
         }
     }
     private(set) var dpf: DPFState
@@ -83,6 +86,9 @@ final class MonitorSession {
     private var lastLiveRegenState: Bool?
     private var engineOffDetector = RegenEngineOffDetector()
     private var regenTimeEstimator = RegenTimeEstimator()
+    private var carPlayRefreshSubscribers: [
+        UUID: AsyncStream<CarPlayRefreshEvent>.Continuation
+    ] = [:]
     private static let autoConnectDefaultsKey = "autoConnectEnabled.v1"
     private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
     private static let batteryMetricMigrationDefaultsKey = "batteryMetricAdded.v1"
@@ -100,6 +106,29 @@ final class MonitorSession {
             status: status,
             hasLiveTelemetry: hasLiveTelemetry
         )
+    }
+
+    /// CarPlay subscribes only while its scene is connected. A newest-one
+    /// buffer coalesces dense ECU callbacks if the main actor is busy, avoiding
+    /// an update backlog after iOS temporarily suspends execution.
+    func carPlayRefreshEvents() -> AsyncStream<CarPlayRefreshEvent> {
+        let id = UUID()
+        let pair = AsyncStream<CarPlayRefreshEvent>.makeStream(
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        carPlayRefreshSubscribers[id] = pair.continuation
+        pair.continuation.onTermination = { [weak self] _ in
+            Task { @MainActor in
+                self?.carPlayRefreshSubscribers[id] = nil
+            }
+        }
+        return pair.stream
+    }
+
+    private func publishCarPlayRefresh(_ event: CarPlayRefreshEvent) {
+        for continuation in carPlayRefreshSubscribers.values {
+            _ = continuation.yield(event)
+        }
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -623,6 +652,11 @@ final class MonitorSession {
             observed: snapshot.regenActive
         )
         lastLiveRegenState = historyTransition.nextKnownState
+        publishCarPlayRefresh(
+            historyTransition.didStart || historyTransition.didFinish
+                ? .regenerationEdge
+                : .telemetry
+        )
         estimatedRegenerationTimeRemaining = regenTimeEstimator.observe(
             progressPercent: snapshot.regenProgressPercent,
             regenerationMode: historyTransition.nextKnownState == true ? .active : .none,
