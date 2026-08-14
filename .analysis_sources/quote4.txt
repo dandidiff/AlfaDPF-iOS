@@ -1,0 +1,1 @@
+Waking the system from an idle state incurs an energy cost when the CPU and other systems are awakened from their low-power, idle states. If a timer causes the system to wake, it incurs that cost. Apps often use timers unnecessarily.

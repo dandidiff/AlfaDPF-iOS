@@ -1,0 +1,1 @@
+Even if your app supports one or both of the Core Bluetooth background execution modes, it can’t run forever. At some point, the system may need to terminate your app to free up memory for the current foreground app—causing any active or pending connections to be lost, for instance.

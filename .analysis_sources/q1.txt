@@ -1,0 +1,1 @@
+Do not periodically refresh data items in the CarPlay UI more than once every 10 seconds (for example, no real- time engine data).
