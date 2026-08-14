@@ -710,10 +710,18 @@ final class CarPlaySceneDelegate: UIResponder,
     }
 
     private func batteryTileValue(for dpf: DPFState) -> String {
-        if let soc = freshBatteryStateOfCharge(for: dpf) {
-            return compactFormatted(soc, fractionDigits: 0, unit: "%")
+        let isLive = CarPlayTelemetryPolicy.isLive(
+            status: session.status,
+            hasLiveTelemetry: session.hasLiveTelemetry
+        )
+        switch BatteryMetricPresentation.resolve(state: dpf, isLive: isLive).headline {
+        case .stateOfChargePercent(let percent):
+            return compactFormatted(percent, fractionDigits: 0, unit: "%")
+        case .voltage(let voltage):
+            return compactFormatted(voltage, fractionDigits: 1, unit: "V")
+        case .unavailable:
+            return "—"
         }
-        return compactFormatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V")
     }
 
     private func freshBatteryStateOfCharge(for dpf: DPFState) -> Double? {
@@ -721,7 +729,11 @@ final class CarPlaySceneDelegate: UIResponder,
             status: session.status,
             hasLiveTelemetry: session.hasLiveTelemetry
         )
-        return isLive ? dpf.freshBatteryStateOfChargePercent() : nil
+        guard case .stateOfChargePercent(let percent) = BatteryMetricPresentation.resolve(
+            state: dpf,
+            isLive: isLive
+        ).headline else { return nil }
+        return percent
     }
 
     private func freshBatteryStateOfChargeText(for dpf: DPFState) -> String {

@@ -635,6 +635,22 @@ do {
            "ibs: 0% is a valid boundary")
     expect(try DPFPID.batteryStateOfChargeMirror.decode(bytes: [0x64]) == 100,
            "ibs: 100% is a valid boundary")
+    expect(try (
+        DPFPID.batteryStateOfChargeDirect.decode(bytes: [0xFF, 0x64]) == 100
+            && DPFPID.batteryStateOfChargeMirror.decode(bytes: [0x00]) == 0
+    ), "ibs: both sources accept both inclusive boundaries")
+    let directFrame = try ELM327.parseMode22Response(
+        "18DAF140056210050152",
+        expectedPID: DPFPID.batteryStateOfChargeDirect.rawValue
+    )
+    let mirrorFrame = try ELM327.parseMode22Response(
+        "18DAF110046219BD4B",
+        expectedPID: DPFPID.batteryStateOfChargeMirror.rawValue
+    )
+    expect(try (
+        DPFPID.batteryStateOfChargeDirect.decode(bytes: directFrame) == 82
+            && DPFPID.batteryStateOfChargeMirror.decode(bytes: mirrorFrame) == 75
+    ), "ibs: raw ECU frames propagate through Mode 22 parsing and PID decoding")
     expect(BatteryStateOfChargeSource.ibsDirect.pid == .batteryStateOfChargeDirect
            && BatteryStateOfChargeSource.engineECUMirror.pid == .batteryStateOfChargeMirror,
            "ibs: source maps to the right PID")
@@ -657,6 +673,20 @@ expectThrows("ibs: direct out-of-range value is rejected, never clamped") {
 }
 expectThrows("ibs: mirror out-of-range value is rejected, never clamped") {
     _ = try DPFPID.batteryStateOfChargeMirror.decode(bytes: [0xFF]) // 255
+}
+expectThrows("ibs: unsupported NO DATA reply stays unavailable") {
+    let bytes = try ELM327.parseMode22Response(
+        "NO DATA\r>",
+        expectedPID: DPFPID.batteryStateOfChargeDirect.rawValue
+    )
+    _ = try DPFPID.batteryStateOfChargeDirect.decode(bytes: bytes)
+}
+expectThrows("ibs: non-numeric payload is rejected") {
+    let bytes = try ELM327.parseMode22Response(
+        "18DAF1400562100501GG",
+        expectedPID: DPFPID.batteryStateOfChargeDirect.rawValue
+    )
+    _ = try DPFPID.batteryStateOfChargeDirect.decode(bytes: bytes)
 }
 
 // Merging and freshness policy: a stale optional IBS sample must not be
@@ -689,6 +719,66 @@ let ibsNoRefresh = ibsMerged.mergingFreshTelemetry(from: ibsEmpty)
 expect(ibsNoRefresh.batteryStateOfChargePercent == 82,
        "ibs merge: a poll without a battery reply keeps the last good value")
 expect(ibsFresh.hasTelemetry, "ibs state: a charge value alone is telemetry")
+
+let liveBatteryPresentation = BatteryMetricPresentation.resolve(
+    state: ibsMerged,
+    isLive: true,
+    at: ibsAt.addingTimeInterval(10)
+)
+expect(liveBatteryPresentation == .init(
+    headline: .stateOfChargePercent(82),
+    voltageDetail: 14.1
+), "ibs presentation: live iPhone/CarPlay headline receives SOC with voltage detail")
+for boundary in [0.0, 100.0] {
+    var boundaryState = ibsMerged
+    boundaryState.batteryStateOfChargePercent = boundary
+    expect(BatteryMetricPresentation.resolve(
+        state: boundaryState,
+        isLive: true,
+        at: ibsAt.addingTimeInterval(10)
+    ).headline == .stateOfChargePercent(boundary),
+           "ibs presentation: \(Int(boundary))% boundary reaches iPhone/CarPlay unchanged")
+}
+expect(BatteryMetricPresentation.resolve(
+    state: ibsMerged,
+    isLive: false,
+    at: ibsAt.addingTimeInterval(10)
+) == .init(headline: .voltage(14.1), voltageDetail: nil),
+       "ibs presentation: cached telemetry hides SOC and falls back to voltage")
+expect(BatteryMetricPresentation.resolve(
+    state: ibsMerged,
+    isLive: true,
+    at: ibsAt.addingTimeInterval(31)
+) == .init(headline: .voltage(14.1), voltageDetail: nil),
+       "ibs presentation: stale SOC falls back to voltage")
+var ibsInvalidPresentation = ibsMerged
+ibsInvalidPresentation.batteryStateOfChargePercent = .nan
+expect(BatteryMetricPresentation.resolve(
+    state: ibsInvalidPresentation,
+    isLive: true,
+    at: ibsAt.addingTimeInterval(10)
+) == .init(headline: .voltage(14.1), voltageDetail: nil),
+       "ibs presentation: non-finite SOC cannot reach the UI")
+ibsInvalidPresentation.batteryStateOfChargePercent = -0.1
+expect(BatteryMetricPresentation.resolve(
+    state: ibsInvalidPresentation,
+    isLive: true,
+    at: ibsAt.addingTimeInterval(10)
+) == .init(headline: .voltage(14.1), voltageDetail: nil),
+       "ibs presentation: negative SOC cannot reach the UI")
+ibsInvalidPresentation.batteryStateOfChargePercent = 100.1
+expect(BatteryMetricPresentation.resolve(
+    state: ibsInvalidPresentation,
+    isLive: true,
+    at: ibsAt.addingTimeInterval(10)
+) == .init(headline: .voltage(14.1), voltageDetail: nil),
+       "ibs presentation: SOC above 100 cannot reach the UI")
+expect(BatteryMetricPresentation.resolve(
+    state: DPFState(timestamp: ibsAt),
+    isLive: true,
+    at: ibsAt
+) == .init(headline: .unavailable, voltageDetail: nil),
+       "ibs presentation: absent or unsupported telemetry stays unavailable")
 
 // Old persisted snapshots without the new fields must still decode.
 let legacySuiteName = "AlfaDPF.Tests.Legacy.\(UUID().uuidString)"

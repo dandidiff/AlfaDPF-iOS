@@ -805,6 +805,38 @@ extension DPFState {
     }
 }
 
+/// Pure presentation policy shared by the iPhone and CarPlay battery tiles.
+/// A valid, fresh IBS reading wins only while telemetry is live; otherwise the
+/// adapter voltage remains the truthful fallback instead of exposing stale or
+/// malformed state of charge as a percentage.
+enum BatteryMetricHeadline: Equatable, Sendable {
+    case stateOfChargePercent(Double)
+    case voltage(Double)
+    case unavailable
+}
+
+struct BatteryMetricPresentation: Equatable, Sendable {
+    var headline: BatteryMetricHeadline
+    var voltageDetail: Double?
+
+    static func resolve(
+        state: DPFState,
+        isLive: Bool,
+        at now: Date = .init()
+    ) -> BatteryMetricPresentation {
+        if isLive, let percent = state.freshBatteryStateOfChargePercent(at: now) {
+            return .init(
+                headline: .stateOfChargePercent(percent),
+                voltageDetail: state.batteryVoltage
+            )
+        }
+        if let voltage = state.batteryVoltage {
+            return .init(headline: .voltage(voltage), voltageDetail: nil)
+        }
+        return .init(headline: .unavailable, voltageDetail: nil)
+    }
+}
+
 /// Public destination for voluntary project support. The contribution never
 /// unlocks app content or functionality.
 enum ProjectSupport {

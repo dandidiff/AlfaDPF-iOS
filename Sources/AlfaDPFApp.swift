@@ -1236,8 +1236,8 @@ private struct BatteryMetricCard: View {
     let accent: Color
     @ScaledMetric(relativeTo: .body) private var cardHeight = 112.0
 
-    private var stateOfCharge: Double? {
-        isCached ? nil : dpf.freshBatteryStateOfChargePercent()
+    private var presentation: BatteryMetricPresentation {
+        .resolve(state: dpf, isLive: !isCached)
     }
 
     var body: some View {
@@ -1268,7 +1268,7 @@ private struct BatteryMetricCard: View {
                 }
             }
 
-            if stateOfCharge != nil, let voltage = dpf.batteryVoltage {
+            if let voltage = presentation.voltageDetail {
                 Text(String(format: "%.1f V", voltage))
                     .font(.caption.weight(.medium))
                     .foregroundStyle(Brand.textDim)
@@ -1290,26 +1290,35 @@ private struct BatteryMetricCard: View {
     }
 
     private var valueText: String {
-        if let stateOfCharge {
-            return String(format: "%.0f", stateOfCharge)
+        switch presentation.headline {
+        case .stateOfChargePercent(let percent):
+            return String(format: "%.0f", percent)
+        case .voltage(let voltage):
+            return String(format: "%.1f", voltage)
+        case .unavailable:
+            return "—"
         }
-        return dpf.batteryVoltage.map { String(format: "%.1f", $0) } ?? "—"
     }
 
     private var unitText: String {
-        stateOfCharge != nil ? "%" : (dpf.batteryVoltage != nil ? "V" : "")
+        switch presentation.headline {
+        case .stateOfChargePercent: return "%"
+        case .voltage: return "V"
+        case .unavailable: return ""
+        }
     }
 
     private var accessibilityValue: Text {
-        if let stateOfCharge {
-            let voltage = dpf.batteryVoltage.map { String(format: "%.1f V", $0) }
+        switch presentation.headline {
+        case .stateOfChargePercent(let percent):
+            let voltage = presentation.voltageDetail.map { String(format: "%.1f V", $0) }
                 ?? AppLocalization.string("Dati non disponibili")
-            return Text(verbatim: String(format: "%.0f%% · %@", stateOfCharge, voltage))
-        }
-        if let voltage = dpf.batteryVoltage {
+            return Text(verbatim: String(format: "%.0f%% · %@", percent, voltage))
+        case .voltage(let voltage):
             return Text(verbatim: String(format: "%.1f V", voltage))
+        case .unavailable:
+            return Text("Dati non disponibili")
         }
-        return Text("Dati non disponibili")
     }
 }
 
