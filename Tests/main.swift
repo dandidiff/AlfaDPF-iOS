@@ -256,6 +256,141 @@ expect(!carPlayMetricsSummary.contains("VIN")
        && !carPlayMetricsSummary.contains("latitude")
        && !carPlayMetricsSummary.contains("longitude"),
        "carplay refresh: metrics contain no sensitive vehicle or location fields")
+
+// QA matrix for the change-driven path. These virtual-clock checks exercise
+// timing deterministically instead of making the suite sleep for real seconds.
+var burstGate = CarPlayRefreshGate<String>()
+var burstMetrics = CarPlayRefreshMetrics()
+for index in 0...30 {
+    let trigger: CarPlayRefreshTrigger = index == 0 ? .interaction : .telemetry
+    burstMetrics.recordRequest(trigger: trigger)
+    let decision = burstGate.evaluate(
+        signature: "unchanged",
+        at: carPlayRefreshStart.addingTimeInterval(Double(index) * 2),
+        minimumInterval: trigger.minimumInterval
+    )
+    burstMetrics.recordDecision(decision)
+}
+expect(burstMetrics.requests == 31
+       && burstMetrics.renders == 1
+       && burstMetrics.duplicateSkips == 30
+       && burstMetrics.deferrals == 0,
+       "carplay refresh QA: one minute of unchanged ECU events causes one render")
+
+var latestValueGate = CarPlayRefreshGate<String>()
+_ = latestValueGate.evaluate(
+    signature: "sample-a",
+    at: carPlayRefreshStart,
+    minimumInterval: 0
+)
+expect(latestValueGate.evaluate(
+    signature: "sample-b",
+    at: carPlayRefreshStart.addingTimeInterval(0.5),
+    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+) == .deferFor(1.5),
+       "carplay refresh QA: first burst change waits for the remaining budget")
+expect(latestValueGate.evaluate(
+    signature: "sample-c",
+    at: carPlayRefreshStart.addingTimeInterval(1),
+    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+) == .deferFor(1),
+       "carplay refresh QA: a newer deferred value replaces stale work")
+expect(latestValueGate.evaluate(
+    signature: "sample-c",
+    at: carPlayRefreshStart.addingTimeInterval(2),
+    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+) == .render(effectiveInterval: 2),
+       "carplay refresh QA: newest burst value renders at the two-second boundary")
+
+var failureGate = CarPlayRefreshGate<String>()
+_ = failureGate.evaluate(
+    signature: "running",
+    at: carPlayRefreshStart,
+    minimumInterval: 0
+)
+expect(failureGate.evaluate(
+    signature: "network-failed",
+    at: carPlayRefreshStart.addingTimeInterval(2),
+    minimumInterval: CarPlayRefreshTrigger.liveness.minimumInterval
+) == .render(effectiveInterval: 2),
+       "carplay refresh QA: network/liveness failure reaches CarPlay within two seconds")
+expect(failureGate.evaluate(
+    signature: "network-failed",
+    at: carPlayRefreshStart.addingTimeInterval(10),
+    minimumInterval: 0
+) == .skipDuplicate,
+       "carplay refresh QA: periodic fallback does not redraw the same failure")
+
+var resumedGate = CarPlayRefreshGate<String>()
+_ = resumedGate.evaluate(
+    signature: "before-suspension",
+    at: carPlayRefreshStart,
+    minimumInterval: 0
+)
+expect(resumedGate.evaluate(
+    signature: "latest-after-resume",
+    at: carPlayRefreshStart.addingTimeInterval(60),
+    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+) == .render(effectiveInterval: 60),
+       "carplay refresh QA: latest state renders immediately after a long suspension")
+resumedGate.reset()
+expect(resumedGate.evaluate(
+    signature: "reconnected",
+    at: carPlayRefreshStart.addingTimeInterval(61),
+    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+) == .render(effectiveInterval: nil),
+       "carplay refresh QA: scene reconnect resets stale timing and content state")
+
+let newestEventPair = AsyncStream<CarPlayRefreshEvent>.makeStream(
+    bufferingPolicy: .bufferingNewest(1)
+)
+newestEventPair.continuation.yield(.telemetry)
+newestEventPair.continuation.yield(.regenerationEdge)
+newestEventPair.continuation.yield(.liveness)
+var newestEventIterator = newestEventPair.stream.makeAsyncIterator()
+let newestBufferedEvent = await newestEventIterator.next()
+if case .liveness? = newestBufferedEvent {
+    expect(true, "carplay refresh QA: suspension backlog retains only the newest event")
+} else {
+    expect(false, "carplay refresh QA: suspension backlog retains only the newest event")
+}
+newestEventPair.continuation.finish()
+
+// Wiring audit: refresh evaluation must not start an extra ECU/network request,
+// and CarPlay scene teardown must stop all three refresh tasks.
+do {
+    let carPlaySource = try String(
+        contentsOfFile: "Sources/CarPlaySceneDelegate.swift",
+        encoding: .utf8
+    )
+    let monitorSource = try String(
+        contentsOfFile: "Sources/MonitorSession.swift",
+        encoding: .utf8
+    )
+    if let refreshStart = carPlaySource.range(of: "private func refreshDashboard("),
+       let refreshEnd = carPlaySource.range(
+           of: "private func makeDashboardRenderSignature()",
+           range: refreshStart.upperBound..<carPlaySource.endIndex
+       ) {
+        let refreshBody = String(carPlaySource[refreshStart.lowerBound..<refreshEnd.lowerBound])
+        expect(!refreshBody.contains(".send(")
+               && !refreshBody.contains(".start(")
+               && !refreshBody.contains("poll"),
+               "carplay refresh QA: UI refresh performs no additional ECU/network request")
+    } else {
+        expect(false, "carplay refresh QA: refresh body remains source-auditable")
+    }
+    expect(monitorSource.contains("bufferingPolicy: .bufferingNewest(1)"),
+           "carplay refresh QA: suspended consumers cannot accumulate an event backlog")
+    expect(carPlaySource.contains("periodicRefreshTask?.cancel()")
+           && carPlaySource.contains("eventRefreshTask?.cancel()")
+           && carPlaySource.contains("deferredRefreshTask?.cancel()"),
+           "carplay refresh QA: disconnect/background teardown cancels refresh work")
+} catch {
+    failures += 1
+    print("FAIL: carplay refresh QA: could not audit lifecycle wiring — \(error)")
+}
+
 expect(CarPlayNotificationTestPolicy.systemDeliveryDelay >= 10,
        "carplay notifications: system test leaves enough time to return Home")
 expect(DPFLoadAlertLevel.resolve(loadPercent: nil, regenerationMode: .none) == .unavailable,
