@@ -80,7 +80,7 @@ private extension StelvioAccent {
 private enum AppLinks {
     static let privacy = URL(string: "https://dpf-monitor-support.etamburi.chatgpt.site/privacy")!
     static let support = URL(string: "https://dpf-monitor-support.etamburi.chatgpt.site/support")!
-    static let email = URL(string: "mailto:tamburiukeddy+alfadpf@gmail.com")!
+    static let email = URL(string: "mailto:tamburiukeddy+alphadpf@gmail.com")!
 }
 
 private extension View {
