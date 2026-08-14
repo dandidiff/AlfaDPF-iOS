@@ -480,7 +480,7 @@ final class CarPlaySceneDelegate: UIResponder,
             ),
             makeMetricGridButton(
                 label: AppLocalization.string("Batteria"),
-                value: compactFormatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V"),
+                value: batteryTileValue(for: dpf),
                 icon: .battery,
                 accent: dashboardIconColor(for: .battery, state: dpf, isLive: isLive),
                 illuminated: false,
@@ -697,12 +697,41 @@ final class CarPlaySceneDelegate: UIResponder,
         case .battery:
             return [
                 CPInformationItem(
+                    title: AppLocalization.string("Stato di carica"),
+                    detail: freshBatteryStateOfChargeText(for: dpf)
+                ),
+                CPInformationItem(
                     title: AppLocalization.string("Tensione batteria"),
                     detail: formatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V")
                 ),
                 updated,
             ]
         }
+    }
+
+    private func batteryTileValue(for dpf: DPFState) -> String {
+        if let soc = freshBatteryStateOfCharge(for: dpf) {
+            return compactFormatted(soc, fractionDigits: 0, unit: "%")
+        }
+        return compactFormatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V")
+    }
+
+    private func freshBatteryStateOfCharge(for dpf: DPFState) -> Double? {
+        let isLive = CarPlayTelemetryPolicy.isLive(
+            status: session.status,
+            hasLiveTelemetry: session.hasLiveTelemetry
+        )
+        return isLive ? dpf.freshBatteryStateOfChargePercent() : nil
+    }
+
+    private func freshBatteryStateOfChargeText(for dpf: DPFState) -> String {
+        if let soc = freshBatteryStateOfCharge(for: dpf) {
+            return formatted(soc, fractionDigits: 0, unit: "%")
+        }
+        if dpf.batteryStateOfChargePercent != nil {
+            return AppLocalization.string("Dati non disponibili")
+        }
+        return "—"
     }
 
     private func boundedInformationItems(_ items: [CPInformationItem]) -> [CPInformationItem] {
@@ -806,7 +835,7 @@ final class CarPlaySceneDelegate: UIResponder,
         case .progress: return AppLocalization.string("Avanzamento rigenerazione")
         case .totalRegenerations: return AppLocalization.string("Rigenerazioni totali")
         case .oil: return AppLocalization.string("Stato pressione olio")
-        case .battery: return AppLocalization.string("Tensione batteria")
+        case .battery: return AppLocalization.string("Batteria")
         }
     }
 

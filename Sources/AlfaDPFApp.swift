@@ -1182,21 +1182,23 @@ private struct DPFDetailGrid: View {
                 accent: oilPressureAccent
             )
         case .batteryVoltage:
-            MetricCard(
-                icon: "battery.75percent",
-                title: "BATTERIA",
-                value: dpf.batteryVoltage.map { String(format: "%.1f", $0) },
-                unit: "V",
+            BatteryMetricCard(
+                dpf: dpf,
+                isCached: isCached,
                 accent: batteryVoltageAccent
             )
         }
     }
 
     private var batteryVoltageAccent: Color {
-        guard !isCached, let voltage = dpf.batteryVoltage else { return .gray }
-        if voltage < 11.8 { return Brand.redBright }
-        if voltage < 12.2 { return .orange }
-        return .green
+        let voltage = dpf.batteryVoltage
+        guard !isCached else { return .gray }
+        if let voltage {
+            if voltage < 11.8 { return Brand.redBright }
+            if voltage < 12.2 { return .orange }
+            return .green
+        }
+        return dpf.freshBatteryStateOfChargePercent() != nil ? .green : .gray
     }
 
     private var oilPressureAccent: Color {
@@ -1222,6 +1224,92 @@ private struct SectionLabel: View {
         .font(.caption2.weight(.bold))
         .foregroundStyle(Brand.textDim)
         .padding(.leading, 3)
+    }
+}
+
+/// Battery tile showing the IBS state of charge as the headline value when
+/// fresh, with the adapter voltage as a compact detail. Voltage alone remains
+/// fully supported on vehicles without an IBS reply.
+private struct BatteryMetricCard: View {
+    let dpf: DPFState
+    let isCached: Bool
+    let accent: Color
+    @ScaledMetric(relativeTo: .body) private var cardHeight = 112.0
+
+    private var stateOfCharge: Double? {
+        isCached ? nil : dpf.freshBatteryStateOfChargePercent()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 7) {
+                Image(systemName: "battery.75percent")
+                    .foregroundStyle(accent)
+                    .accessibilityHidden(true)
+                Text(LocalizedStringKey("BATTERIA"))
+                    .lineLimit(2)
+            }
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(Brand.textDim)
+
+            Spacer(minLength: 4)
+
+            HStack(alignment: .lastTextBaseline, spacing: 5) {
+                Text(valueText)
+                    .font(.system(.title2, design: .rounded, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                if !unitText.isEmpty {
+                    Text(unitText)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Brand.textDim)
+                        .lineLimit(1)
+                }
+            }
+
+            if stateOfCharge != nil, let voltage = dpf.batteryVoltage {
+                Text(String(format: "%.1f V", voltage))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Brand.textDim)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(16)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: cardHeight,
+            maxHeight: cardHeight,
+            alignment: .leading
+        )
+        .dashboardTile(cornerRadius: 22)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Batteria"))
+        .accessibilityValue(accessibilityValue)
+    }
+
+    private var valueText: String {
+        if let stateOfCharge {
+            return String(format: "%.0f", stateOfCharge)
+        }
+        return dpf.batteryVoltage.map { String(format: "%.1f", $0) } ?? "—"
+    }
+
+    private var unitText: String {
+        stateOfCharge != nil ? "%" : (dpf.batteryVoltage != nil ? "V" : "")
+    }
+
+    private var accessibilityValue: Text {
+        if let stateOfCharge {
+            let voltage = dpf.batteryVoltage.map { String(format: "%.1f V", $0) }
+                ?? AppLocalization.string("Dati non disponibili")
+            return Text(verbatim: String(format: "%.0f%% · %@", stateOfCharge, voltage))
+        }
+        if let voltage = dpf.batteryVoltage {
+            return Text(verbatim: String(format: "%.1f V", voltage))
+        }
+        return Text("Dati non disponibili")
     }
 }
 
@@ -2005,7 +2093,8 @@ private struct DiagnosticsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         if dpf.exhaustTemperaturePID != nil
                             || dpf.regenerationMode != nil
-                            || dpf.oilPressureStatusRaw != nil {
+                            || dpf.oilPressureStatusRaw != nil
+                            || dpf.batteryStateOfChargePercent != nil {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("TELEMETRIA ECU")
                                     .font(.caption2.weight(.bold))
@@ -2015,6 +2104,7 @@ private struct DiagnosticsView: View {
                                 }
                                 Text("Rigenerazione: \(regenerationModeText)")
                                 Text("Stato pressione olio 22194D: \(oilPressureDiagnosticText)")
+                                Text("SOC batteria: \(batteryStateOfChargeDiagnosticText)")
                             }
                             .font(.system(.caption2, design: .monospaced))
                             .padding(12)
@@ -2087,6 +2177,19 @@ private struct DiagnosticsView: View {
             return AppLocalization.string("PID non disponibile")
         }
         return "\(raw) · \(dpf.oilPressureStatusText ?? AppLocalization.string("Sconosciuto"))"
+    }
+
+    private var batteryStateOfChargeDiagnosticText: String {
+        guard let percent = dpf.batteryStateOfChargePercent else {
+            return AppLocalization.string("PID non disponibile")
+        }
+        let source = dpf.batteryStateOfChargeSource == .engineECUMirror
+            ? "2219BD/18DA10F1"
+            : "221005/18DA40F1"
+        let updated = dpf.batteryStateOfChargeUpdatedAt.map {
+            $0.formatted(.dateTime.hour().minute().second())
+        } ?? "—"
+        return String(format: "%.0f%% · %@ · %@", percent, source, updated)
     }
 }
 

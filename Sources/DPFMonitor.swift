@@ -50,6 +50,7 @@ actor DPFMonitor {
     private var lastSuccessfulCoreReadAt: Date?
     private var pidRetryAfter: [DPFPID: Date] = [:]
     private var preferredExhaustTemperaturePID: DPFPID?
+    private var preferredBatteryStateOfChargeSource: BatteryStateOfChargeSource?
 
     /// Number of consecutive polls where the regen-progress read failed.
     /// After a few, we drop the state to unknown so we don't keep firing
@@ -73,6 +74,8 @@ actor DPFMonitor {
             self.lastGoodHeader = profile.lastGoodHeader
             self.preferredExhaustTemperaturePID = profile.preferredExhaustTemperaturePID
                 .flatMap(DPFPID.init(rawValue:))
+            self.preferredBatteryStateOfChargeSource =
+                profile.preferredBatteryStateOfChargeSource
             OBDLog.log("DPF: loaded \(self.ecuHeaders.count) remembered ECU routes")
         }
     }
@@ -233,7 +236,16 @@ actor DPFMonitor {
             // never delay regeneration detection or make core DPF data stale.
             secondary.batteryVoltage = try? await elm.readBatteryVoltage()
         default:
-            break
+            do {
+                let (source, reading) = try await readBatteryStateOfCharge()
+                secondary.batteryStateOfChargePercent = reading.value
+                secondary.batteryStateOfChargeSource = source
+                secondary.batteryStateOfChargeUpdatedAt = sampledAt
+                freshPIDs.insert(source.pid)
+            } catch {
+                failedPIDs.insert(.batteryStateOfChargeDirect)
+                failedPIDs.insert(.batteryStateOfChargeMirror)
+            }
         }
 
         next = next.mergingFreshTelemetry(from: secondary)
@@ -305,6 +317,53 @@ actor DPFMonitor {
         }
     }
 
+    /// Reads the IBS ECU directly first, then falls back to the engine ECU's
+    /// mirror. Once validated, the working route is remembered per adapter.
+    private func readBatteryStateOfCharge() async throws
+        -> (BatteryStateOfChargeSource, PIDReading) {
+        var sources: [BatteryStateOfChargeSource] = [.ibsDirect, .engineECUMirror]
+        if let preferredBatteryStateOfChargeSource {
+            sources.removeAll { $0 == preferredBatteryStateOfChargeSource }
+            sources.insert(preferredBatteryStateOfChargeSource, at: 0)
+        }
+
+        var lastError: Error = OBDError.protocolError("IBS state of charge unavailable")
+        for source in sources {
+            do {
+                let reading = try await readBatteryStateOfCharge(source: source)
+                if preferredBatteryStateOfChargeSource != source {
+                    preferredBatteryStateOfChargeSource = source
+                    persistProfile()
+                }
+                return (source, reading)
+            } catch {
+                lastError = error
+                if preferredBatteryStateOfChargeSource == source {
+                    preferredBatteryStateOfChargeSource = nil
+                    persistProfile()
+                }
+            }
+        }
+        throw lastError
+    }
+
+    private func readBatteryStateOfCharge(
+        source: BatteryStateOfChargeSource
+    ) async throws -> PIDReading {
+        let pid = source.pid
+        if let retryAt = pidRetryAfter[pid], retryAt > Date() {
+            throw OBDError.protocolError("\(pid.command) temporarily unavailable")
+        }
+        do {
+            let reading = try await read(pid, header: source.requestHeader)
+            pidRetryAfter[pid] = nil
+            return reading
+        } catch {
+            pidRetryAfter[pid] = Date().addingTimeInterval(30)
+            throw error
+        }
+    }
+
     private func read(_ pid: DPFPID) async throws -> PIDReading {
         if let retryAt = pidRetryAfter[pid], retryAt > Date() {
             throw OBDError.protocolError("\(pid.command) temporarily unavailable")
@@ -359,7 +418,8 @@ actor DPFMonitor {
         profileStore.save(.init(
             headersByPID: headers,
             lastGoodHeader: lastGoodHeader,
-            preferredExhaustTemperaturePID: preferredExhaustTemperaturePID?.rawValue
+            preferredExhaustTemperaturePID: preferredExhaustTemperaturePID?.rawValue,
+            preferredBatteryStateOfChargeSource: preferredBatteryStateOfChargeSource
         ))
     }
 
@@ -372,7 +432,9 @@ actor DPFMonitor {
             || pid == .regenProgressPercent
             || pid == .oilPressureStatus
             || pid == .exhaustTempC
-            || pid == .postDPFTempC {
+            || pid == .postDPFTempC
+            || pid == .batteryStateOfChargeDirect
+            || pid == .batteryStateOfChargeMirror {
             OBDLog.log(
                 String(
                     format: "DPF %@ header=%@ bytes=%@ raw=%u formula=%@ value=%.3f",

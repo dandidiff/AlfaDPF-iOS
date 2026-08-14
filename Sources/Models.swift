@@ -640,7 +640,28 @@ enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
         case .regenerationProgress: return AppLocalization.string("Avanzamento rigenerazione")
         case .totalRegenerations: return AppLocalization.string("Rigenerazioni totali")
         case .oilPressure: return AppLocalization.string("Stato pressione olio")
-        case .batteryVoltage: return AppLocalization.string("Tensione batteria")
+        case .batteryVoltage: return AppLocalization.string("Batteria")
+        }
+    }
+}
+
+/// FCA source that supplied the IBS state of charge. The direct IBS ECU is
+/// preferred; the engine-ECU mirror exists as a compatibility fallback.
+enum BatteryStateOfChargeSource: String, Codable, Equatable, Sendable {
+    case ibsDirect
+    case engineECUMirror
+
+    var pid: DPFPID {
+        switch self {
+        case .ibsDirect: return .batteryStateOfChargeDirect
+        case .engineECUMirror: return .batteryStateOfChargeMirror
+        }
+    }
+
+    var requestHeader: String {
+        switch self {
+        case .ibsDirect: return "18DA40F1"
+        case .engineECUMirror: return "18DA10F1"
         }
     }
 }
@@ -663,6 +684,11 @@ struct DPFState: Codable, Equatable, Sendable {
     /// Supply voltage reported by the ELM327 (`ATRV`). This is the adapter's
     /// measured vehicle voltage, not an Alfa-specific ECU PID.
     var batteryVoltage: Double?
+    /// Battery state of charge reported by the IBS, in the inclusive 0...100
+    /// percent range. Unsupported, malformed and out-of-range replies stay nil.
+    var batteryStateOfChargePercent: Double?
+    var batteryStateOfChargeSource: BatteryStateOfChargeSource?
+    var batteryStateOfChargeUpdatedAt: Date?
     /// PID that supplied `exhaustTempC`, retained for diagnostics.
     var exhaustTemperaturePID: UInt16?
     /// Audit data for the load value. Persisting it makes an on-road
@@ -685,6 +711,7 @@ extension DPFState {
             || regenerationMode != nil
             || oilPressureStatusRaw != nil
             || batteryVoltage != nil
+            || batteryStateOfChargePercent != nil
     }
 
     /// Prefer the dedicated ECU state when it reports a regeneration, while
@@ -725,6 +752,21 @@ extension DPFState {
         }
     }
 
+    /// Prevents an old optional IBS sample from being presented beside live
+    /// core telemetry. The cached value remains serializable for diagnostics.
+    func freshBatteryStateOfChargePercent(
+        at now: Date = .init(),
+        maximumAge: TimeInterval = 30
+    ) -> Double? {
+        guard let value = batteryStateOfChargePercent,
+              let updatedAt = batteryStateOfChargeUpdatedAt,
+              now.timeIntervalSince(updatedAt) <= maximumAge,
+              updatedAt.timeIntervalSince(now) <= 1,
+              (0...100).contains(value)
+        else { return nil }
+        return value
+    }
+
     /// Applies only values that were actually read in the new sample.
     /// `nil` means “not refreshed”, never “replace the last valid value”.
     func mergingFreshTelemetry(from fresh: DPFState) -> DPFState {
@@ -740,6 +782,11 @@ extension DPFState {
         merged.oilPressureStatusRaw =
             fresh.oilPressureStatusRaw ?? oilPressureStatusRaw
         merged.batteryVoltage = fresh.batteryVoltage ?? batteryVoltage
+        if fresh.batteryStateOfChargePercent != nil {
+            merged.batteryStateOfChargePercent = fresh.batteryStateOfChargePercent
+            merged.batteryStateOfChargeSource = fresh.batteryStateOfChargeSource
+            merged.batteryStateOfChargeUpdatedAt = fresh.batteryStateOfChargeUpdatedAt
+        }
         if fresh.exhaustTempC != nil {
             merged.exhaustTemperaturePID = fresh.exhaustTemperaturePID
         }
@@ -863,6 +910,9 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 12.6,
+                batteryStateOfChargePercent: 82,
+                batteryStateOfChargeSource: .ibsDirect,
+                batteryStateOfChargeUpdatedAt: timestamp,
                 timestamp: timestamp
             )
         case .loaded:
@@ -876,6 +926,9 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.2,
+                batteryStateOfChargePercent: 74,
+                batteryStateOfChargeSource: .ibsDirect,
+                batteryStateOfChargeUpdatedAt: timestamp,
                 timestamp: timestamp
             )
         case .regenStarted:
@@ -889,6 +942,9 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: .active,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.1,
+                batteryStateOfChargePercent: 71,
+                batteryStateOfChargeSource: .ibsDirect,
+                batteryStateOfChargeUpdatedAt: timestamp,
                 timestamp: timestamp
             )
         case .regenInProgress:
@@ -902,6 +958,9 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: .active,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.0,
+                batteryStateOfChargePercent: 70,
+                batteryStateOfChargeSource: .ibsDirect,
+                batteryStateOfChargeUpdatedAt: timestamp,
                 timestamp: timestamp
             )
         case .regenFinished:
@@ -915,6 +974,9 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 13.9,
+                batteryStateOfChargePercent: 69,
+                batteryStateOfChargeSource: .ibsDirect,
+                batteryStateOfChargeUpdatedAt: timestamp,
                 timestamp: timestamp
             )
         case .unavailable:
@@ -1288,6 +1350,8 @@ enum DPFPID: UInt16, Hashable, Sendable {
     case regenProgressPercent = 0x380B
     case distanceSinceRegenKm = 0x3807
     case oilPressureStatus    = 0x194D
+    case batteryStateOfChargeDirect = 0x1005
+    case batteryStateOfChargeMirror = 0x19BD
 
     var mode: UInt8 { 0x22 }
 
@@ -1309,6 +1373,10 @@ enum DPFPID: UInt16, Hashable, Sendable {
             return "raw24×0.1 km"
         case .oilPressureStatus:
             return "stato ECU"
+        case .batteryStateOfChargeDirect:
+            return "byte B, 0...100%"
+        case .batteryStateOfChargeMirror:
+            return "byte A, 0...100%"
         }
     }
 
@@ -1323,6 +1391,20 @@ enum DPFPID: UInt16, Hashable, Sendable {
         }
 
         if self == .oilPressureStatus {
+            guard let first = bytes.first else {
+                throw OBDError.protocolError("\(self) needs at least 1 byte")
+            }
+            return UInt32(first)
+        }
+
+        if self == .batteryStateOfChargeDirect {
+            guard bytes.count >= 2 else {
+                throw OBDError.protocolError("\(self) needs at least 2 bytes")
+            }
+            return UInt32(bytes[1])
+        }
+
+        if self == .batteryStateOfChargeMirror {
             guard let first = bytes.first else {
                 throw OBDError.protocolError("\(self) needs at least 1 byte")
             }
@@ -1350,6 +1432,12 @@ enum DPFPID: UInt16, Hashable, Sendable {
         case .regenProgressPercent: return raw * (100.0 / 65_535.0)
         case .distanceSinceRegenKm: return raw * 0.1
         case .oilPressureStatus:    return raw
+        case .batteryStateOfChargeDirect,
+             .batteryStateOfChargeMirror:
+            guard raw <= 100 else {
+                throw OBDError.protocolError("invalid IBS state of charge \(Int(raw))%")
+            }
+            return raw
         }
     }
 }
@@ -1361,6 +1449,7 @@ struct DPFECUProfile: Codable, Equatable, Sendable {
     var headersByPID: [String: String] = [:]
     var lastGoodHeader: String?
     var preferredExhaustTemperaturePID: UInt16?
+    var preferredBatteryStateOfChargeSource: BatteryStateOfChargeSource?
 }
 
 final class DPFECUProfileStore: @unchecked Sendable {

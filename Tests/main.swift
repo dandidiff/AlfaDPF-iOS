@@ -623,6 +623,86 @@ expectThrows("decode: distance requires three bytes") {
     _ = try DPFPID.distanceSinceRegenKm.decode(bytes: [0x05, 0xE8])
 }
 
+
+// MARK: - IBS battery state of charge
+
+do {
+    let direct = try DPFPID.batteryStateOfChargeDirect.decode(bytes: [0x01, 0x52])
+    expect(abs(direct - 82.0) < 0.01, "ibs: direct 221005 uses payload byte B → 82%")
+    let mirror = try DPFPID.batteryStateOfChargeMirror.decode(bytes: [0x4B])
+    expect(abs(mirror - 75.0) < 0.01, "ibs: mirror 2219BD uses payload byte A → 75%")
+    expect(try DPFPID.batteryStateOfChargeDirect.decode(bytes: [0x00, 0x00]) == 0,
+           "ibs: 0% is a valid boundary")
+    expect(try DPFPID.batteryStateOfChargeMirror.decode(bytes: [0x64]) == 100,
+           "ibs: 100% is a valid boundary")
+    expect(BatteryStateOfChargeSource.ibsDirect.pid == .batteryStateOfChargeDirect
+           && BatteryStateOfChargeSource.engineECUMirror.pid == .batteryStateOfChargeMirror,
+           "ibs: source maps to the right PID")
+    expect(BatteryStateOfChargeSource.ibsDirect.requestHeader == "18DA40F1"
+           && BatteryStateOfChargeSource.engineECUMirror.requestHeader == "18DA10F1",
+           "ibs: direct routes to 18DA40F1, mirror to 18DA10F1")
+} catch {
+    failures += 1
+    print("FAIL: IBS decoding threw \(error)")
+}
+
+expectThrows("ibs: direct requires at least two payload bytes") {
+    _ = try DPFPID.batteryStateOfChargeDirect.decode(bytes: [0x52])
+}
+expectThrows("ibs: mirror requires at least one payload byte") {
+    _ = try DPFPID.batteryStateOfChargeMirror.decode(bytes: [])
+}
+expectThrows("ibs: direct out-of-range value is rejected, never clamped") {
+    _ = try DPFPID.batteryStateOfChargeDirect.decode(bytes: [0x00, 0x65]) // 101
+}
+expectThrows("ibs: mirror out-of-range value is rejected, never clamped") {
+    _ = try DPFPID.batteryStateOfChargeMirror.decode(bytes: [0xFF]) // 255
+}
+
+// Merging and freshness policy: a stale optional IBS sample must not be
+// presented as live, and a fresh sample carries its source and timestamp.
+let ibsAt = Date(timeIntervalSince1970: 1_750_000_100)
+var ibsFresh = DPFState(timestamp: ibsAt)
+ibsFresh.batteryStateOfChargePercent = 82
+ibsFresh.batteryStateOfChargeSource = .ibsDirect
+ibsFresh.batteryStateOfChargeUpdatedAt = ibsAt
+let ibsStaleAt = ibsAt.addingTimeInterval(45)
+var ibsStale = ibsFresh
+ibsStale.timestamp = ibsStaleAt
+ibsStale.batteryStateOfChargeUpdatedAt = ibsStaleAt
+expect(ibsFresh.freshBatteryStateOfChargePercent(at: ibsAt.addingTimeInterval(10)) == 82,
+       "ibs freshness: a recent sample is live")
+expect(ibsStale.freshBatteryStateOfChargePercent(at: ibsStaleAt.addingTimeInterval(40)) == nil,
+       "ibs freshness: a sample older than the 30-second window is not live")
+expect(DPFState().freshBatteryStateOfChargePercent() == nil,
+       "ibs freshness: absent sample stays unavailable")
+var ibsBase = DPFState(timestamp: ibsAt)
+ibsBase.batteryVoltage = 14.1
+let ibsMerged = ibsBase.mergingFreshTelemetry(from: ibsFresh)
+expect(ibsMerged.batteryStateOfChargePercent == 82
+       && ibsMerged.batteryStateOfChargeSource == .ibsDirect
+       && ibsMerged.batteryStateOfChargeUpdatedAt == ibsAt
+       && ibsMerged.batteryVoltage == 14.1,
+       "ibs merge: value, source and timestamp propagate while voltage survives")
+let ibsEmpty = DPFState(timestamp: ibsAt.addingTimeInterval(1))
+let ibsNoRefresh = ibsMerged.mergingFreshTelemetry(from: ibsEmpty)
+expect(ibsNoRefresh.batteryStateOfChargePercent == 82,
+       "ibs merge: a poll without a battery reply keeps the last good value")
+expect(ibsFresh.hasTelemetry, "ibs state: a charge value alone is telemetry")
+
+// Old persisted snapshots without the new fields must still decode.
+let legacySuiteName = "AlfaDPF.Tests.Legacy.\(UUID().uuidString)"
+let legacyDefaults = UserDefaults(suiteName: legacySuiteName)!
+legacyDefaults.set(Data("""
+{"cloggingPercent":67,"exhaustTempC":412,"batteryVoltage":14.1,"timestamp":1750000000}
+""".utf8), forKey: "lastRealDPFState.v1")
+let legacyLoaded = DPFStateStore.load(from: legacyDefaults)
+expect(legacyLoaded?.cloggingPercent == 67
+       && legacyLoaded?.batteryVoltage == 14.1
+       && legacyLoaded?.batteryStateOfChargePercent == nil,
+       "ibs legacy: a snapshot written before IBS still decodes")
+legacyDefaults.removePersistentDomain(forName: legacySuiteName)
+
 // MARK: - Last real DPF snapshot
 
 let snapshotSuite = "AlfaDPF.Tests.\(UUID().uuidString)"
@@ -1094,6 +1174,15 @@ let rememberedECU = DPFECUProfile(
 ecuProfileStore.save(rememberedECU)
 expect(ecuProfileStore.load() == rememberedECU,
        "dpf: validated ECU routes persist per adapter")
+let rememberedECUWithIBS = DPFECUProfile(
+    headersByPID: ["380B": "18DA10F1", "1005": "18DA40F1"],
+    lastGoodHeader: "18DA10F1",
+    preferredExhaustTemperaturePID: DPFPID.postDPFTempC.rawValue,
+    preferredBatteryStateOfChargeSource: .ibsDirect
+)
+ecuProfileStore.save(rememberedECUWithIBS)
+expect(ecuProfileStore.load() == rememberedECUWithIBS,
+       "ibs: preferred battery source persists in the ECU profile")
 expect(DPFECUProfileStore(identifier: "ble:other", defaults: ecuProfileDefaults).load() == nil,
        "dpf: ECU routes do not leak to another adapter")
 ecuProfileDefaults.removePersistentDomain(forName: ecuProfileSuite)
