@@ -1,10 +1,8 @@
-La versione 1.3 rende il monitoraggio più chiaro, accessibile e affidabile:
+La versione 1.3.1 migliora affidabilità e chiarezza della telemetria:
 
-• supporto per adattatori ELM327 Bluetooth LE e Wi‑Fi TCP;
-• dashboard iPhone e CarPlay allineate sulle stesse soglie di carico DPF;
-• comando di connessione prioritario e conferma prima di disconnettere durante una rigenerazione;
-• stima indicativa del tempo residuo quando sono disponibili dati sufficienti;
-• storico con durata media, riduzione del carico, tasso di completamento e grafico interattivo;
-• interfaccia più adattiva con Dynamic Type, VoiceOver e movimento ridotto;
-• selezione lingua in-app: italiano, inglese, francese e spagnolo;
-• maggiore robustezza quando un PID diventa temporaneamente non disponibile.
+• stato di carica e tensione batteria letti dall’IBS/ECU batteria;
+• correzione delle notifiche di fine rigenerazione quando il campione esatto a zero non viene osservato;
+• recupero dello storico se il carico DPF manca nel primo campione di rigenerazione;
+• refresh CarPlay conforme al limite Apple di 10 secondi per la telemetria;
+• campanella CarPlay più chiara, con conferma dello stato degli avvisi;
+• maggiore robustezza nella discovery degli header ECU e nei dati temporaneamente non disponibili.

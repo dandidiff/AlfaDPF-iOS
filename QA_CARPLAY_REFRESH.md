@@ -2,71 +2,86 @@
 
 ## Esito
 
-Il refresh periodico resta a **10,0 s**, come richiesto da Apple per le app
-Driving Task. Il nuovo percorso guidato dagli eventi rende un contenuto
-modificato al primo slot ammesso, **2,0 s** dopo il render precedente. Se il
-contenuto non cambia, non viene ridisegnato.
+La fonte verificata è il **CarPlay Developer Guide** pubblicato da Apple:
 
-Queste misure sono state osservate con un clock virtuale deterministico nella
-suite automatica; non sono misure stradali su un head unit CarPlay reale.
+> “Do not periodically refresh data items in the CarPlay UI more than once every
+> 10 seconds (for example, no real-time engine data).”
 
-## Prima e dopo
+La policy distingue quindi tra aggiornamenti periodici dei dati e transizioni
+discrete:
 
-| Caso | Prima | Dopo | Evidenza |
-|---|---:|---:|---|
-| Scadenza periodica | 10,0 s | 10,0 s | `CarPlayRefreshPolicy.interval` e test di conformità |
-| Dato ECU modificato | fino a 10,0 s | 2,0 s minimo/target | test gate a `t=2,0 s` |
-| Dato invariato per 60 s | fino a 6 render periodici | 1 render iniziale | 31 richieste di valutazione, 1 render, 30 duplicati scartati |
-| Errore rete/liveness | fino a 10,0 s | 2,0 s | transizione `running -> failed` nel test del gate |
-| Ripresa dopo sospensione | non change-driven | ultimo stato al primo turno disponibile | buffer `bufferingNewest(1)` e test backlog |
+- telemetria e tick periodico: **10,0 s minimo** tra render;
+- inizio/fine rigenerazione e liveness: **2,0 s di guardia anti-rimbalzo**;
+- interazioni del conducente: immediate;
+- contenuto invariato: nessun nuovo render.
 
-## Copertura aggiunta
+Il limite dei 10 secondi è una regola di design/App Review, non un vincolo tecnico
+delle API. Gli eventi discreti non sono trasformati in uno stream di telemetria.
 
-Sono stati aggiunti 13 test automatici in `Tests/main.swift` per verificare:
+## Matrice verificata
 
-- deduplicazione durante un minuto di eventi ECU invariati;
-- conservazione del valore più recente durante burst e rinvii;
-- limite minimo di 2 s per gli aggiornamenti guidati da eventi;
-- applicazione dello stesso limite al tick periodico quando collide con un
-  aggiornamento evento differito;
-- propagazione dello stato di errore/liveness e deduplicazione del tick
-  periodico successivo;
-- ripresa dopo sospensione senza replay del backlog;
-- reset corretto dopo disconnessione/riconnessione della scena;
-- buffer newest-one per il consumer sospeso;
-- assenza di nuove richieste ECU/rete nel corpo del refresh UI;
-- cancellazione dei task periodico, eventi e rinvio durante il teardown.
+| Caso | Policy | Evidenza automatica |
+|---|---:|---|
+| Scadenza periodica | 10,0 s | `CarPlayRefreshPolicy.interval` |
+| Dato ECU modificato | 10,0 s minimo | `CarPlayRefreshTrigger.telemetry` e clock virtuale |
+| Dato invariato per 60 s | 1 solo render iniziale | 31 richieste, 30 duplicati scartati |
+| Inizio/fine rigenerazione | 2,0 s guardia | trigger `regenerationEdge` |
+| Errore/liveness | 2,0 s guardia | trigger `liveness` |
+| Interazione utente | immediata | trigger `interaction` |
+| Collisione tra rinvii | vince la deadline più vicina | `CarPlayDeferredRefreshPolicy` |
+| Ripresa dopo sospensione | conserva solo l’evento più recente | buffer `bufferingNewest(1)` |
+
+Un evento di sicurezza con deadline a due secondi sostituisce un precedente
+rinvio telemetrico a dieci secondi; un evento telemetrico successivo non può
+posticipare una deadline di sicurezza già più vicina.
+
+## Batteria e firma di rendering
+
+La firma di deduplicazione usa lo stesso `batteryTileValue(for:)` della tile.
+Pertanto rileva:
+
+- comparsa, variazione o scadenza del SOC IBS;
+- passaggio tra SOC e tensione batteria;
+- indisponibilità del dato;
+- variazioni della tensione IBS/ECU batteria.
+
+`ATRV` non è mostrato come tensione batteria e rimane soltanto un segnale
+indipendente per il rilevamento prudente del motore spento. Valore e timestamp
+ATRV avanzano insieme; un valore cache non può essere contato più volte come
+nuova evidenza.
+
+## Campanella e test notifiche
+
+- attiva: `bell.fill` nel colore accent;
+- disattiva: `bell.slash.fill` neutra;
+- il tap mostra una conferma esplicita e chiarisce che gli avvisi iPhone restano
+  attivi quando CarPlay è disabilitato;
+- il pannello diagnostico dichiara che i test bypassano lo stato della
+  campanella.
 
 ## Consumo e richieste
 
-Il refresh CarPlay non invia comandi ECU e non apre richieste di rete: valuta
-gli snapshot già accettati dal poller esistente. Nel caso sintetico peggiore
-con snapshot accettato ogni 2 s, vengono eseguite 30 valutazioni evento al
-minuto; il gate limita tutti i render automatici a non più di uno ogni 2 s.
-Nel caso invariato verificato, 31 valutazioni producono un solo render.
+Il refresh CarPlay non invia comandi ECU e non apre richieste di rete: valuta gli
+snapshot già prodotti da `MonitorSession`. L’acquisizione OBD resta indipendente
+dalla cadenza di presentazione CarPlay.
 
-Le metriche restano aggregate (`requests`, `renders`, `duplicates`,
-`deferred`, `failures`, `event_requests`, `effective_interval`) e non includono
-PID, VIN, identificatori adattatore o posizione.
+Le metriche restano aggregate (`requests`, `renders`, `duplicates`, `deferred`,
+`failures`, `event_requests`, `effective_interval`) e non includono PID, VIN,
+identificatori adattatore o posizione.
 
 ## Verifica eseguita
 
-- Suite standalone: **289 PASS / 0 FAIL**.
-- Build reale Xcode 27 beta, target `AlfaDPF`, Debug, iOS Simulator 27.0:
-  **BUILD SUCCEEDED**.
-- App installata e avviata su iPhone Air iOS 27.0: onboarding renderizzato,
-  nessun crash o errore visibile.
-- Display CarPlay del simulatore rilevato a 720x480 e acceso, ma la UI host
-  CarPlay è rimasta nera: non è stato possibile ottenere una sessione
-  `CPTemplateApplicationScene` interattiva in questa esecuzione headless.
+- Suite standalone: **406 PASS / 0 FAIL**; ripetuta anche in due processi
+  concorrenti, entrambi **406 PASS / 0 FAIL**.
+- Build Xcode 27 beta, target `AlfaDPF`, Debug, simulatore iPhone Air iOS 27.0:
+  **BUILD SUCCEEDED**, 0 errori.
+- App installata e avviata sul simulatore con PID restituito da `simctl`.
+- Bundle compilato: versione **1.3.1**, build **19**.
+- Localizzazioni app compilate e verificate per IT/EN/FR/ES, comprese le nuove
+  conferme della campanella.
 
-## Limiti di iOS/CarPlay
+## Limiti della verifica
 
-- Il limite di 2 s vale solo mentre il processo riceve tempo CPU. iOS può
-  sospendere i task; durante la sospensione non esiste una garanzia di latenza.
-  Alla ripresa viene conservato solo l'evento più recente, evitando raffiche.
-- La scadenza periodica sotto i 10 s non viene usata: il vincolo Apple resta
-  rispettato.
-- Simulator e clock virtuale non provano la latenza effettiva di Bluetooth,
-  ECU, scheduler iOS o head unit. Serve una prova A/B su auto/head unit reale
-  con i log aggregati per confermare il valore end-to-end.
+Simulator e clock virtuale non provano la latenza effettiva di Bluetooth, ECU,
+scheduler iOS o head unit. Il comportamento della tensione/SOC IBS e la consegna
+delle notifiche CarPlay vanno ancora confermati con adattatore e veicolo reali.

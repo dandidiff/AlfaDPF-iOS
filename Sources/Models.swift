@@ -176,14 +176,24 @@ struct RegenEngineOffDetector: Equatable, Sendable {
     private var runningBaseline: Double?
     private var lowVoltageStartedAt: Date?
     private var lowSampleCount = 0
+    private var lastVoltageSampleAt: Date?
 
     mutating func observe(
         voltage: Double?,
-        at timestamp: Date,
+        at timestamp: Date?,
         coreTelemetryAvailable: Bool
     ) -> Bool {
         if coreTelemetryAvailable {
             clearLowEvidence()
+        }
+        guard let timestamp else { return false }
+        if let lastVoltageSampleAt,
+           timestamp <= lastVoltageSampleAt {
+            return false
+        }
+        lastVoltageSampleAt = timestamp
+
+        if coreTelemetryAvailable {
             guard let voltage, voltage.isFinite, (0...100).contains(voltage) else {
                 runningBaseline = nil
                 return false
@@ -221,6 +231,7 @@ struct RegenEngineOffDetector: Equatable, Sendable {
 
     mutating func reset() {
         runningBaseline = nil
+        lastVoltageSampleAt = nil
         clearLowEvidence()
     }
 
@@ -237,8 +248,8 @@ enum CarPlayConnectionAction: Equatable, Sendable {
 }
 
 /// Apple limits periodic data-item refreshes in Driving Task apps to no more
-/// than once every ten seconds. Keep the deadline unchanged and allow only
-/// bounded, change-driven updates between periodic checks.
+/// than once every ten seconds. Telemetry follows that limit; only discrete
+/// user, regeneration and liveness transitions may update sooner.
 enum CarPlayRefreshPolicy {
     /// Apple’s current CarPlay Developer Guide limits periodic Driving Task
     /// data-item refreshes to no more than once every ten seconds.
@@ -291,6 +302,18 @@ enum CarPlayRefreshTrigger: String, Sendable {
         case .regenerationEdge, .liveness:
             return CarPlayRefreshPolicy.eventMinimumRenderInterval
         }
+    }
+}
+
+enum CarPlayDeferredRefreshPolicy {
+    /// Keep an existing earlier deadline, but replace a telemetry deferral when
+    /// a later safety/liveness edge needs to render sooner.
+    static func shouldReplace(
+        currentDeadline: Date?,
+        proposedDeadline: Date
+    ) -> Bool {
+        guard let currentDeadline else { return true }
+        return proposedDeadline < currentDeadline
     }
 }
 
@@ -874,8 +897,8 @@ struct DPFState: Codable, Equatable, Sendable {
     var regenProgressPercent: Double?     // 0 when idle, >0 while a regen is running
     var totalRegenCount: Double?
     var regenActive: Bool?                // derived: progress > hysteresis
-    /// Advances only when a fresh post-finish distance PID confirms zero.
-    /// Optional keeps snapshots persisted by older app versions decodable.
+    /// Advances only when a fresh post-finish distance PID confirms the counter
+    /// reset, including a small first sample when the exact zero was skipped.
     var finishConfirmationSequence: UInt64?
     var regenerationMode: DPFRegenerationMode?
     /// EDC17C69 exposes a pressure state, not a trustworthy pressure in bar.
@@ -883,6 +906,9 @@ struct DPFState: Codable, Equatable, Sendable {
     /// Supply voltage reported by the ELM327 (`ATRV`). Kept only as an
     /// independent engine-off signal; it is never presented as battery data.
     var batteryVoltage: Double?
+    /// Timestamp of the last successful ATRV command. Required so one cached
+    /// low value cannot be counted repeatedly as fresh engine-off evidence.
+    var batteryVoltageUpdatedAt: Date?
     /// Battery voltage reported by the FCA IBS/battery ECU.
     var batterySystemVoltage: Double?
     var batterySystemVoltageUpdatedAt: Date?
@@ -913,7 +939,6 @@ extension DPFState {
             || totalRegenCount != nil
             || regenerationMode != nil
             || oilPressureStatusRaw != nil
-            || batteryVoltage != nil
             || batterySystemVoltage != nil
             || batteryStateOfChargePercent != nil
     }
@@ -1004,7 +1029,10 @@ extension DPFState {
         merged.regenerationMode = fresh.regenerationMode ?? regenerationMode
         merged.oilPressureStatusRaw =
             fresh.oilPressureStatusRaw ?? oilPressureStatusRaw
-        merged.batteryVoltage = fresh.batteryVoltage ?? batteryVoltage
+        if fresh.batteryVoltage != nil {
+            merged.batteryVoltage = fresh.batteryVoltage
+            merged.batteryVoltageUpdatedAt = fresh.batteryVoltageUpdatedAt
+        }
         if fresh.batterySystemVoltage != nil {
             merged.batterySystemVoltage = fresh.batterySystemVoltage
             merged.batterySystemVoltageUpdatedAt = fresh.batterySystemVoltageUpdatedAt
@@ -1204,6 +1232,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 12.6,
+                batteryVoltageUpdatedAt: timestamp,
                 batterySystemVoltage: 12.7,
                 batterySystemVoltageUpdatedAt: timestamp,
                 batteryStateOfChargePercent: 82,
@@ -1223,6 +1252,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.2,
+                batteryVoltageUpdatedAt: timestamp,
                 batterySystemVoltage: 14.1,
                 batterySystemVoltageUpdatedAt: timestamp,
                 batteryStateOfChargePercent: 74,
@@ -1242,6 +1272,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: .active,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.1,
+                batteryVoltageUpdatedAt: timestamp,
                 batterySystemVoltage: 14.0,
                 batterySystemVoltageUpdatedAt: timestamp,
                 batteryStateOfChargePercent: 71,
@@ -1261,6 +1292,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: .active,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.0,
+                batteryVoltageUpdatedAt: timestamp,
                 batterySystemVoltage: 13.9,
                 batterySystemVoltageUpdatedAt: timestamp,
                 batteryStateOfChargePercent: 70,
@@ -1280,6 +1312,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 13.9,
+                batteryVoltageUpdatedAt: timestamp,
                 batterySystemVoltage: 13.8,
                 batterySystemVoltageUpdatedAt: timestamp,
                 batteryStateOfChargePercent: 69,

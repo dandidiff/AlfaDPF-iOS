@@ -139,8 +139,11 @@ var engineOffDetector = RegenEngineOffDetector()
 let voltageStart = Date(timeIntervalSince1970: 1_000)
 expect(!engineOffDetector.observe(voltage: 12.4, at: voltageStart, coreTelemetryAvailable: false),
        "history engine-off: low voltage without a running baseline is inconclusive")
-expect(!engineOffDetector.observe(voltage: 14.2, at: voltageStart, coreTelemetryAvailable: true),
-       "history engine-off: live alternator voltage arms the detector")
+expect(!engineOffDetector.observe(
+    voltage: 14.2,
+    at: voltageStart.addingTimeInterval(0.1),
+    coreTelemetryAvailable: true
+), "history engine-off: live alternator voltage arms the detector")
 expect(!engineOffDetector.observe(voltage: 12.6,
                                   at: voltageStart.addingTimeInterval(1),
                                   coreTelemetryAvailable: false),
@@ -150,9 +153,30 @@ expect(!engineOffDetector.observe(voltage: 12.5,
                                   coreTelemetryAvailable: false),
        "history engine-off: short low-voltage interval is insufficient")
 expect(engineOffDetector.observe(voltage: 12.4,
-                                 at: voltageStart.addingTimeInterval(6),
-                                 coreTelemetryAvailable: false),
+                                  at: voltageStart.addingTimeInterval(6),
+                                  coreTelemetryAvailable: false),
        "history engine-off: sustained drop after live running voltage confirms shutdown")
+var staleVoltageDetector = RegenEngineOffDetector()
+_ = staleVoltageDetector.observe(
+    voltage: 14.2,
+    at: voltageStart,
+    coreTelemetryAvailable: true
+)
+let staleLowTimestamp = voltageStart.addingTimeInterval(1)
+_ = staleVoltageDetector.observe(
+    voltage: 12.5,
+    at: staleLowTimestamp,
+    coreTelemetryAvailable: false
+)
+expect(!staleVoltageDetector.observe(
+    voltage: 12.5,
+    at: staleLowTimestamp,
+    coreTelemetryAvailable: false
+) && !staleVoltageDetector.observe(
+    voltage: 12.5,
+    at: staleLowTimestamp,
+    coreTelemetryAvailable: false
+), "history engine-off: one cached ATRV timestamp cannot count as three fresh samples")
 engineOffDetector.reset()
 _ = engineOffDetector.observe(voltage: 14.1, at: voltageStart, coreTelemetryAvailable: true)
 _ = engineOffDetector.observe(voltage: 12.5,
@@ -198,6 +222,15 @@ expect(CarPlayRefreshTrigger.regenerationEdge.minimumInterval <= 2
        && CarPlayRefreshTrigger.liveness.minimumInterval <= 2
        && CarPlayRefreshTrigger.deferredEvent.minimumInterval == 0,
        "carplay: discrete safety/liveness edges stay responsive without double-throttling deferred work")
+let deferredPolicyStart = Date(timeIntervalSince1970: 2_000)
+expect(CarPlayDeferredRefreshPolicy.shouldReplace(
+    currentDeadline: deferredPolicyStart.addingTimeInterval(10),
+    proposedDeadline: deferredPolicyStart.addingTimeInterval(2)
+), "carplay refresh: a safety edge replaces a later telemetry deadline")
+expect(!CarPlayDeferredRefreshPolicy.shouldReplace(
+    currentDeadline: deferredPolicyStart.addingTimeInterval(2),
+    proposedDeadline: deferredPolicyStart.addingTimeInterval(10)
+), "carplay refresh: telemetry cannot postpone an earlier safety deadline")
 
 let carPlayRefreshStart = Date(timeIntervalSince1970: 3_000)
 var carPlayRefreshGate = CarPlayRefreshGate<String>()
@@ -408,6 +441,13 @@ do {
            && carPlaySource.contains("eventRefreshTask?.cancel()")
            && carPlaySource.contains("deferredRefreshTask?.cancel()"),
            "carplay refresh QA: disconnect/background teardown cancels refresh work")
+    expect(carPlaySource.contains("CarPlayDeferredRefreshPolicy.shouldReplace")
+           && carPlaySource.contains("batteryTileValue(for: dpf)"),
+           "carplay refresh QA: earlier safety deadlines and displayed battery values drive rendering")
+    expect(carPlaySource.contains("bell.fill")
+           && carPlaySource.contains("bell.slash.fill")
+           && carPlaySource.contains("I test notifiche ignorano lo stato della campanella."),
+           "carplay alerts: bell state is distinct and diagnostics disclose the test bypass")
 } catch {
     failures += 1
     print("FAIL: carplay refresh QA: could not audit lifecycle wiring — \(error)")
@@ -493,6 +533,37 @@ let initialInactiveTransition = RegenHistoryTransition.resolve(
 )
 expect(initialInactiveTransition.confirmedInitialInactivity,
        "history transition: first explicit idle sample can reconcile an orphan cycle")
+let historyStartAt = Date(timeIntervalSince1970: 2_500)
+let startedHistoryTransition = RegenHistoryTransition.resolve(previous: false, observed: true)
+let continuedHistoryTransition = RegenHistoryTransition.resolve(previous: true, observed: true)
+var historyStartGate = RegenHistoryStartGate()
+expect(historyStartGate.observe(
+    transition: startedHistoryTransition,
+    at: historyStartAt,
+    load: nil
+) == nil, "history start gate: a missing edge-sample load keeps the start pending")
+expect(historyStartGate.observe(
+    transition: continuedHistoryTransition,
+    at: historyStartAt.addingTimeInterval(2),
+    load: 84
+) == .init(startedAt: historyStartAt, startingLoad: 84),
+       "history start gate: first valid active load records the original start timestamp")
+expect(historyStartGate.observe(
+    transition: continuedHistoryTransition,
+    at: historyStartAt.addingTimeInterval(4),
+    load: 83
+) == nil, "history start gate: a recovered start is recorded exactly once")
+var abandonedHistoryStartGate = RegenHistoryStartGate()
+_ = abandonedHistoryStartGate.observe(
+    transition: startedHistoryTransition,
+    at: historyStartAt,
+    load: nil
+)
+expect(abandonedHistoryStartGate.observe(
+    transition: finishedHistoryTransition,
+    at: historyStartAt.addingTimeInterval(2),
+    load: 40
+) == nil, "history start gate: finish clears an unresolved start without fabricating a cycle")
 
 let nonLiveCarPlayStatuses: [SessionStatus] = [
     .idle,
@@ -1005,14 +1076,23 @@ expect(DPFState().freshBatteryStateOfChargePercent() == nil,
        "ibs freshness: absent sample stays unavailable")
 var ibsBase = DPFState(timestamp: ibsAt)
 ibsBase.batteryVoltage = 14.1 // ATRV: internal only, never shown in the card.
+ibsBase.batteryVoltageUpdatedAt = ibsAt.addingTimeInterval(-12)
 let ibsMerged = ibsBase.mergingFreshTelemetry(from: ibsFresh)
 expect(ibsMerged.batteryStateOfChargePercent == 82
        && ibsMerged.batteryStateOfChargeSource == .ibsDirect
        && ibsMerged.batteryStateOfChargeUpdatedAt == ibsAt
        && ibsMerged.batterySystemVoltage == 12.8
        && ibsMerged.batterySystemVoltageUpdatedAt == ibsAt
-       && ibsMerged.batteryVoltage == 14.1,
+       && ibsMerged.batteryVoltage == 14.1
+       && ibsMerged.batteryVoltageUpdatedAt == ibsAt.addingTimeInterval(-12),
        "ibs merge: SOC and battery voltage propagate independently from ATRV")
+var freshAdapterVoltage = DPFState(timestamp: ibsAt.addingTimeInterval(1))
+freshAdapterVoltage.batteryVoltage = 14.3
+freshAdapterVoltage.batteryVoltageUpdatedAt = freshAdapterVoltage.timestamp
+let adapterMerged = ibsMerged.mergingFreshTelemetry(from: freshAdapterVoltage)
+expect(adapterMerged.batteryVoltage == 14.3
+       && adapterMerged.batteryVoltageUpdatedAt == freshAdapterVoltage.timestamp,
+       "adapter voltage merge: value and freshness timestamp advance atomically")
 let ibsEmpty = DPFState(timestamp: ibsAt.addingTimeInterval(1))
 let ibsNoRefresh = ibsMerged.mergingFreshTelemetry(from: ibsEmpty)
 expect(ibsNoRefresh.batteryStateOfChargePercent == 82,
@@ -1080,6 +1160,9 @@ expect(BatteryMetricPresentation.resolve(
        "ibs presentation: absent or unsupported telemetry stays unavailable")
 var adapterOnlyBatteryState = DPFState(timestamp: ibsAt)
 adapterOnlyBatteryState.batteryVoltage = 14.4
+adapterOnlyBatteryState.batteryVoltageUpdatedAt = ibsAt
+expect(!adapterOnlyBatteryState.hasTelemetry,
+       "ibs presentation: ATRV alone cannot make an otherwise empty dashboard non-empty")
 expect(BatteryMetricPresentation.resolve(
     state: adapterOnlyBatteryState,
     isLive: true,

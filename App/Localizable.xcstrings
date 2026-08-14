@@ -988,6 +988,62 @@
         }
       }
     },
+    "Avvisi CarPlay attivi. Gli avvisi di rigenerazione possono apparire anche sul display dell’auto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CarPlay alerts are on. Regeneration alerts may also appear on the car display."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las alertas de CarPlay están activadas. Los avisos de regeneración también pueden aparecer en la pantalla del vehículo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les alertes CarPlay sont activées. Les alertes de régénération peuvent aussi s’afficher sur l’écran du véhicule."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisi CarPlay attivi. Gli avvisi di rigenerazione possono apparire anche sul display dell’auto."
+          }
+        }
+      }
+    },
+    "Avvisi CarPlay disattivati. Gli avvisi di rigenerazione restano attivi su iPhone." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CarPlay alerts are off. Regeneration alerts remain active on iPhone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las alertas de CarPlay están desactivadas. Los avisos de regeneración siguen activos en el iPhone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les alertes CarPlay sont désactivées. Les alertes de régénération restent actives sur l’iPhone."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisi CarPlay disattivati. Gli avvisi di rigenerazione restano attivi su iPhone."
+          }
+        }
+      }
+    },
     "Avvisi CarPlay" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3482,6 +3538,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Imminente (>95%)"
+          }
+        }
+      }
+    },
+    "I test notifiche ignorano lo stato della campanella." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notification tests ignore the bell setting."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las pruebas de notificaciones ignoran el ajuste de la campana."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les tests de notification ignorent le réglage de la cloche."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I test notifiche ignorano lo stato della campanella."
           }
         }
       }

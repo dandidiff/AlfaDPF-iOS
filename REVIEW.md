@@ -105,8 +105,8 @@ Le priorità emerse dalla review erano tre:
 - L’icona attuale è efficace a grande formato ma troppo dettagliata a 60 pt.
   Una futura variante dovrebbe usare un arco DPF più bold, due colori e versioni
   dark/tinted, senza microtexture.
-- README, checklist e release notes sono stati riallineati alla versione 1.3,
-  build 18.
+- README, checklist e release notes sono stati riallineati alla versione 1.3.1,
+  build 19.
 
 ## Verifica eseguita
 

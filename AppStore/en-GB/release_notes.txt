@@ -1,10 +1,8 @@
-Version 1.3 makes DPF monitoring clearer, more accessible and more reliable:
+Version 1.3.1 improves telemetry accuracy and reliability:
 
-• support for Bluetooth LE and Wi-Fi TCP ELM327 adapters;
-• matching DPF load thresholds across the iPhone and CarPlay dashboards;
-• a prominent connection control and confirmation before disconnecting during a regeneration;
-• an indicative remaining-time estimate when enough progress data is available;
-• history insights for average duration, load reduction and completion rate, plus an interactive chart;
-• a more adaptive interface with Dynamic Type, VoiceOver and Reduce Motion support;
-• in-app language selection for Italian, English, French and Spanish;
-• more robust handling when a PID becomes temporarily unavailable.
+• battery state of charge and voltage now come from the IBS/battery ECU;
+• regeneration-finish alerts no longer require observing an exact zero-distance sample;
+• regeneration history recovers when DPF load is missing from the first active sample;
+• CarPlay telemetry refreshes follow Apple’s 10-second limit;
+• the CarPlay alert bell now shows and confirms its state more clearly;
+• improved ECU-header discovery and handling of temporarily unavailable data.

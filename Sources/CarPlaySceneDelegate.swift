@@ -322,6 +322,7 @@ final class CarPlaySceneDelegate: UIResponder,
     private var periodicRefreshTask: Task<Void, Never>?
     private var eventRefreshTask: Task<Void, Never>?
     private var deferredRefreshTask: Task<Void, Never>?
+    private var deferredRefreshDeadline: Date?
     private var refreshGate = CarPlayRefreshGate<CarPlayRenderSignature>()
     private var lastDashboardSignature: CarPlayDashboardRenderSignature?
     private var lastDetailSignature: CarPlayDetailRenderSignature?
@@ -368,6 +369,7 @@ final class CarPlaySceneDelegate: UIResponder,
         periodicRefreshTask = nil
         eventRefreshTask = nil
         deferredRefreshTask = nil
+        deferredRefreshDeadline = nil
         logRefreshMetricsIfNeeded(at: Date(), force: true)
         refreshGate.reset()
         lastDashboardSignature = nil
@@ -397,6 +399,8 @@ final class CarPlaySceneDelegate: UIResponder,
         periodicRefreshTask?.cancel()
         eventRefreshTask?.cancel()
         deferredRefreshTask?.cancel()
+        deferredRefreshTask = nil
+        deferredRefreshDeadline = nil
 
         let events = session.carPlayRefreshEvents()
         refreshDashboard(trigger: .interaction)
@@ -454,11 +458,13 @@ final class CarPlaySceneDelegate: UIResponder,
         case .skipDuplicate:
             deferredRefreshTask?.cancel()
             deferredRefreshTask = nil
+            deferredRefreshDeadline = nil
         case .deferFor(let delay):
             scheduleDeferredRefresh(after: delay)
         case .render:
             deferredRefreshTask?.cancel()
             deferredRefreshTask = nil
+            deferredRefreshDeadline = nil
 
             if dashboardSignature != lastDashboardSignature {
                 dashboardTemplate.updateTitle(dashboardTitle)
@@ -522,8 +528,15 @@ final class CarPlaySceneDelegate: UIResponder,
     }
 
     private func scheduleDeferredRefresh(after delay: TimeInterval) {
-        guard deferredRefreshTask == nil else { return }
         let boundedDelay = max(delay, 0.01)
+        let deadline = Date().addingTimeInterval(boundedDelay)
+        guard CarPlayDeferredRefreshPolicy.shouldReplace(
+            currentDeadline: deferredRefreshDeadline,
+            proposedDeadline: deadline
+        ) else { return }
+
+        deferredRefreshTask?.cancel()
+        deferredRefreshDeadline = deadline
         deferredRefreshTask = Task { [weak self] in
             do {
                 try await Task.sleep(for: .seconds(boundedDelay))
@@ -532,6 +545,7 @@ final class CarPlaySceneDelegate: UIResponder,
             }
             guard let self, !Task.isCancelled else { return }
             self.deferredRefreshTask = nil
+            self.deferredRefreshDeadline = nil
             self.refreshDashboard(trigger: .deferredEvent)
         }
     }
@@ -1082,8 +1096,11 @@ final class CarPlaySceneDelegate: UIResponder,
             ? AppLocalization.string("Avvisi Alpha su CarPlay attivi.")
             : AppLocalization.string("Avvisi Alpha su CarPlay disattivati.")
 
+        let testScope = AppLocalization.string(
+            "I test notifiche ignorano lo stato della campanella."
+        )
         guard #available(iOS 18.4, *) else {
-            return localStatus + "\n"
+            return localStatus + "\n" + testScope + "\n"
                 + AppLocalization.string("Le notifiche di sistema Driving Task richiedono iOS 18.4. Usa il test alert CarPlay.")
         }
 
@@ -1099,7 +1116,7 @@ final class CarPlaySceneDelegate: UIResponder,
         let instruction = session.alertAuthorization.authorization == .authorized
             ? AppLocalization.string("Per il test sistema, tocca il pulsante e torna subito alla Home CarPlay.")
             : AppLocalization.string("Concedi prima il permesso notifiche dall’iPhone.")
-        return localStatus + "\n" + status + "\n" + instruction
+        return localStatus + "\n" + testScope + "\n" + status + "\n" + instruction
     }
 
     private func notificationIssueText(_ issue: CarPlayNotificationIssue) -> String {

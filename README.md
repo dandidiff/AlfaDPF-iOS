@@ -2,14 +2,16 @@
 
 Monitor DPF per Alfa Romeo / FCA diesel via adattatore ELM327 Bluetooth LE o Wi-Fi.
 La versione corrente è volutamente concentrata sui dati del filtro e sulla
-rilevazione affidabile della rigenerazione. La scheda Batteria mostra la
-percentuale di carica letta dall’IBS quando disponibile e mantiene la tensione
-restituita dall’adattatore tramite `ATRV` come dettaglio e fallback. Il monitor
-interroga prima `221005` sull’IBS (`18DA40F1`) e usa `2219BD` sull’ECU motore
-(`18DA10F1`) come compatibilità; risposte assenti, malformate, fuori da `0...100`
-o più vecchie di 30 secondi non vengono presentate come dato live.
+rilevazione affidabile della rigenerazione. La scheda Batteria mostra stato di
+carica e tensione letti dall’IBS/ECU batteria; `ATRV` resta esclusivamente un
+segnale interno indipendente per il rilevamento prudente del motore spento e non
+viene presentato come dato batteria. Il monitor interroga prima `221005`
+sull’IBS (`18DA40F1`), ricavando SOC e tensione dallo stesso payload, con
+fallback tensione `221004`; usa `2219BD` e `221955` sull’ECU motore come
+compatibilità. Risposte assenti, malformate, fuori intervallo o più vecchie di
+30 secondi non vengono presentate come dato live.
 
-Versione in sviluppo: **1.3 (build 18)**.
+Versione in sviluppo: **1.3.1 (build 19)**.
 
 Il nome pubblico della versione App Store è **Alpha DPF Monitor** — non “Alfa
 DPF”: “Alpha” è il marchio pubblico, scelto per restare distintivo senza usare

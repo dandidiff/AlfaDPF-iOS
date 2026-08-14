@@ -639,7 +639,7 @@ final class MonitorSession {
     private func acceptLive(_ snapshot: DPFState) {
         _ = engineOffDetector.observe(
             voltage: snapshot.batteryVoltage,
-            at: snapshot.timestamp,
+            at: snapshot.batteryVoltageUpdatedAt,
             coreTelemetryAvailable: true
         )
         dpf = snapshot
@@ -730,7 +730,7 @@ final class MonitorSession {
         // alternator baseline can classify the active cycle as interrupted.
         let engineOffConfirmed = engineOffDetector.observe(
             voltage: latestMonitorState.batteryVoltage,
-            at: latestMonitorState.timestamp,
+            at: latestMonitorState.batteryVoltageUpdatedAt,
             coreTelemetryAvailable: false
         )
         let wasRegenerating = lastLiveRegenState == true

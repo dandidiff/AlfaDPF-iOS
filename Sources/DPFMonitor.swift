@@ -261,7 +261,10 @@ actor DPFMonitor {
         case .adapterVoltage:
             // ATRV is kept solely as independent evidence for engine-off
             // detection. It is not displayed as battery voltage.
-            secondary.batteryVoltage = try? await elm.readBatteryVoltage()
+            if let voltage = try? await elm.readBatteryVoltage() {
+                secondary.batteryVoltage = voltage
+                secondary.batteryVoltageUpdatedAt = sampledAt
+            }
         case .coolantTemperature:
             do {
                 let reading = try await read(.coolantTemperatureC)

@@ -1,12 +1,12 @@
-# Alpha DPF Monitor 1.3 — scheda di pubblicazione
+# Alpha DPF Monitor 1.3.1 — scheda di pubblicazione
 
 ## Identità
 
 - Nome pubblico: `Alpha DPF Monitor` (la grafia pubblica è sempre **Alpha**;
   “Alfa” resta solo negli identificatori interni del progetto)
 - Bundle ID: `com.tamburi.AlfaDPF`
-- Versione: `1.3`
-- Build: `18` (`CURRENT_PROJECT_VERSION` aggiornato nel progetto; il target
+- Versione: `1.3.1`
+- Build: `19` (`CURRENT_PROJECT_VERSION` aggiornato nel progetto; il target
   `DPFWidget` usa la stessa versione/build)
 - SKU suggerito: `dpf-monitor-ios-001`
 - Lingue app: Italiano, Inglese, Francese e Spagnolo
@@ -16,7 +16,7 @@
 - Copyright: `2026 Eddy Tamburi`
 - Prezzo: **Gratis** — nessun prezzo di listino, acquisto in-app o abbonamento.
 
-## Novità della 1.3
+## Novità della 1.3.1
 
 - Connessione ELM327 sia Bluetooth LE sia Wi‑Fi TCP, con tolleranza migliorata
   per i clone v1.5 e diagnostica degli header CAN.
@@ -27,6 +27,12 @@
   sufficienti; lo storico aggiunge statistiche e selezione interattiva.
 - Gestione tri-state degli edge di rigenerazione: un PID temporaneamente
   sconosciuto non chiude più falsamente il ciclo nello storico.
+- Stato di carica e tensione batteria letti dall’IBS/ECU batteria; `ATRV` non
+  viene più presentato come dato della batteria.
+- Conferma di fine rigenerazione robusta quando il primo campione dopo il reset
+  è già maggiore di zero, e recupero dell’inizio storico se manca il carico.
+- Refresh telemetrico CarPlay limitato a 10 secondi; campanella con stato e
+  conferma espliciti, mantenendo reattivi gli eventi discreti di sicurezza.
 
 ## URL
 
@@ -70,7 +76,7 @@
       Activity/Dynamic Island e BLE da catturare; set `en-GB/` da catturare.
 - [ ] Verificare `App/Localizable.xcstrings` e `App/InfoPlist.xcstrings`
       (notifiche, errori, autorizzazione Bluetooth e branding IT/EN/FR/ES).
-- [ ] Build 18 con versione 1.3: archiviare con `AppStore/ExportOptions.plist`,
+- [ ] Build 19 con versione 1.3.1: archiviare con `AppStore/ExportOptions.plist`,
       caricare con `AppStore/UploadOptions.plist`.
 - [ ] Recensione: usare `AppStore/review-notes-en.txt` aggiornato.
 
