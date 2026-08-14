@@ -243,7 +243,7 @@ enum CarPlayRefreshPolicy {
     static let interval: Duration = .seconds(10)
     /// Fresh ECU snapshots normally arrive every two seconds. Matching that
     /// cadence bounds perceived latency without introducing a faster UI timer.
-    static let minimumEventInterval: TimeInterval = 2
+    static let minimumRenderInterval: TimeInterval = 2
     static let metricsLogInterval: TimeInterval = 30
 }
 
@@ -279,7 +279,12 @@ enum CarPlayRefreshTrigger: String, Sendable {
     }
 
     var minimumInterval: TimeInterval {
-        isEventDriven ? CarPlayRefreshPolicy.minimumEventInterval : 0
+        switch self {
+        case .interaction:
+            return 0
+        case .periodic, .telemetry, .regenerationEdge, .liveness, .deferredEvent:
+            return CarPlayRefreshPolicy.minimumRenderInterval
+        }
     }
 }
 

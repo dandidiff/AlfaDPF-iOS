@@ -22,11 +22,13 @@ suite automatica; non sono misure stradali su un head unit CarPlay reale.
 
 ## Copertura aggiunta
 
-Sono stati aggiunti 12 test automatici in `Tests/main.swift` per verificare:
+Sono stati aggiunti 13 test automatici in `Tests/main.swift` per verificare:
 
 - deduplicazione durante un minuto di eventi ECU invariati;
 - conservazione del valore più recente durante burst e rinvii;
 - limite minimo di 2 s per gli aggiornamenti guidati da eventi;
+- applicazione dello stesso limite al tick periodico quando collide con un
+  aggiornamento evento differito;
 - propagazione dello stato di errore/liveness e deduplicazione del tick
   periodico successivo;
 - ripresa dopo sospensione senza replay del backlog;
@@ -40,7 +42,7 @@ Sono stati aggiunti 12 test automatici in `Tests/main.swift` per verificare:
 Il refresh CarPlay non invia comandi ECU e non apre richieste di rete: valuta
 gli snapshot già accettati dal poller esistente. Nel caso sintetico peggiore
 con snapshot accettato ogni 2 s, vengono eseguite 30 valutazioni evento al
-minuto; il gate limita i render guidati da evento a non più di uno ogni 2 s.
+minuto; il gate limita tutti i render automatici a non più di uno ogni 2 s.
 Nel caso invariato verificato, 31 valutazioni producono un solo render.
 
 Le metriche restano aggregate (`requests`, `renders`, `duplicates`,
@@ -49,8 +51,7 @@ PID, VIN, identificatori adattatore o posizione.
 
 ## Verifica eseguita
 
-- Suite standalone: **288 PASS / 0 FAIL**.
-- Due esecuzioni concorrenti indipendenti: **288/0** e **288/0**.
+- Suite standalone: **289 PASS / 0 FAIL**.
 - Build reale Xcode 27 beta, target `AlfaDPF`, Debug, iOS Simulator 27.0:
   **BUILD SUCCEEDED**.
 - App installata e avviata su iPhone Air iOS 27.0: onboarding renderizzato,
