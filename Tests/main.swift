@@ -422,6 +422,10 @@ do {
         contentsOfFile: "Sources/MonitorSession.swift",
         encoding: .utf8
     )
+    let dpfMonitorSource = try String(
+        contentsOfFile: "Sources/DPFMonitor.swift",
+        encoding: .utf8
+    )
     if let refreshStart = carPlaySource.range(of: "private func refreshDashboard("),
        let refreshEnd = carPlaySource.range(
            of: "private func makeDashboardRenderSignature()",
@@ -444,6 +448,12 @@ do {
     expect(carPlaySource.contains("CarPlayDeferredRefreshPolicy.shouldReplace")
            && carPlaySource.contains("batteryTileValue(for: dpf)"),
            "carplay refresh QA: earlier safety deadlines and displayed battery values drive rendering")
+    expect(carPlaySource.contains("batteryStateOfChargeText(from: presentation)")
+           && carPlaySource.contains("batteryVoltageText(from: presentation)")
+           && !carPlaySource.contains("formatted(dpf.batteryVoltage"),
+           "carplay battery details: SOC and voltage use the shared IBS presentation, never ATRV")
+    expect(dpfMonitorSource.contains("fresh.batteryVoltage = voltage\n                fresh.batteryVoltageUpdatedAt = sampledAt"),
+           "active regeneration ATRV: every successful sample carries its freshness timestamp")
     expect(carPlaySource.contains("bell.fill")
            && carPlaySource.contains("bell.slash.fill")
            && carPlaySource.contains("I test notifiche ignorano lo stato della campanella."),

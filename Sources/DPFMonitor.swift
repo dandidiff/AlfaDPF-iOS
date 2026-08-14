@@ -160,7 +160,10 @@ actor DPFMonitor {
         // (voltage drops from 14V to 12V) from a transient BLE dropout.
         // Outside active regen it stays a secondary read (every 5th cycle).
         if regenTracker.isActive == true {
-            fresh.batteryVoltage = try? await elm.readBatteryVoltage()
+            if let voltage = try? await elm.readBatteryVoltage() {
+                fresh.batteryVoltage = voltage
+                fresh.batteryVoltageUpdatedAt = sampledAt
+            }
         }
 
         let event = regenTracker.observe(

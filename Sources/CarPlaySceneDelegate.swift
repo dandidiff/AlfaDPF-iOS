@@ -870,26 +870,33 @@ final class CarPlaySceneDelegate: UIResponder,
                 updated,
             ]
         case .battery:
+            let presentation = batteryMetricPresentation(for: dpf)
             return [
                 CPInformationItem(
                     title: AppLocalization.string("Stato di carica"),
-                    detail: freshBatteryStateOfChargeText(for: dpf)
+                    detail: batteryStateOfChargeText(from: presentation)
                 ),
                 CPInformationItem(
                     title: AppLocalization.string("Tensione batteria"),
-                    detail: formatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V")
+                    detail: batteryVoltageText(from: presentation)
                 ),
                 updated,
             ]
         }
     }
 
-    private func batteryTileValue(for dpf: DPFState) -> String {
-        let isLive = CarPlayTelemetryPolicy.isLive(
-            status: session.status,
-            hasLiveTelemetry: session.hasLiveTelemetry
+    private func batteryMetricPresentation(for dpf: DPFState) -> BatteryMetricPresentation {
+        BatteryMetricPresentation.resolve(
+            state: dpf,
+            isLive: CarPlayTelemetryPolicy.isLive(
+                status: session.status,
+                hasLiveTelemetry: session.hasLiveTelemetry
+            )
         )
-        switch BatteryMetricPresentation.resolve(state: dpf, isLive: isLive).headline {
+    }
+
+    private func batteryTileValue(for dpf: DPFState) -> String {
+        switch batteryMetricPresentation(for: dpf).headline {
         case .stateOfChargePercent(let percent):
             return compactFormatted(percent, fractionDigits: 0, unit: "%")
         case .voltage(let voltage):
@@ -899,24 +906,19 @@ final class CarPlaySceneDelegate: UIResponder,
         }
     }
 
-    private func freshBatteryStateOfCharge(for dpf: DPFState) -> Double? {
-        let isLive = CarPlayTelemetryPolicy.isLive(
-            status: session.status,
-            hasLiveTelemetry: session.hasLiveTelemetry
-        )
-        guard case .stateOfChargePercent(let percent) = BatteryMetricPresentation.resolve(
-            state: dpf,
-            isLive: isLive
-        ).headline else { return nil }
-        return percent
+    private func batteryStateOfChargeText(from presentation: BatteryMetricPresentation) -> String {
+        if case .stateOfChargePercent(let percent) = presentation.headline {
+            return formatted(percent, fractionDigits: 0, unit: "%")
+        }
+        return "—"
     }
 
-    private func freshBatteryStateOfChargeText(for dpf: DPFState) -> String {
-        if let soc = freshBatteryStateOfCharge(for: dpf) {
-            return formatted(soc, fractionDigits: 0, unit: "%")
+    private func batteryVoltageText(from presentation: BatteryMetricPresentation) -> String {
+        if let voltage = presentation.voltageDetail {
+            return formatted(voltage, fractionDigits: 1, unit: "V")
         }
-        if dpf.batteryStateOfChargePercent != nil {
-            return AppLocalization.string("Dati non disponibili")
+        if case .voltage(let voltage) = presentation.headline {
+            return formatted(voltage, fractionDigits: 1, unit: "V")
         }
         return "—"
     }
