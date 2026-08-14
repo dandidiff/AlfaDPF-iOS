@@ -657,7 +657,7 @@ final class CarPlaySceneDelegate: UIResponder,
 
     private func makeOverflowGridButton(metrics: [CarPlayDashboardMetric]) -> CPGridButton {
         CPGridButton(
-            titleVariants: ["DATI VEICOLO · +\(metrics.count)", "DATI VEICOLO"],
+            titleVariants: ["Altri · +\(metrics.count)", "Altri"],
             image: CarPlayDashboardArtwork.gridImage(icon: .overflow, accent: carPlayAccent, illuminated: false, displayScale: carDisplayScale)
         ) { [weak self] _ in
             self?.showDetails(.overflow(metrics))
