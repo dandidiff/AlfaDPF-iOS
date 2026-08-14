@@ -2,7 +2,7 @@ import CarPlay
 import Foundation
 import UIKit
 
-private enum CarPlayDetailKind {
+private enum CarPlayDetailKind: Equatable, Sendable {
     case dpf
     case regeneration
     case distance
@@ -284,6 +284,29 @@ private enum CarPlayDashboardArtwork {
     }
 }
 
+private struct CarPlayDashboardRenderSignature: Equatable, Sendable {
+    var title: String
+    var tileValues: [String]
+    var iconTones: [CarPlayDashboardIconTone]
+    var connectionAction: CarPlayConnectionAction
+    var alertsEnabled: Bool
+    var notificationIssues: [CarPlayNotificationIssue]
+    var accent: String
+    var language: String
+    var displayScale: Double
+}
+
+private struct CarPlayDetailRenderSignature: Equatable, Sendable {
+    var kind: CarPlayDetailKind
+    var state: DPFState
+    var language: String
+}
+
+private struct CarPlayRenderSignature: Equatable, Sendable {
+    var dashboard: CarPlayDashboardRenderSignature
+    var details: CarPlayDetailRenderSignature?
+}
+
 /// Native CarPlay driving-task scene. CarPlay and the phone share the same
 /// `MonitorSession`, so every action controls one BLE adapter and one ECU poller.
 @MainActor
@@ -296,7 +319,14 @@ final class CarPlaySceneDelegate: UIResponder,
     private var dashboardTemplate: CPGridTemplate?
     private var detailsTemplate: CPInformationTemplate?
     private var detailKind: CarPlayDetailKind?
-    private var refreshTask: Task<Void, Never>?
+    private var periodicRefreshTask: Task<Void, Never>?
+    private var eventRefreshTask: Task<Void, Never>?
+    private var deferredRefreshTask: Task<Void, Never>?
+    private var refreshGate = CarPlayRefreshGate<CarPlayRenderSignature>()
+    private var lastDashboardSignature: CarPlayDashboardRenderSignature?
+    private var lastDetailSignature: CarPlayDetailRenderSignature?
+    private var refreshMetrics = CarPlayRefreshMetrics()
+    private var lastMetricsLogAt: Date?
     private var regenerationAlertTracker = CarPlayRegenerationAlertTracker()
     private var isPresentingAlert = false
 
@@ -312,10 +342,11 @@ final class CarPlaySceneDelegate: UIResponder,
 
         let template = makeDashboardTemplate()
         dashboardTemplate = template
-        interfaceController.setRootTemplate(template, animated: false) { success, error in
+        interfaceController.setRootTemplate(template, animated: false) { [weak self] success, error in
             if success {
                 OBDLog.log("CarPlay: dashboard connected")
             } else {
+                self?.refreshMetrics.recordFailure()
                 OBDLog.log("CarPlay: root template failed: \(error?.localizedDescription ?? "unknown error")")
             }
         }
@@ -331,8 +362,18 @@ final class CarPlaySceneDelegate: UIResponder,
         if interfaceController.delegate === self {
             interfaceController.delegate = nil
         }
-        refreshTask?.cancel()
-        refreshTask = nil
+        periodicRefreshTask?.cancel()
+        eventRefreshTask?.cancel()
+        deferredRefreshTask?.cancel()
+        periodicRefreshTask = nil
+        eventRefreshTask = nil
+        deferredRefreshTask = nil
+        logRefreshMetricsIfNeeded(at: Date(), force: true)
+        refreshGate.reset()
+        lastDashboardSignature = nil
+        lastDetailSignature = nil
+        refreshMetrics = CarPlayRefreshMetrics()
+        lastMetricsLogAt = nil
         dashboardTemplate = nil
         detailsTemplate = nil
         detailKind = nil
@@ -353,15 +394,29 @@ final class CarPlaySceneDelegate: UIResponder,
     }
 
     private func startRefreshing() {
-        refreshTask?.cancel()
-        refreshTask = Task { [weak self] in
+        periodicRefreshTask?.cancel()
+        eventRefreshTask?.cancel()
+        deferredRefreshTask?.cancel()
+
+        let events = session.carPlayRefreshEvents()
+        refreshDashboard(trigger: .interaction)
+
+        periodicRefreshTask = Task { [weak self] in
             while !Task.isCancelled {
-                self?.refreshDashboard()
                 do {
                     try await Task.sleep(for: CarPlayRefreshPolicy.interval)
                 } catch {
                     return
                 }
+                guard let self, !Task.isCancelled else { return }
+                self.refreshDashboard(trigger: .periodic)
+            }
+        }
+
+        eventRefreshTask = Task { [weak self] in
+            for await event in events {
+                guard let self, !Task.isCancelled else { return }
+                self.refreshDashboard(trigger: event.trigger)
             }
         }
     }
@@ -375,17 +430,122 @@ final class CarPlaySceneDelegate: UIResponder,
         return template
     }
 
-    private func refreshDashboard() {
+    private func refreshDashboard(trigger: CarPlayRefreshTrigger = .interaction) {
         guard let dashboardTemplate else { return }
-        dashboardTemplate.updateTitle(dashboardTitle)
-        dashboardTemplate.updateGridButtons(makeGridButtons())
-        configureNavigationButtons(on: dashboardTemplate)
-        if let detailKind {
-            detailsTemplate?.items = boundedInformationItems(
-                makeInformationItems(for: detailKind)
-            )
+        observeRegenerationAlertIfNeeded()
+
+        let now = Date()
+        let dashboardSignature = makeDashboardRenderSignature()
+        let detailSignature = makeDetailRenderSignature()
+        let signature = CarPlayRenderSignature(
+            dashboard: dashboardSignature,
+            details: detailSignature
+        )
+
+        refreshMetrics.recordRequest(trigger: trigger)
+        let decision = refreshGate.evaluate(
+            signature: signature,
+            at: now,
+            minimumInterval: trigger.minimumInterval
+        )
+        refreshMetrics.recordDecision(decision)
+
+        switch decision {
+        case .skipDuplicate:
+            deferredRefreshTask?.cancel()
+            deferredRefreshTask = nil
+        case .deferFor(let delay):
+            scheduleDeferredRefresh(after: delay)
+        case .render:
+            deferredRefreshTask?.cancel()
+            deferredRefreshTask = nil
+
+            if dashboardSignature != lastDashboardSignature {
+                dashboardTemplate.updateTitle(dashboardTitle)
+                dashboardTemplate.updateGridButtons(makeGridButtons())
+                configureNavigationButtons(on: dashboardTemplate)
+                lastDashboardSignature = dashboardSignature
+            }
+
+            if detailSignature != lastDetailSignature {
+                if let detailKind {
+                    detailsTemplate?.items = boundedInformationItems(
+                        makeInformationItems(for: detailKind)
+                    )
+                }
+                lastDetailSignature = detailSignature
+            }
         }
 
+        logRefreshMetricsIfNeeded(at: now)
+    }
+
+    private func makeDashboardRenderSignature() -> CarPlayDashboardRenderSignature {
+        let dpf = session.carPlayDPFState
+        let isLive = CarPlayTelemetryPolicy.isLive(
+            status: session.status,
+            hasLiveTelemetry: session.hasLiveTelemetry
+        )
+        let tileValues = [
+            compactFormatted(dpf.cloggingPercent, fractionDigits: 1, unit: "%"),
+            regenerationGridText(for: dpf),
+            compactFormatted(dpf.distanceSinceLastRegenKm, fractionDigits: 0, unit: "km"),
+            compactFormatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C"),
+            compactFormatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%"),
+            compactFormatted(dpf.totalRegenCount, fractionDigits: 0),
+            dpf.oilPressureStatusText ?? "—",
+            compactFormatted(dpf.batteryVoltage, fractionDigits: 1, unit: "V"),
+        ]
+        let iconTones = CarPlayDashboardMetric.allCases.map {
+            CarPlayDashboardIconPolicy.tone(for: $0, state: dpf, isLive: isLive)
+        }
+        return CarPlayDashboardRenderSignature(
+            title: dashboardTitle,
+            tileValues: tileValues,
+            iconTones: iconTones,
+            connectionAction: session.status.carPlayConnectionAction,
+            alertsEnabled: session.carPlayAlertsEnabled,
+            notificationIssues: session.alertAuthorization.carPlayNotificationIssues,
+            accent: session.appAccent.rawValue,
+            language: session.appLanguage.rawValue,
+            displayScale: Double(carDisplayScale)
+        )
+    }
+
+    private func makeDetailRenderSignature() -> CarPlayDetailRenderSignature? {
+        guard let detailKind else { return nil }
+        return CarPlayDetailRenderSignature(
+            kind: detailKind,
+            state: session.carPlayDPFState,
+            language: session.appLanguage.rawValue
+        )
+    }
+
+    private func scheduleDeferredRefresh(after delay: TimeInterval) {
+        guard deferredRefreshTask == nil else { return }
+        let boundedDelay = max(delay, 0.01)
+        deferredRefreshTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(boundedDelay))
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.deferredRefreshTask = nil
+            self.refreshDashboard(trigger: .deferredEvent)
+        }
+    }
+
+    private func logRefreshMetricsIfNeeded(at now: Date, force: Bool = false) {
+        let isDue = lastMetricsLogAt.map {
+            now.timeIntervalSince($0) >= CarPlayRefreshPolicy.metricsLogInterval
+        } ?? true
+        guard force || isDue else { return }
+        OBDLog.log(refreshMetrics.summaryLine)
+        lastMetricsLogAt = now
+    }
+
+    private func observeRegenerationAlertIfNeeded() {
         let telemetryIsLive = CarPlayTelemetryPolicy.isLive(
             status: session.status,
             hasLiveTelemetry: session.hasLiveTelemetry

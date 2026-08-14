@@ -237,10 +237,135 @@ enum CarPlayConnectionAction: Equatable, Sendable {
 }
 
 /// Apple limits periodic data-item refreshes in Driving Task apps to no more
-/// than once every ten seconds. Keep this policy shared with tests so a future
-/// UI change cannot silently reintroduce a non-compliant real-time refresh.
+/// than once every ten seconds. Keep the deadline unchanged and allow only
+/// bounded, change-driven updates between periodic checks.
 enum CarPlayRefreshPolicy {
     static let interval: Duration = .seconds(10)
+    /// Fresh ECU snapshots normally arrive every two seconds. Matching that
+    /// cadence bounds perceived latency without introducing a faster UI timer.
+    static let minimumEventInterval: TimeInterval = 2
+    static let metricsLogInterval: TimeInterval = 30
+}
+
+enum CarPlayRefreshEvent: Sendable {
+    case telemetry
+    case regenerationEdge
+    case liveness
+
+    var trigger: CarPlayRefreshTrigger {
+        switch self {
+        case .telemetry: return .telemetry
+        case .regenerationEdge: return .regenerationEdge
+        case .liveness: return .liveness
+        }
+    }
+}
+
+enum CarPlayRefreshTrigger: String, Sendable {
+    case periodic
+    case telemetry
+    case regenerationEdge = "regeneration_edge"
+    case liveness
+    case interaction
+    case deferredEvent = "deferred_event"
+
+    var isEventDriven: Bool {
+        switch self {
+        case .telemetry, .regenerationEdge, .liveness, .deferredEvent:
+            return true
+        case .periodic, .interaction:
+            return false
+        }
+    }
+
+    var minimumInterval: TimeInterval {
+        isEventDriven ? CarPlayRefreshPolicy.minimumEventInterval : 0
+    }
+}
+
+enum CarPlayRefreshDecision: Equatable, Sendable {
+    case render(effectiveInterval: TimeInterval?)
+    case skipDuplicate
+    case deferFor(TimeInterval)
+}
+
+/// Pure content gate shared by CarPlay and the standalone suite. It commits a
+/// signature only when a render is actually allowed, so a throttled change is
+/// reconsidered by the deferred event instead of being lost.
+struct CarPlayRefreshGate<Signature: Equatable & Sendable>: Sendable {
+    private var lastRenderedSignature: Signature?
+    private var lastRenderedAt: Date?
+
+    mutating func evaluate(
+        signature: Signature,
+        at now: Date,
+        minimumInterval: TimeInterval
+    ) -> CarPlayRefreshDecision {
+        if lastRenderedSignature == signature {
+            return .skipDuplicate
+        }
+
+        let effectiveInterval = lastRenderedAt.map {
+            max(0, now.timeIntervalSince($0))
+        }
+        let boundedMinimum = max(0, minimumInterval)
+        if let effectiveInterval, effectiveInterval < boundedMinimum {
+            return .deferFor(boundedMinimum - effectiveInterval)
+        }
+
+        lastRenderedSignature = signature
+        lastRenderedAt = now
+        return .render(effectiveInterval: effectiveInterval)
+    }
+
+    mutating func reset() {
+        lastRenderedSignature = nil
+        lastRenderedAt = nil
+    }
+}
+
+/// Aggregate-only diagnostics: no PID values, VIN, adapter identifiers, or
+/// location data are accepted by this type, so its log line is safe to retain.
+struct CarPlayRefreshMetrics: Sendable {
+    private(set) var requests = 0
+    private(set) var renders = 0
+    private(set) var duplicateSkips = 0
+    private(set) var deferrals = 0
+    private(set) var failures = 0
+    private(set) var eventRequests = 0
+    private(set) var lastEffectiveInterval: TimeInterval?
+
+    mutating func recordRequest(trigger: CarPlayRefreshTrigger) {
+        requests += 1
+        if trigger.isEventDriven {
+            eventRequests += 1
+        }
+    }
+
+    mutating func recordDecision(_ decision: CarPlayRefreshDecision) {
+        switch decision {
+        case .render(let effectiveInterval):
+            renders += 1
+            lastEffectiveInterval = effectiveInterval
+        case .skipDuplicate:
+            duplicateSkips += 1
+        case .deferFor:
+            deferrals += 1
+        }
+    }
+
+    mutating func recordFailure() {
+        failures += 1
+    }
+
+    var summaryLine: String {
+        let interval = lastEffectiveInterval.map {
+            String(format: "%.2fs", $0)
+        } ?? "initial"
+        return "CarPlay refresh metrics: requests=\(requests) renders=\(renders) "
+            + "duplicates=\(duplicateSkips) deferred=\(deferrals) failures=\(failures) "
+            + "event_requests=\(eventRequests) effective_interval=\(interval)"
+    }
 }
 
 enum CarPlayNotificationTestPolicy {

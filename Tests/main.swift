@@ -191,6 +191,71 @@ expect(SessionStatus.running.carPlayConnectionAction == .disconnect,
        "carplay: running state offers disconnect")
 expect(CarPlayRefreshPolicy.interval >= .seconds(10),
        "carplay: periodic dashboard refresh respects Apple's 10-second minimum")
+expect(CarPlayRefreshPolicy.minimumEventInterval >= 2
+       && CarPlayRefreshPolicy.minimumEventInterval < 10,
+       "carplay: change-driven refresh is responsive without becoming an unbounded real-time loop")
+
+let carPlayRefreshStart = Date(timeIntervalSince1970: 3_000)
+var carPlayRefreshGate = CarPlayRefreshGate<String>()
+expect(carPlayRefreshGate.evaluate(
+    signature: "idle",
+    at: carPlayRefreshStart,
+    minimumInterval: 0
+) == .render(effectiveInterval: nil),
+       "carplay refresh: first presentation renders immediately")
+expect(carPlayRefreshGate.evaluate(
+    signature: "idle",
+    at: carPlayRefreshStart.addingTimeInterval(0.5),
+    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+) == .skipDuplicate,
+       "carplay refresh: unchanged presentation is deduplicated")
+let throttledRefresh = carPlayRefreshGate.evaluate(
+    signature: "regen-started",
+    at: carPlayRefreshStart.addingTimeInterval(1),
+    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+)
+if case .deferFor(let delay) = throttledRefresh {
+    expect(abs(delay - 1) < 0.001,
+           "carplay refresh: changed telemetry is deferred only for the remaining throttle window")
+} else {
+    expect(false, "carplay refresh: changed telemetry is throttled before two seconds")
+}
+let allowedRefresh = carPlayRefreshGate.evaluate(
+    signature: "regen-started",
+    at: carPlayRefreshStart.addingTimeInterval(2),
+    minimumInterval: CarPlayRefreshPolicy.minimumEventInterval
+)
+if case .render(let effectiveInterval) = allowedRefresh {
+    expect(effectiveInterval.map { abs($0 - 2) < 0.001 } == true,
+           "carplay refresh: changed telemetry renders at the bounded event interval")
+} else {
+    expect(false, "carplay refresh: changed telemetry renders after the throttle window")
+}
+expect(carPlayRefreshGate.evaluate(
+    signature: "regen-started",
+    at: carPlayRefreshStart.addingTimeInterval(10),
+    minimumInterval: 0
+) == .skipDuplicate,
+       "carplay refresh: periodic deadline also skips unchanged content")
+
+var carPlayRefreshMetrics = CarPlayRefreshMetrics()
+carPlayRefreshMetrics.recordRequest(trigger: .telemetry)
+carPlayRefreshMetrics.recordDecision(.skipDuplicate)
+carPlayRefreshMetrics.recordRequest(trigger: .regenerationEdge)
+carPlayRefreshMetrics.recordDecision(.render(effectiveInterval: 2))
+carPlayRefreshMetrics.recordFailure()
+let carPlayMetricsSummary = carPlayRefreshMetrics.summaryLine
+expect(carPlayMetricsSummary.contains("requests=2")
+       && carPlayMetricsSummary.contains("renders=1")
+       && carPlayMetricsSummary.contains("duplicates=1")
+       && carPlayMetricsSummary.contains("failures=1")
+       && carPlayMetricsSummary.contains("event_requests=2")
+       && carPlayMetricsSummary.contains("effective_interval=2.00s"),
+       "carplay refresh: privacy-safe metrics expose effective interval and deduplication")
+expect(!carPlayMetricsSummary.contains("VIN")
+       && !carPlayMetricsSummary.contains("latitude")
+       && !carPlayMetricsSummary.contains("longitude"),
+       "carplay refresh: metrics contain no sensitive vehicle or location fields")
 expect(CarPlayNotificationTestPolicy.systemDeliveryDelay >= 10,
        "carplay notifications: system test leaves enough time to return Home")
 expect(DPFLoadAlertLevel.resolve(loadPercent: nil, regenerationMode: .none) == .unavailable,
