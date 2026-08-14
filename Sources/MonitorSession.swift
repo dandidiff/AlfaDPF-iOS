@@ -86,6 +86,7 @@ final class MonitorSession {
     private static let autoConnectDefaultsKey = "autoConnectEnabled.v1"
     private static let dashboardMetricsDefaultsKey = "visibleDashboardMetrics.v1"
     private static let batteryMetricMigrationDefaultsKey = "batteryMetricAdded.v1"
+    private static let coolantMetricMigrationDefaultsKey = "coolantMetricAdded.v1"
     private static let appAccentDefaultsKey = "appAccent.v1"
     private static let wifiHostDefaultsKey = "wifiAdapterHost.v1"
     private static let wifiPortDefaultsKey = "wifiAdapterPort.v1"
@@ -116,6 +117,15 @@ final class MonitorSession {
                 visibleMetrics.insert(.batteryVoltage)
                 defaults.set(true, forKey: Self.batteryMetricMigrationDefaultsKey)
             }
+            let coolantPreference = DashboardMetricPreference.load(
+                stored: visibleMetrics.map(\.rawValue),
+                migrated: defaults.bool(forKey: Self.coolantMetricMigrationDefaultsKey),
+                adding: .coolantTemperature
+            )
+            visibleMetrics = coolantPreference.visible
+            if coolantPreference.didMigrate {
+                defaults.set(true, forKey: Self.coolantMetricMigrationDefaultsKey)
+            }
             defaults.set(
                 visibleMetrics.map(\.rawValue).sorted(),
                 forKey: Self.dashboardMetricsDefaultsKey
@@ -124,6 +134,7 @@ final class MonitorSession {
         } else {
             initialVisibleDashboardMetrics = Set(DashboardMetric.allCases)
             defaults.set(true, forKey: Self.batteryMetricMigrationDefaultsKey)
+            defaults.set(true, forKey: Self.coolantMetricMigrationDefaultsKey)
         }
 
         let initialAppAccent = defaults.string(forKey: Self.appAccentDefaultsKey)

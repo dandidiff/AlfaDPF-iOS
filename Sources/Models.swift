@@ -626,6 +626,7 @@ enum StelvioAccent: String, CaseIterable, Codable, Identifiable, Sendable {
 enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
     case distanceSinceRegeneration
     case exhaustTemperature
+    case coolantTemperature
     case regenerationProgress
     case totalRegenerations
     case oilPressure
@@ -637,6 +638,7 @@ enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .distanceSinceRegeneration: return AppLocalization.string("Distanza dall’ultima rigenerazione")
         case .exhaustTemperature: return AppLocalization.string("Temperatura gas di scarico")
+        case .coolantTemperature: return AppLocalization.string("Temperatura liquido motore")
         case .regenerationProgress: return AppLocalization.string("Avanzamento rigenerazione")
         case .totalRegenerations: return AppLocalization.string("Rigenerazioni totali")
         case .oilPressure: return AppLocalization.string("Stato pressione olio")
@@ -674,6 +676,7 @@ struct DPFState: Codable, Equatable, Sendable {
     /// saturation measurement and must not be compared blindly across apps.
     var cloggingPercent: Double?
     var exhaustTempC: Double?
+    var coolantTemperatureC: Double?
     var distanceSinceLastRegenKm: Double?
     var regenProgressPercent: Double?     // 0 when idle, >0 while a regen is running
     var totalRegenCount: Double?
@@ -705,6 +708,7 @@ extension DPFState {
     var hasTelemetry: Bool {
         cloggingPercent != nil
             || exhaustTempC != nil
+            || coolantTemperatureC != nil
             || distanceSinceLastRegenKm != nil
             || regenProgressPercent != nil
             || totalRegenCount != nil
@@ -773,6 +777,7 @@ extension DPFState {
         var merged = self
         merged.cloggingPercent = fresh.cloggingPercent ?? cloggingPercent
         merged.exhaustTempC = fresh.exhaustTempC ?? exhaustTempC
+        merged.coolantTemperatureC = fresh.coolantTemperatureC ?? coolantTemperatureC
         merged.distanceSinceLastRegenKm =
             fresh.distanceSinceLastRegenKm ?? distanceSinceLastRegenKm
         merged.regenProgressPercent =
@@ -834,6 +839,40 @@ struct BatteryMetricPresentation: Equatable, Sendable {
             return .init(headline: .voltage(voltage), voltageDetail: nil)
         }
         return .init(headline: .unavailable, voltageDetail: nil)
+    }
+}
+
+/// Coolant samples are optional, plausibility checked and short-lived. Keeping
+/// this policy pure makes missing/invalid/expired behavior testable.
+enum CoolantTelemetryPolicy {
+    static let validRangeCelsius = -40.0...215.0
+    static let liveTTL: TimeInterval = 30
+
+    static func validated(_ value: Double) throws -> Double {
+        guard value.isFinite, validRangeCelsius.contains(value) else {
+            throw OBDError.protocolError("invalid coolant temperature")
+        }
+        return value
+    }
+
+    static func isExpired(lastValidSampleAt: Date?, now: Date) -> Bool {
+        guard let lastValidSampleAt else { return false }
+        return now.timeIntervalSince(lastValidSampleAt) >= liveTTL
+    }
+}
+
+/// One-shot dashboard migration: existing users see a newly introduced card
+/// once, while a later manual opt-out remains respected.
+enum DashboardMetricPreference {
+    static func load(
+        stored: [String]?,
+        migrated: Bool,
+        adding metric: DashboardMetric
+    ) -> (visible: Set<DashboardMetric>, didMigrate: Bool) {
+        guard let stored else { return (Set(DashboardMetric.allCases), true) }
+        var visible = Set(stored.compactMap(DashboardMetric.init(rawValue:)))
+        if !migrated { visible.insert(metric) }
+        return (visible, !migrated)
     }
 }
 
@@ -935,6 +974,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
             return DPFState(
                 cloggingPercent: 28,
                 exhaustTempC: 168,
+                coolantTemperatureC: 88,
                 distanceSinceLastRegenKm: 35,
                 regenProgressPercent: 0,
                 totalRegenCount: 291,
@@ -951,6 +991,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
             return DPFState(
                 cloggingPercent: 88,
                 exhaustTempC: 238,
+                coolantTemperatureC: 94,
                 distanceSinceLastRegenKm: 410,
                 regenProgressPercent: 0,
                 totalRegenCount: 291,
@@ -967,6 +1008,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
             return DPFState(
                 cloggingPercent: 96,
                 exhaustTempC: 575,
+                coolantTemperatureC: 96,
                 distanceSinceLastRegenKm: 414,
                 regenProgressPercent: 1.5,
                 totalRegenCount: 291,
@@ -983,6 +1025,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
             return DPFState(
                 cloggingPercent: 72,
                 exhaustTempC: 648,
+                coolantTemperatureC: 98,
                 distanceSinceLastRegenKm: 419,
                 regenProgressPercent: 52,
                 totalRegenCount: 291,
@@ -999,6 +1042,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
             return DPFState(
                 cloggingPercent: 32,
                 exhaustTempC: 408,
+                coolantTemperatureC: 97,
                 distanceSinceLastRegenKm: 0.3,
                 regenProgressPercent: 0,
                 totalRegenCount: 292,
@@ -1384,6 +1428,7 @@ enum DPFPID: UInt16, Hashable, Sendable {
     case oilPressureStatus    = 0x194D
     case batteryStateOfChargeDirect = 0x1005
     case batteryStateOfChargeMirror = 0x19BD
+    case coolantTemperatureC  = 0x1003
 
     var mode: UInt8 { 0x22 }
 
@@ -1395,7 +1440,7 @@ enum DPFPID: UInt16, Hashable, Sendable {
         switch self {
         case .cloggingPercent:
             return "raw×1000/65535"
-        case .exhaustTempC, .postDPFTempC:
+        case .exhaustTempC, .postDPFTempC, .coolantTemperatureC:
             return "raw×0.02−40 °C"
         case .totalRegenCount:
             return "raw"
@@ -1460,6 +1505,8 @@ enum DPFPID: UInt16, Hashable, Sendable {
         case .cloggingPercent:      return raw * (1000.0 / 65_535.0)
         case .exhaustTempC,
              .postDPFTempC:         return raw * 0.02 - 40.0
+        case .coolantTemperatureC:
+            return try CoolantTelemetryPolicy.validated(raw * 0.02 - 40.0)
         case .totalRegenCount:      return raw
         case .regenProgressPercent: return raw * (100.0 / 65_535.0)
         case .distanceSinceRegenKm: return raw * 0.1
