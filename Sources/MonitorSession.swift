@@ -504,9 +504,34 @@ final class MonitorSession {
             )
         )
 
+        let cacheIdentifier = await obd.cacheIdentifier()
+        let protocolCache = cacheIdentifier.map {
+            OBDProtocolCache(identifier: $0, defaults: defaults)
+        }
+        let profileStore = cacheIdentifier.map {
+            DPFECUProfileStore(identifier: $0, defaults: defaults)
+        }
+
         let elm = ELM327(connection: obd)
         do {
-            try await elm.initializeSession()
+            let initStartedAt = Date()
+            let negotiatedProtocol = try await elm.initializeSession(
+                cachedProtocol: protocolCache?.load(),
+                // Probe the last header that answered on this adapter, so the
+                // cached-protocol probe can be confirmed even on vehicles where
+                // the DPF PID lives on a non-default ECU.
+                probeHeader: profileStore?.load()?.lastGoodHeader
+            )
+            // Persist the negotiated protocol only after the ECU-proven probe
+            // accepted it — a plain ATSPx OK is never promoted to a cache hit.
+            if let negotiatedProtocol {
+                protocolCache?.save(negotiatedProtocol)
+            }
+            OBDLog.log(String(
+                format: "connection: adapter initialized in %.2f s (protocol %@)",
+                Date().timeIntervalSince(initStartedAt),
+                negotiatedProtocol.map(String.init) ?? "unknown"
+            ))
         } catch {
             alertSetupTask.cancel()
             guard !Task.isCancelled, generation == workGeneration else {
@@ -527,10 +552,6 @@ final class MonitorSession {
             return
         }
 
-        let cacheIdentifier = await obd.cacheIdentifier()
-        let profileStore = cacheIdentifier.map {
-            DPFECUProfileStore(identifier: $0, defaults: defaults)
-        }
         let monitor = DPFMonitor(
             elm: elm,
             alerts: alerts,
