@@ -1969,30 +1969,3 @@ final class DPFECUProfileStore: @unchecked Sendable {
         defaults.set(data, forKey: key)
     }
 }
-
-/// Normalized ELM327 protocol number (1–9) negotiated for one adapter
-/// endpoint. Reusing it on reconnect skips the automatic protocol search
-/// (`ATSP0`), which dominates warm reconnect time on slow adapters. It is a
-/// performance hint only: `ELM327` re-validates the cached protocol with a DPF
-/// diagnostic probe and falls back once to `ATSP0` when the probe does not
-/// prove an ECU answered, so a stale cache can never block a connection.
-final class OBDProtocolCache: @unchecked Sendable {
-    private static let keyPrefix = "obdProtocol.v1."
-    private let defaults: UserDefaults
-    private let key: String
-
-    init(identifier: String, defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        self.key = Self.keyPrefix + identifier
-    }
-
-    func load() -> Int? {
-        guard defaults.object(forKey: key) != nil else { return nil }
-        let value = defaults.integer(forKey: key)
-        return (1...9).contains(value) ? value : nil
-    }
-
-    func save(_ protocolNumber: Int) {
-        defaults.set(protocolNumber, forKey: key)
-    }
-}

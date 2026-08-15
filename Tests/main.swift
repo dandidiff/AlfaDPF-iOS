@@ -69,6 +69,7 @@ actor InitializationTestTransport: OBDTransport {
         case valid
         case rejectsEverything
         case resetTimeoutThenLegacy
+        case protocolSearchTimeout
     }
 
     struct Sent: Equatable {
@@ -92,7 +93,7 @@ actor InitializationTestTransport: OBDTransport {
         switch behavior {
         case .valid:
             if command == "ATZ" { return "ELM327 v1.5" }
-            if command == "22380B" { return "NO DATA" }
+            if command == "0100" { return "41 00 BE 3F A8 13" }
             if command == "ATDPN" { return "A7" }
             return "OK"
         case .rejectsEverything:
@@ -100,9 +101,14 @@ actor InitializationTestTransport: OBDTransport {
         case .resetTimeoutThenLegacy:
             if command == "ATZ" { throw OBDError.timeout }
             if command == "ATI" { return "ELM327 v1.5" }
-            if command == "22380B" { return "NO DATA" }
+            if command == "0100" { return "NO DATA" }
             if command == "ATDPN" { return "A7" }
             return "?"
+        case .protocolSearchTimeout:
+            if command == "ATZ" { return "ELM327 v1.5" }
+            if command == "0100" { throw OBDError.timeout }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
         }
     }
 
@@ -1777,20 +1783,36 @@ expect(!ELMLineEngine.isSuccessfulATResponse("ERROR\rOK"),
 
 let validInitialization = InitializationTestTransport(.valid)
 do {
-    _ = try await ELM327(connection: validInitialization).initializeSession()
+    try await ELM327(connection: validInitialization).initializeSession()
     let commands = await validInitialization.commands()
-    expect(!commands.contains(where: { $0.command.hasPrefix("01") }),
-           "init: live bootstrap never sends Mode 01")
-    expect(commands.contains(.init(command: "22380B", header: "18DA10F1")),
-           "init: protocol search uses a DPF Mode 22 probe")
+    let atsp0 = commands.firstIndex { $0.command == "ATSP0" }
+    let search = commands.firstIndex { $0.command == "0100" }
+    let protocolQuery = commands.firstIndex { $0.command == "ATDPN" }
+    expect(atsp0 != nil && search != nil && protocolQuery != nil
+           && atsp0! < search! && search! < protocolQuery!,
+           "init: ATSP0/0100 autodetect runs before ATDPN")
+    expect(!commands.contains(where: { $0.command == "22380B" }),
+           "init: bootstrap never uses the optional 22380B PID as a probe")
 } catch {
     failures += 1
-    print("FAIL: init: valid DPF-only bootstrap threw \(error)")
+    print("FAIL: init: valid ATSP0/0100 bootstrap threw \(error)")
+}
+
+let protocolSearchTimeout = InitializationTestTransport(.protocolSearchTimeout)
+do {
+    try await ELM327(connection: protocolSearchTimeout).initializeSession()
+    let commands = await protocolSearchTimeout.commands()
+    expect(commands.contains(where: { $0.command == "0100" })
+           && !commands.contains(where: { $0.command == "22380B" }),
+           "init: a timed-out 0100 search is non-fatal and no Mode 22 probe is required")
+} catch {
+    failures += 1
+    print("FAIL: init: timed-out 0100 search incorrectly failed initialization: \(error)")
 }
 
 let rejectingInitialization = InitializationTestTransport(.rejectsEverything)
 do {
-    _ = try await ELM327(connection: rejectingInitialization).initializeSession()
+    try await ELM327(connection: rejectingInitialization).initializeSession()
     failures += 1
     print("FAIL: init: adapter rejecting every command was accepted")
 } catch {
@@ -1799,344 +1821,15 @@ do {
 
 let legacyInitialization = InitializationTestTransport(.resetTimeoutThenLegacy)
 do {
-    _ = try await ELM327(connection: legacyInitialization).initializeSession()
+    try await ELM327(connection: legacyInitialization).initializeSession()
     let commands = await legacyInitialization.commands()
     expect(commands.contains(where: { $0.command == "ATI" })
-           && commands.contains(where: { $0.command == "22380B" }),
-           "init: timed-out ATZ falls back to ATI and a DPF-only protocol probe")
+           && commands.contains(where: { $0.command == "0100" })
+           && !commands.contains(where: { $0.command == "22380B" }),
+           "init: timed-out ATZ falls back to ATI and keeps Mode 22 optional")
 } catch {
     failures += 1
     print("FAIL: init: legacy reset fallback threw \(error)")
-}
-
-// MARK: - Cached protocol fast path
-
-/// Small mutable counter captured by a scripted transport to answer the first
-/// probe differently from later ones (e.g. NO DATA then success).
-final class TestCounter {
-    var value = 0
-}
-
-/// Recorded, scripted OBD transport used to drive `ELM327.initializeSession`
-/// through the cached/fallback/auto paths and to assert the exact command
-/// sequence it sends.
-actor ScriptedTestTransport: OBDTransport {
-    struct Command: Equatable {
-        var command: String
-        var header: String?
-    }
-
-    private let identifier: String
-    private let script: (Command) async throws -> String
-    private var sent: [Command] = []
-
-    init(identifier: String = "scripted:test",
-         script: @escaping (Command) async throws -> String) {
-        self.identifier = identifier
-        self.script = script
-    }
-
-    func start() {}
-    func stop() async {}
-    func isReady() async throws {}
-    func cacheIdentifier() -> String? { identifier }
-
-    func send(_ command: String,
-              header: String?,
-              timeout: TimeInterval) async throws -> String {
-        let entry = Command(command: command, header: header)
-        sent.append(entry)
-        return try await script(entry)
-    }
-
-    func commands() -> [Command] { sent }
-}
-
-func probeCount(_ commands: [ScriptedTestTransport.Command]) -> Int {
-    commands.filter { $0.command == "22380B" }.count
-}
-
-expect(ELM327.parseProtocol(from: "A7") == 7,
-       "protocol: parses auto-negotiated A7")
-expect(ELM327.parseProtocol(from: "7") == 7,
-       "protocol: parses bare number")
-expect(ELM327.parseProtocol(from: "A6") == 6,
-       "protocol: parses auto-negotiated A6")
-expect(ELM327.parseProtocol(from: "  A7 ") == 7,
-       "protocol: trims whitespace")
-expect(ELM327.parseProtocol(from: "ATDPN\rA7") == 7,
-       "protocol: skips echoed command line")
-expect(ELM327.parseProtocol(from: "A0") == nil,
-       "protocol: automatic marker is not cacheable")
-expect(ELM327.parseProtocol(from: "0") == nil,
-       "protocol: bare zero is not cacheable")
-expect(ELM327.parseProtocol(from: "ISO 15765-4 (CAN 29/500)") == nil,
-       "protocol: description is not cacheable")
-expect(ELM327.parseProtocol(from: "?") == nil,
-       "protocol: error reply is rejected")
-expect(ELM327.parseProtocol(from: "") == nil,
-       "protocol: empty reply is rejected")
-
-expect(ELM327.isECUProvenDiagnosticProbe("18DAF110 06 62 38 0B 00 00"),
-       "probe: positive 62 proves an ECU answered")
-expect(ELM327.isECUProvenDiagnosticProbe("7F 22 31"),
-       "probe: negative 7F22 proves an ECU answered")
-expect(!ELM327.isECUProvenDiagnosticProbe("NO DATA"),
-       "probe: NO DATA does not prove the protocol")
-expect(!ELM327.isECUProvenDiagnosticProbe("?"),
-       "probe: unsupported command is not ECU proof")
-
-let protocolCacheSuite = "AlfaDPFTests.ProtocolCache.\(UUID().uuidString)"
-let protocolCacheDefaults = UserDefaults(suiteName: protocolCacheSuite)!
-let protocolCache = OBDProtocolCache(
-    identifier: "ble:test-adapter",
-    defaults: protocolCacheDefaults
-)
-expect(protocolCache.load() == nil,
-       "protocol cache: empty for a new adapter")
-protocolCache.save(7)
-expect(protocolCache.load() == 7,
-       "protocol cache: round-trips a normalized protocol")
-protocolCache.save(9)
-expect(protocolCache.load() == 9,
-       "protocol cache: updates when the protocol renegotiates")
-expect(OBDProtocolCache(identifier: "ble:other", defaults: protocolCacheDefaults).load() == nil,
-       "protocol cache: does not leak to another adapter")
-let invalidProtocolCache = OBDProtocolCache(
-    identifier: "ble:invalid",
-    defaults: protocolCacheDefaults
-)
-invalidProtocolCache.save(0)
-invalidProtocolCache.save(12)
-expect(invalidProtocolCache.load() == nil,
-       "protocol cache: out-of-range values are rejected")
-protocolCacheDefaults.removePersistentDomain(forName: protocolCacheSuite)
-
-do {
-    let transport = ScriptedTestTransport { command in
-        if command.command == "ATZ" { return "ELM327 v1.5" }
-        if command.command == "ATDPN" { return "A7" }
-        if command.command == "22380B" { return "18DAF110 06 62 38 0B 00 00" }
-        return "OK"
-    }
-    let negotiated = try await ELM327(connection: transport)
-        .initializeSession(cachedProtocol: 7)
-    let commands = await transport.commands()
-    expect(commands.contains(.init(command: "ATSP7", header: nil)),
-           "fast path: cached protocol is forced with ATSP7")
-    expect(!commands.contains(where: { $0.command == "ATSP0" }),
-           "fast path: automatic search is skipped on cache hit")
-    expect(probeCount(commands) == 1,
-           "fast path: exactly one probe on cache hit")
-    expect(negotiated == 7,
-           "fast path: negotiated protocol is returned for persistence")
-} catch {
-    failures += 1
-    print("FAIL: fast path cache hit threw \(error)")
-}
-
-do {
-    let transport = ScriptedTestTransport { command in
-        if command.command == "ATZ" { return "ELM327 v1.5" }
-        if command.command == "ATDPN" { return "A7" }
-        if command.command == "22380B" { return "7F 22 31" }
-        return "OK"
-    }
-    _ = try await ELM327(connection: transport)
-        .initializeSession(cachedProtocol: 7)
-    let commands = await transport.commands()
-    expect(commands.contains(.init(command: "ATSP7", header: nil)),
-           "fast path: 7F22 negative response keeps the cached protocol")
-    expect(!commands.contains(where: { $0.command == "ATSP0" }),
-           "fast path: no ATSP0 when an ECU answered negatively")
-} catch {
-    failures += 1
-    print("FAIL: 7F22 fast path threw \(error)")
-}
-
-do {
-    let transport = ScriptedTestTransport { command in
-        if command.command == "ATZ" { return "ELM327 v1.5" }
-        if command.command == "ATDPN" { return "A7" }
-        if command.command == "22380B" { return "18DAF101 06 62 38 0B 00 00" }
-        return "OK"
-    }
-    _ = try await ELM327(connection: transport)
-        .initializeSession(cachedProtocol: 7, probeHeader: "18DA01F1")
-    let commands = await transport.commands()
-    expect(commands.contains(.init(command: "22380B", header: "18DA01F1")),
-           "fast path: remembered ECU route is used for the probe")
-} catch {
-    failures += 1
-    print("FAIL: remembered probe header threw \(error)")
-}
-
-do {
-    let counter = TestCounter()
-    let transport = ScriptedTestTransport { command in
-        if command.command == "ATZ" { return "ELM327 v1.5" }
-        if command.command == "ATDPN" { return "A7" }
-        if command.command == "22380B" {
-            counter.value += 1
-            return counter.value == 1 ? "NO DATA" : "18DAF110 06 62 38 0B 00 00"
-        }
-        return "OK"
-    }
-    let negotiated = try await ELM327(connection: transport)
-        .initializeSession(cachedProtocol: 7)
-    let commands = await transport.commands()
-    expect(commands.contains(.init(command: "ATSP7", header: nil)),
-           "fallback: cached protocol is attempted first")
-    expect(commands.contains(.init(command: "ATSP0", header: nil)),
-           "fallback: NO DATA on the fast path triggers ATSP0")
-    expect(probeCount(commands) == 2,
-           "fallback: exactly one extra probe after ATSP0")
-    let sp7 = commands.firstIndex { $0.command == "ATSP7" }
-    let sp0 = commands.firstIndex { $0.command == "ATSP0" }
-    let probe2 = commands.lastIndex { $0.command == "22380B" }
-    expect(sp7 != nil && sp0 != nil && probe2 != nil
-           && sp0! > sp7!
-           && probe2! > sp0!,
-           "fallback: ATSP0 probe runs after the failed cached probe")
-    expect(negotiated == 7,
-           "fallback: negotiated protocol is still returned")
-} catch {
-    failures += 1
-    print("FAIL: NO DATA fallback threw \(error)")
-}
-
-do {
-    let transport = ScriptedTestTransport { command in
-        if command.command == "ATZ" { return "ELM327 v1.5" }
-        if command.command == "ATSP7" { return "?" }
-        if command.command == "ATDPN" { return "A7" }
-        if command.command == "22380B" { return "18DAF110 06 62 38 0B 00 00" }
-        return "OK"
-    }
-    _ = try await ELM327(connection: transport)
-        .initializeSession(cachedProtocol: 7)
-    let commands = await transport.commands()
-    expect(commands.contains(.init(command: "ATSP0", header: nil)),
-           "fallback: rejected ATSPx falls back to ATSP0")
-} catch {
-    failures += 1
-    print("FAIL: rejected cached ATSP threw \(error)")
-}
-
-do {
-    let transport = ScriptedTestTransport { command in
-        if command.command == "ATZ" { return "ELM327 v1.5" }
-        if command.command == "ATDPN" { return "A7" }
-        if command.command == "22380B" { return "NO DATA" }
-        return "OK"
-    }
-    _ = try await ELM327(connection: transport).initializeSession()
-    let commands = await transport.commands()
-    expect(commands.contains(.init(command: "ATSP0", header: nil)),
-           "baseline: no cache keeps ATSP0 automatic search")
-    expect(!commands.contains(where: { $0.command.hasPrefix("ATSP") && $0.command != "ATSP0" }),
-           "baseline: no forced protocol without a cache")
-    expect(probeCount(commands) == 1,
-           "baseline: single probe with NO DATA is still accepted")
-} catch {
-    failures += 1
-    print("FAIL: baseline auto bootstrap threw \(error)")
-}
-
-do {
-    let transport = ScriptedTestTransport { command in
-        if command.command == "ATZ" { return "ELM327 v1.5" }
-        if command.command == "22380B" { return "?" }
-        return "OK"
-    }
-    _ = try await ELM327(connection: transport)
-        .initializeSession(cachedProtocol: 7)
-    failures += 1
-    print("FAIL: rejecting probe on fast path and fallback was accepted")
-} catch {
-    print("PASS: rejecting probe on fast path and fallback is terminal")
-}
-
-do {
-    let transport = ScriptedTestTransport { command in
-        if command.command == "ATZ" { return "ELM327 v1.5" }
-        if command.command == "22380B" { throw OBDError.timeout }
-        return "OK"
-    }
-    _ = try await ELM327(connection: transport)
-        .initializeSession(cachedProtocol: 7)
-    failures += 1
-    print("FAIL: silent probe on fast path and fallback was accepted")
-} catch {
-    print("PASS: silent probe on fast path and fallback is terminal")
-}
-
-// MARK: - Connection timing benchmark (deterministic simulation)
-
-// Phase costs measured on the slow real adapter (ELM327 v2.3, historical log
-// 2026-08-05, connection_baselines.json): the automatic protocol search after
-// ATSP0 cost 5.564 s of the 7.569 s to running (73.5%). The benchmark runs
-// both bootstraps against the same scripted adapter model and measures the
-// wall-clock saving — a comparable projection, not hardware measurement.
-func makeTimedTransport(probeDelay: TimeInterval,
-                        probeReply: String) -> ScriptedTestTransport {
-    ScriptedTestTransport { command in
-        switch command.command {
-        case "ATZ":
-            try await Task.sleep(for: .seconds(0.962))
-            return "ELM327 v2.3"
-        case "ATE0", "ATL0", "ATS0", "ATH1", "ATAT1":
-            try await Task.sleep(for: .seconds(0.036))
-            return "OK"
-        case "ATSP0":
-            try await Task.sleep(for: .seconds(0.010))
-            return "OK"
-        case "ATSP7":
-            try await Task.sleep(for: .seconds(0.030))
-            return "OK"
-        case "22380B":
-            try await Task.sleep(for: .seconds(probeDelay))
-            return probeReply
-        case "ATDPN":
-            try await Task.sleep(for: .seconds(0.031))
-            return "A7"
-        default:
-            return "OK"
-        }
-    }
-}
-
-do {
-    let autoTransport = makeTimedTransport(
-        probeDelay: 5.564, probeReply: "NO DATA"
-    )
-    let cachedTransport = makeTimedTransport(
-        probeDelay: 0.25, probeReply: "18DAF110 06 62 38 0B 00 00"
-    )
-
-    let autoStart = Date()
-    _ = try await ELM327(connection: autoTransport).initializeSession()
-    let autoInit = Date().timeIntervalSince(autoStart)
-
-    let cachedStart = Date()
-    _ = try await ELM327(connection: cachedTransport)
-        .initializeSession(cachedProtocol: 7)
-    let cachedInit = Date().timeIntervalSince(cachedStart)
-
-    let saving = autoInit - cachedInit
-    print(String(
-        format: "TIMING: ATSP0 init %.2f s vs cached ATSP7 init %.2f s — saving %.2f s (%.0f%%)",
-        autoInit, cachedInit, saving, saving / autoInit * 100
-    ))
-    expect(cachedInit < autoInit,
-           "timing: cached protocol path is faster than ATSP0")
-    expect(cachedInit < autoInit * 0.5,
-           "timing: cached path completes in under half the ATSP0 time")
-    expect(saving > 4.5,
-           "timing: saving exceeds 4.5 s (baseline automatic search was 5.564 s)")
-} catch {
-    failures += 1
-    print("FAIL: timing benchmark threw \(error)")
 }
 
 typealias BLECandidate = BLECharacteristicPicker.Candidate
