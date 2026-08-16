@@ -450,6 +450,34 @@
         }
       }
     },
+    "Altri" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autres"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altri"
+          }
+        }
+      }
+    },
     "ANDAMENTO CARICO" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -847,7 +875,36 @@
         }
       }
     },
+    "Avanz." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prog."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progr."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progr."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avanz."
+          }
+        }
+      }
+    },
     "Avanzamento" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -988,6 +1045,35 @@
         }
       }
     },
+    "Avvisi CarPlay" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CarPlay alerts"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alertas de CarPlay"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alertes CarPlay"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisi CarPlay"
+          }
+        }
+      }
+    },
     "Avvisi CarPlay attivi. Gli avvisi di rigenerazione possono apparire anche sul display dell’auto." : {
       "localizations" : {
         "en" : {
@@ -1044,35 +1130,6 @@
         }
       }
     },
-    "Avvisi CarPlay" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "CarPlay alerts"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alertas de CarPlay"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alertes CarPlay"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avvisi CarPlay"
-          }
-        }
-      }
-    },
     "Banner notifiche disattivati" : {
       "localizations" : {
         "en" : {
@@ -1097,6 +1154,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Banner notifiche disattivati"
+          }
+        }
+      }
+    },
+    "Batt." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bater."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batt."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Batt."
           }
         }
       }
@@ -1130,7 +1215,6 @@
       }
     },
     "BATTERIA" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2207,6 +2291,7 @@
       }
     },
     "Dall’ultima" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2405,7 +2490,6 @@
       }
     },
     "DATI VEICOLO" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3425,6 +3509,34 @@
         }
       }
     },
+    "I test notifiche ignorano lo stato della campanella." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notification tests ignore the bell setting."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las pruebas de notificaciones ignoran el ajuste de la campana."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les tests de notification ignorent le réglage de la cloche."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I test notifiche ignorano lo stato della campanella."
+          }
+        }
+      }
+    },
     "Il carico è alto: continua a monitorare il filtro." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3566,34 +3678,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Imminente (>95%)"
-          }
-        }
-      }
-    },
-    "I test notifiche ignorano lo stato della campanella." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notification tests ignore the bell setting."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Las pruebas de notificaciones ignoran el ajuste de la campana."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les tests de notification ignorent le réglage de la cloche."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "I test notifiche ignorano lo stato della campanella."
           }
         }
       }
@@ -4360,6 +4444,35 @@
         }
       }
     },
+    "LIQUIDO MOTORE" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ENGINE COOLANT"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "REFRIGERANTE MOTOR"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LIQUIDE MOTEUR"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LIQUIDO MOTORE"
+          }
+        }
+      }
+    },
     "Live" : {
       "localizations" : {
         "en" : {
@@ -4553,6 +4666,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mostra in CarPlay, Time Sensitive e suoni sono attivi."
+          }
+        }
+      }
+    },
+    "N. regen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No. regens"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "N.º regen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nb régén."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "N. regen"
           }
         }
       }
@@ -6337,6 +6478,7 @@
       }
     },
     "Rigenerazioni" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6536,6 +6678,7 @@
       }
     },
     "Scarico" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6734,6 +6877,9 @@
           }
         }
       }
+    },
+    "SOC batteria: %@" : {
+
     },
     "Sostieni con €4,99" : {
       "localizations" : {
@@ -7246,58 +7392,59 @@
         }
       }
     },
-    "LIQUIDO MOTORE" : {
+    "Temp. motore" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ENGINE COOLANT"
+            "value" : "Coolant"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "REFRIGERANTE MOTOR"
+            "value" : "Temp. motor"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LIQUIDE MOTEUR"
+            "value" : "Temp. moteur"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LIQUIDO MOTORE"
+            "value" : "Temp. motore"
           }
         }
       }
     },
-    "Temperatura liquido motore" : {
+    "Temp. scarico" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Engine coolant temperature"
+            "value" : "Exh. temp."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Temperatura del refrigerante del motor"
+            "value" : "Temp. escape"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Température du liquide moteur"
+            "value" : "Temp. échapp."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Temperatura liquido motore"
+            "value" : "Temp. scarico"
           }
         }
       }
@@ -7326,6 +7473,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Temperatura gas di scarico"
+          }
+        }
+      }
+    },
+    "Temperatura liquido motore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Engine coolant temperature"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura del refrigerante del motor"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Température du liquide moteur"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temperatura liquido motore"
           }
         }
       }
@@ -7950,7 +8125,36 @@
         }
       }
     },
+    "Ult. regen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last reg."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Últ. regen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dern. régén."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ult. regen"
+          }
+        }
+      }
+    },
     "Ultima" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8201,202 +8405,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wi-Fi"
-          }
-        }
-      }
-    },
-    "Altri" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Other"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Otros"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Autres"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Altri"
-          }
-        }
-      }
-    },
-    "Avanz." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prog."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Progr."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Progr."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avanz."
-          }
-        }
-      }
-    },
-    "Batt." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Batt."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bater."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Batt."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Batt."
-          }
-        }
-      }
-    },
-    "N. regen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No. regens"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "N.º regen."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nb régén."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "N. regen"
-          }
-        }
-      }
-    },
-    "Temp. motore" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Coolant"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temp. motor"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temp. moteur"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temp. motore"
-          }
-        }
-      }
-    },
-    "Temp. scarico" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exh. temp."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temp. escape"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temp. échapp."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Temp. scarico"
-          }
-        }
-      }
-    },
-    "Ult. regen" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Last reg."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Últ. regen."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dern. régén."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ult. regen"
           }
         }
       }

@@ -305,9 +305,11 @@ actor BLEConnection: OBDTransport {
             }
             pendingCharacteristicDiscoveries = 1
             characteristicDiscoveryFailures = 0
-            let requested = Set([cachedGATTProfile.notify, cachedGATTProfile.write])
-                .map(CBUUID.init(string:))
-            peripheral.discoverCharacteristics(requested, for: service)
+            // Discover every characteristic of the cached service, not only the
+            // two cached UUIDs, so the full GATT map is logged and the cached
+            // route is validated against reality. Selection below still prefers
+            // the cached pair — this only widens what we can observe.
+            peripheral.discoverCharacteristics(nil, for: service)
             return
         }
         guard !services.isEmpty else {
@@ -342,6 +344,25 @@ actor BLEConnection: OBDTransport {
         // known FFF0/FFE0 layouts over a generic pair that happened to arrive
         // first.
         guard pendingCharacteristicDiscoveries == 0 else { return }
+
+        // Diagnostic only: dump the full GATT map once per discovery so a
+        // clone's real TX/RX characteristics can be identified from the
+        // console. No control-flow effect.
+        for service in peripheral.services ?? [] {
+            for chr in service.characteristics ?? [] {
+                var flags: [String] = []
+                let p = chr.properties
+                if p.contains(.read) { flags.append("read") }
+                if p.contains(.write) { flags.append("write") }
+                if p.contains(.writeWithoutResponse) { flags.append("writeNoResp") }
+                if p.contains(.notify) { flags.append("notify") }
+                if p.contains(.indicate) { flags.append("indicate") }
+                OBDLog.log(
+                    "BLE: GATT \(service.uuid.uuidString) / \(chr.uuid.uuidString)"
+                    + " [\(flags.joined(separator: ","))]"
+                )
+            }
+        }
 
         let candidates = (peripheral.services ?? []).flatMap { service in
             (service.characteristics ?? []).map { chr in
