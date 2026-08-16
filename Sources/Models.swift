@@ -593,6 +593,31 @@ enum CarPlayDashboardPolicy {
     static let maximumInformationItemCount = 4
 }
 
+/// Ordered title fallbacks for compact CarPlay grid tiles. CarPlay selects the
+/// first variant that fits; once the combined title and value no longer fit,
+/// the live reading remains more useful than a truncated descriptive label.
+enum CarPlayGridTitlePolicy {
+    static func variants(
+        label: String,
+        value: String,
+        shortLabel: String? = nil
+    ) -> [String] {
+        if let shortLabel {
+            return [
+                "\(shortLabel) · \(value)",
+                value,
+                label,
+            ]
+        }
+        return [
+            "\(label) · \(value)",
+            "\(label) \(value)",
+            value,
+            label,
+        ]
+    }
+}
+
 /// Mirrors the driver's iPhone dashboard choices in a deterministic order.
 /// DPF load and regeneration remain the fixed driving-critical tiles. When
 /// more than six chosen secondary metrics remain, the eighth tile opens the

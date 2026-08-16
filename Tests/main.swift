@@ -657,6 +657,28 @@ expect(coolantOnlyCarPlayMetrics == [.dpf, .regeneration, .coolant]
        "carplay dashboard: phone visibility choices drive the CarPlay metric set")
 expect(CarPlayDashboardPolicy.maximumInformationItemCount == 4,
        "carplay dashboard: detail surfaces stay compact")
+let compactTemperatureTitles = CarPlayGridTitlePolicy.variants(
+    label: "Temperatura liquido motore",
+    value: "88°C"
+)
+expect(
+    compactTemperatureTitles == [
+        "Temperatura liquido motore · 88°C",
+        "Temperatura liquido motore 88°C",
+        "88°C",
+        "Temperatura liquido motore",
+    ],
+    "carplay grid titles: value precedes the label when the combined title cannot fit"
+)
+let compactDistanceTitles = CarPlayGridTitlePolicy.variants(
+    label: "Dall’ultima",
+    value: "28 km",
+    shortLabel: "Ultima"
+)
+expect(
+    compactDistanceTitles == ["Ultima · 28 km", "28 km", "Dall’ultima"],
+    "carplay grid titles: short label keeps the distance value as fallback"
+)
 
 func carPlayNotificationState(
     authorization: AlertAuthorizationState.Authorization = .authorized,
@@ -769,6 +791,62 @@ do {
 } catch {
     failures += 1
     print("FAIL: carplay localization: could not read catalog — \(error)")
+}
+
+do {
+    let appSource = try String(contentsOfFile: "Sources/AlfaDPFApp.swift", encoding: .utf8)
+    let carPlaySource = try String(contentsOfFile: "Sources/CarPlaySceneDelegate.swift", encoding: .utf8)
+    let widgetSource = try String(contentsOfFile: "DPFWidget/DPFWidgetBundle.swift", encoding: .utf8)
+    expect(
+        appSource.contains("icon: \"smoke.fill\"")
+            && appSource.contains("systemImage: \"smoke.fill\"")
+            && carPlaySource.contains("case .exhaust: return \"smoke.fill\"")
+            && widgetSource.contains("systemImage: \"smoke.fill\"")
+            && !appSource.contains("thermometer.high")
+            && !carPlaySource.contains("thermometer.high")
+            && !widgetSource.contains("thermometer.high"),
+        "exhaust temperature icon: smoke symbol is consistent across phone, CarPlay and widget"
+    )
+} catch {
+    failures += 1
+    print("FAIL: exhaust temperature icon regression — \(error)")
+}
+
+do {
+    let catalogData = try Data(contentsOf: URL(fileURLWithPath: "App/Localizable.xcstrings"))
+    let catalog = try JSONSerialization.jsonObject(with: catalogData) as? [String: Any]
+    let strings = catalog?["strings"] as? [String: Any]
+    let requiredValues: [String: [String: String]] = [
+        "Altri": ["it": "Altri", "en": "Other", "fr": "Autres", "es": "Otros"],
+        "Ult. regen": ["it": "Ult. regen", "en": "Last reg.", "fr": "Dern. régén.", "es": "Últ. regen."],
+        "Temp. scarico": ["it": "Temp. scarico", "en": "Exh. temp.", "fr": "Temp. échapp.", "es": "Temp. escape"],
+        "Temp. motore": ["it": "Temp. motore", "en": "Coolant", "fr": "Temp. moteur", "es": "Temp. motor"],
+        "Avanz.": ["it": "Avanz.", "en": "Prog.", "fr": "Progr.", "es": "Progr."],
+        "N. regen": ["it": "N. regen", "en": "No. regens", "fr": "Nb régén.", "es": "N.º regen."],
+        "Batt.": ["it": "Batt.", "en": "Batt.", "fr": "Batt.", "es": "Bater."],
+    ]
+    let catalogIsComplete = requiredValues.allSatisfy { key, values in
+        guard let entry = strings?[key] as? [String: Any],
+              let localizations = entry["localizations"] as? [String: Any]
+        else { return false }
+        return values.allSatisfy { locale, expected in
+            guard let localization = localizations[locale] as? [String: Any],
+                  let unit = localization["stringUnit"] as? [String: Any]
+            else { return false }
+            return unit["value"] as? String == expected
+        }
+    }
+    let carPlaySource = try String(contentsOfFile: "Sources/CarPlaySceneDelegate.swift", encoding: .utf8)
+    let sourceUsesCompactKeys = [
+        "Ult. regen", "Temp. scarico", "Temp. motore", "Avanz.", "N. regen", "Batt.", "Altri",
+    ].allSatisfy { carPlaySource.contains("AppLocalization.string(\"\($0)\")") }
+    expect(
+        catalogIsComplete && sourceUsesCompactKeys,
+        "carplay localization: compact labels and translated overflow title are complete"
+    )
+} catch {
+    failures += 1
+    print("FAIL: compact CarPlay labels regression — \(error)")
 }
 
 var carPlayCurrentState = DPFState()
@@ -1278,6 +1356,7 @@ expect(
 do {
     let monitorSource = try String(contentsOfFile: "Sources/DPFMonitor.swift", encoding: .utf8)
     let appSource = try String(contentsOfFile: "Sources/AlfaDPFApp.swift", encoding: .utf8)
+    let sessionSource = try String(contentsOfFile: "Sources/MonitorSession.swift", encoding: .utf8)
     let criticalPublish = monitorSource.range(of: "snapshot = DPFMonitorSnapshot(")
     let coolantRead = monitorSource.range(of: "read(.coolantTemperatureC)")
     let slots = (0..<12).map { DPFSecondaryPollSlot.resolve(sequence: UInt64($0)) }
@@ -1299,6 +1378,11 @@ do {
             && appSource.contains("unit: \"°C\"")
             && appSource.contains("dpf.coolantTemperatureC"),
         "coolant UI: vehicle-data card uses Celsius and optional fallback"
+    )
+    expect(
+        sessionSource.contains("if self.hasLiveTelemetry,")
+            && sessionSource.contains("!monitorSnapshot.hasRecentCoreTelemetry()"),
+        "telemetry watchdog: initial ECU route discovery does not look like an interruption"
     )
 } catch {
     failures += 1

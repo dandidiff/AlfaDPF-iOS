@@ -1151,7 +1151,7 @@ private struct DPFDetailGrid: View {
             )
         case .exhaustTemperature:
             MetricCard(
-                icon: "thermometer.high",
+                icon: "smoke.fill",
                 title: "SCARICO",
                 value: dpf.exhaustTempC.map { String(format: "%.0f", $0) },
                 unit: "°C",
@@ -2633,7 +2633,7 @@ private struct DPFHistoryView: View {
             if let temperature = sample.exhaustTempC {
                 Label(
                     String(format: "%.0f °C", temperature),
-                    systemImage: "thermometer.high"
+                    systemImage: "smoke.fill"
                 )
                 .foregroundStyle(.orange)
             }

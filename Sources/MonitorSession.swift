@@ -616,7 +616,12 @@ final class MonitorSession {
                 // property. A long header probe or a blocked transport write
                 // must not leave the dashboard labelled Live indefinitely
                 // just because `pollSequence` has not advanced yet.
-                if monitorSnapshot.pollSequence > 0,
+                // A first poll can spend several seconds probing remembered
+                // ECU headers before any core PID answers. That is an
+                // awaiting-telemetry state, not an interruption: only a
+                // session that has already accepted live telemetry can become
+                // stale here.
+                if self.hasLiveTelemetry,
                    !monitorSnapshot.hasRecentCoreTelemetry() {
                     self.markTelemetryInterrupted(with: monitorSnapshot.state)
                 }

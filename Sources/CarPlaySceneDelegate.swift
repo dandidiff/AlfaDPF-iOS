@@ -32,7 +32,7 @@ private enum CarPlayDashboardIcon {
         case .dpf: return nil
         case .regeneration: return "arrow.triangle.2.circlepath"
         case .distance: return "road.lanes"
-        case .exhaust: return "thermometer.high"
+        case .exhaust: return "smoke.fill"
         case .coolant: return "thermometer.medium"
         case .progress: return "gauge.with.dots.needle.50percent"
         case .totalRegenerations: return "number.circle.fill"
@@ -639,25 +639,26 @@ final class CarPlaySceneDelegate: UIResponder,
         case .regeneration:
             return makeMetricGridButton(label: AppLocalization.string("Regen"), value: regenerationGridText(for: dpf), icon: .regeneration, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: isLive && dpf.effectiveRegenerationMode != .none, detailKind: .regeneration)
         case .distance:
-            return makeMetricGridButton(label: AppLocalization.string("Dall’ultima"), value: compactFormatted(dpf.distanceSinceLastRegenKm, fractionDigits: 0, unit: "km"), icon: .distance, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, shortLabel: AppLocalization.string("Ultima"), detailKind: .distance)
+            return makeMetricGridButton(label: AppLocalization.string("Ult. regen"), value: compactFormatted(dpf.distanceSinceLastRegenKm, fractionDigits: 0, unit: "km"), icon: .distance, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .distance)
         case .exhaust:
-            return makeMetricGridButton(label: AppLocalization.string("Scarico"), value: compactFormatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C"), icon: .exhaust, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .exhaust)
+            return makeMetricGridButton(label: AppLocalization.string("Temp. scarico"), value: compactFormatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C"), icon: .exhaust, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .exhaust)
         case .coolant:
-            return makeMetricGridButton(label: AppLocalization.string("Temperatura liquido motore"), value: compactFormatted(dpf.coolantTemperatureC, fractionDigits: 0, unit: "°C"), icon: .coolant, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .coolant)
+            return makeMetricGridButton(label: AppLocalization.string("Temp. motore"), value: compactFormatted(dpf.coolantTemperatureC, fractionDigits: 0, unit: "°C"), icon: .coolant, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .coolant)
         case .progress:
-            return makeMetricGridButton(label: AppLocalization.string("Avanzamento"), value: compactFormatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%"), icon: .progress, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .progress)
+            return makeMetricGridButton(label: AppLocalization.string("Avanz."), value: compactFormatted(dpf.regenProgressPercent, fractionDigits: 0, unit: "%"), icon: .progress, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .progress)
         case .totalRegenerations:
-            return makeMetricGridButton(label: AppLocalization.string("Rigenerazioni"), value: compactFormatted(dpf.totalRegenCount, fractionDigits: 0), icon: .totalRegenerations, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .totalRegenerations)
+            return makeMetricGridButton(label: AppLocalization.string("N. regen"), value: compactFormatted(dpf.totalRegenCount, fractionDigits: 0), icon: .totalRegenerations, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .totalRegenerations)
         case .oil:
             return makeMetricGridButton(label: AppLocalization.string("Olio"), value: dpf.oilPressureStatusText ?? "—", icon: .oil, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .oil)
         case .battery:
-            return makeMetricGridButton(label: AppLocalization.string("Batteria"), value: batteryTileValue(for: dpf), icon: .battery, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .battery)
+            return makeMetricGridButton(label: AppLocalization.string("Batt."), value: batteryTileValue(for: dpf), icon: .battery, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .battery)
         }
     }
 
     private func makeOverflowGridButton(metrics: [CarPlayDashboardMetric]) -> CPGridButton {
-        CPGridButton(
-            titleVariants: ["Altri · +\(metrics.count)", "Altri"],
+        let label = AppLocalization.string("Altri")
+        return CPGridButton(
+            titleVariants: ["\(label) · +\(metrics.count)", label],
             image: CarPlayDashboardArtwork.gridImage(icon: .overflow, accent: carPlayAccent, illuminated: false, displayScale: carDisplayScale)
         ) { [weak self] _ in
             self?.showDetails(.overflow(metrics))
@@ -716,19 +717,11 @@ final class CarPlaySceneDelegate: UIResponder,
         shortLabel: String? = nil,
         detailKind: CarPlayDetailKind
     ) -> CPGridButton {
-        let titleVariants: [String]
-        if let shortLabel {
-            // On compact dashboards CarPlay chooses the first variant that
-            // fits. Keep the reading ahead of the descriptive fallback so the
-            // distance can never disappear merely because the label is long.
-            titleVariants = [
-                "\(shortLabel) · \(value)",
-                value,
-                label,
-            ]
-        } else {
-            titleVariants = ["\(label) · \(value)", "\(label) \(value)", label]
-        }
+        let titleVariants = CarPlayGridTitlePolicy.variants(
+            label: label,
+            value: value,
+            shortLabel: shortLabel
+        )
 
         return CPGridButton(
             titleVariants: titleVariants,
