@@ -40,6 +40,48 @@ func expectThrows(_ name: String, _ body: () throws -> Void) {
     }
 }
 
+// BLE characteristic picker: the Vgate iCar Pro 18F0/2AF0/2AF1 layout is
+// recognized explicitly, while the pre-existing FFF0/FFE0 layouts (the vast
+// majority of adapters already in the field) resolve exactly as before.
+do {
+    func cand(_ service: String, _ char: String, _ notify: Bool, _ write: Bool)
+        -> BLECharacteristicPicker.Candidate {
+        .init(
+            service: CBUUID(string: service),
+            characteristic: CBUUID(string: char),
+            canNotify: notify,
+            canWrite: write
+        )
+    }
+
+    let icarPro = BLECharacteristicPicker.pick(from: [
+        cand("180A", "2A25", false, false),
+        cand("18F0", "2AF0", true, false),
+        cand("18F0", "2AF1", false, true),
+    ])
+    expect(icarPro?.service == CBUUID(string: "18F0")
+           && icarPro?.notify == CBUUID(string: "2AF0")
+           && icarPro?.write == CBUUID(string: "2AF1"),
+           "ble picker: Vgate iCar Pro 18F0/2AF0/2AF1 recognized")
+
+    let vlink = BLECharacteristicPicker.pick(from: [
+        cand("FFF0", "FFF1", true, false),
+        cand("FFF0", "FFF2", false, true),
+    ])
+    expect(vlink?.service == CBUUID(string: "FFF0")
+           && vlink?.notify == CBUUID(string: "FFF1")
+           && vlink?.write == CBUUID(string: "FFF2"),
+           "ble picker: Vlink FFF0/FFF1/FFF2 unchanged")
+
+    let konnwei = BLECharacteristicPicker.pick(from: [
+        cand("FFE0", "FFE1", true, true),
+    ])
+    expect(konnwei?.service == CBUUID(string: "FFE0")
+           && konnwei?.notify == CBUUID(string: "FFE1")
+           && konnwei?.write == CBUUID(string: "FFE1"),
+           "ble picker: Konnwei FFE0/FFE1 unchanged")
+}
+
 // Settings regression: the explanatory oil-pressure/SGW disclaimer is gone,
 // while the categorical oil-pressure telemetry and diagnostics remain.
 do {

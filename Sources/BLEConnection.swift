@@ -3,14 +3,20 @@ import Foundation
 
 /// Picks the GATT characteristics that carry the ELM327 byte stream.
 ///
-/// The Vgate iCar Pro BLE (and most Vlink clones) expose service `FFF0` with
-/// `FFF1` (notify, adapter→phone) and `FFF2` (write, phone→adapter). Other
-/// clones move the UUIDs around, so when the known layout is absent we fall
-/// back to any notify+write pair living in the same service.
+/// Vlink-style clones expose service `FFF0` with `FFF1` (notify, adapter→phone)
+/// and `FFF2` (write, phone→adapter). The Vgate iCar Pro BLE 4.0 (advertising
+/// as `IOS-VLINK`, ELM firmware v2.3) instead uses service `18F0` with `2AF0`
+/// (notify) and `2AF1` (write). Other clones move the UUIDs around, so when no
+/// known layout is present we fall back to any notify+write pair in one service.
 enum BLECharacteristicPicker {
     static let vlinkService = CBUUID(string: "FFF0")
     static let vlinkNotify = CBUUID(string: "FFF1")
     static let vlinkWrite = CBUUID(string: "FFF2")
+    /// Vgate iCar Pro BLE 4.0: ELM stream on service 18F0 — 2AF0 notify
+    /// (adapter→phone) and 2AF1 write (phone→adapter).
+    static let icarProService = CBUUID(string: "18F0")
+    static let icarProNotify = CBUUID(string: "2AF0")
+    static let icarProWrite = CBUUID(string: "2AF1")
     /// Common BLE UART layout used by Konnwei KW903 and HM-10-based adapters.
     /// FFE1 is normally a single notify + write characteristic.
     static let konnweiService = CBUUID(string: "FFE0")
@@ -37,6 +43,12 @@ enum BLECharacteristicPicker {
             $0.characteristic == konnweiData && $0.canNotify && $0.canWrite
         }) {
             return (konnweiService, konnweiData, konnweiData)
+        }
+
+        let icarPro = candidates.filter { $0.service == icarProService }
+        if icarPro.contains(where: { $0.characteristic == icarProNotify && $0.canNotify }),
+           icarPro.contains(where: { $0.characteristic == icarProWrite && $0.canWrite }) {
+            return (icarProService, icarProNotify, icarProWrite)
         }
 
         let services = Set(candidates.map(\.service))
