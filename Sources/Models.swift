@@ -602,18 +602,14 @@ enum CarPlayGridTitlePolicy {
         value: String,
         shortLabel: String? = nil
     ) -> [String] {
-        if let shortLabel {
-            return [
-                "\(shortLabel) · \(value)",
-                value,
-                label,
-            ]
+        let preferredLabel = shortLabel ?? label
+        guard !value.isEmpty, value != "—" else {
+            return [preferredLabel]
         }
         return [
-            "\(label) · \(value)",
-            "\(label) \(value)",
+            "\(preferredLabel) · \(value)",
+            "\(preferredLabel) \(value)",
             value,
-            label,
         ]
     }
 }

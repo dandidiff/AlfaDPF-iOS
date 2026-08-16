@@ -666,7 +666,6 @@ expect(
         "Temperatura liquido motore · 88°C",
         "Temperatura liquido motore 88°C",
         "88°C",
-        "Temperatura liquido motore",
     ],
     "carplay grid titles: value precedes the label when the combined title cannot fit"
 )
@@ -676,8 +675,12 @@ let compactDistanceTitles = CarPlayGridTitlePolicy.variants(
     shortLabel: "Ultima"
 )
 expect(
-    compactDistanceTitles == ["Ultima · 28 km", "28 km", "Dall’ultima"],
+    compactDistanceTitles == ["Ultima · 28 km", "Ultima 28 km", "28 km"],
     "carplay grid titles: short label keeps the distance value as fallback"
+)
+expect(
+    CarPlayGridTitlePolicy.variants(label: "Temp. scarico", value: "—") == ["Temp. scarico"],
+    "carplay grid titles: unavailable values do not fabricate a reading"
 )
 
 func carPlayNotificationState(
