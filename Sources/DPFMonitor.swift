@@ -62,6 +62,12 @@ actor DPFMonitor {
     private var lastSuccessfulReadAt: Date?
     private var lastSuccessfulCoreReadAt: Date?
     private var pidRetryAfter: [DPFPID: Date] = [:]
+    /// First NO-DATA failure per PID in the current session, driving the
+    /// escalating retry schedule and the eventual abandonment below.
+    private var pidFirstFailureAt: [DPFPID: Date] = [:]
+    /// PIDs abandoned for the rest of the session after sustained NO DATA,
+    /// so only the signals this vehicle actually publishes keep using bus time.
+    private var pidAbandoned: Set<DPFPID> = []
     private var preferredExhaustTemperaturePID: DPFPID?
     private var preferredBatteryStateOfChargeSource: BatteryStateOfChargeSource?
     private var lastCoolantReadAt: Date?
@@ -71,6 +77,19 @@ actor DPFMonitor {
     /// transitions off stale truth.
     private var consecutiveProgressFailures = 0
     private static let progressFailureThreshold = 3
+
+    /// Escalating retry policy for a PID that returns NO DATA. Early failures
+    /// after connect retry quickly so an ECU still warming up its DPF
+    /// diagnostics becomes visible within seconds (the old fixed 30 s backoff
+    /// turned a short warm-up into a half-minute data gap). A PID that keeps
+    /// failing for `abandonAfter` is dropped for the rest of the session. All
+    /// state is per-instance and resets on reconnect.
+    private enum PIDRetryPolicy {
+        static let warmupBackoff: TimeInterval = 5
+        static let warmupWindow: TimeInterval = 15
+        static let periodicBackoff: TimeInterval = 10
+        static let abandonAfter: TimeInterval = 60
+    }
     init(elm: ELM327,
          alerts: AlertService,
          profileStore: DPFECUProfileStore? = nil) {
@@ -397,15 +416,15 @@ actor DPFMonitor {
         pid: DPFPID,
         header: String
     ) async throws -> PIDReading {
-        if let retryAt = pidRetryAfter[pid], retryAt > Date() {
+        if pidUnavailable(pid) {
             throw OBDError.protocolError("\(pid.command) temporarily unavailable")
         }
         do {
             let reading = try await read(pid, header: header)
-            pidRetryAfter[pid] = nil
+            registerPIDSuccess(pid)
             return reading
         } catch {
-            pidRetryAfter[pid] = Date().addingTimeInterval(30)
+            registerPIDFailure(pid)
             throw error
         }
     }
@@ -444,7 +463,7 @@ actor DPFMonitor {
         source: BatteryStateOfChargeSource
     ) async throws -> PIDReading {
         let pid = source.pid
-        if let retryAt = pidRetryAfter[pid], retryAt > Date() {
+        if pidUnavailable(pid) {
             throw OBDError.protocolError("\(pid.command) temporarily unavailable")
         }
         do {
@@ -457,21 +476,52 @@ actor DPFMonitor {
                 // the same per-PID discovery/cache path as the DPF signals.
                 reading = try await read(pid)
             }
-            pidRetryAfter[pid] = nil
+            registerPIDSuccess(pid)
             return reading
         } catch {
-            pidRetryAfter[pid] = Date().addingTimeInterval(30)
+            registerPIDFailure(pid)
             throw error
         }
     }
 
+    private func pidUnavailable(_ pid: DPFPID) -> Bool {
+        pidAbandoned.contains(pid)
+            || (pidRetryAfter[pid].map { $0 > Date() } ?? false)
+    }
+
+    private func registerPIDFailure(_ pid: DPFPID) {
+        let now = Date()
+        let first = pidFirstFailureAt[pid] ?? now
+        pidFirstFailureAt[pid] = first
+        let elapsed = now.timeIntervalSince(first)
+        if elapsed >= PIDRetryPolicy.abandonAfter {
+            pidAbandoned.insert(pid)
+            pidRetryAfter[pid] = nil
+            OBDLog.log(
+                "DPF: \(pid.command) unanswered for \(Int(elapsed.rounded()))s; abandoning this session"
+            )
+        } else {
+            let backoff = elapsed < PIDRetryPolicy.warmupWindow
+                ? PIDRetryPolicy.warmupBackoff
+                : PIDRetryPolicy.periodicBackoff
+            pidRetryAfter[pid] = now.addingTimeInterval(backoff)
+        }
+    }
+
+    private func registerPIDSuccess(_ pid: DPFPID) {
+        pidRetryAfter[pid] = nil
+        pidFirstFailureAt[pid] = nil
+    }
+
     private func read(_ pid: DPFPID) async throws -> PIDReading {
-        if let retryAt = pidRetryAfter[pid], retryAt > Date() {
+        if pidUnavailable(pid) {
             throw OBDError.protocolError("\(pid.command) temporarily unavailable")
         }
         if let header = ecuHeaders[pid] {
             do {
-                return try await read(pid, header: header)
+                let reading = try await read(pid, header: header)
+                registerPIDSuccess(pid)
+                return reading
             } catch {
                 // A reconnect, ECU wake-up or different vehicle can invalidate
                 // yesterday's cached address. Re-probe instead of remaining
@@ -498,7 +548,7 @@ actor DPFMonitor {
             do {
                 let reading = try await read(pid, header: header)
                 ecuHeaders[pid] = header
-                pidRetryAfter[pid] = nil
+                registerPIDSuccess(pid)
                 lastGoodHeader = header
                 persistProfile()
                 OBDLog.log("DPF: \(pid) locked to \(header)")
@@ -507,7 +557,7 @@ actor DPFMonitor {
                 lastError = error
             }
         }
-        pidRetryAfter[pid] = Date().addingTimeInterval(30)
+        registerPIDFailure(pid)
         throw lastError
     }
 
