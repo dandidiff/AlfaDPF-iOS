@@ -678,6 +678,14 @@ expect(
     compactDistanceTitles == ["Ultima · 28 km", "Ultima 28 km", "28 km"],
     "carplay grid titles: short label keeps the distance value as fallback"
 )
+let compactExhaustTitles = CarPlayGridTitlePolicy.variants(
+    label: "Gas",
+    value: "650°C"
+)
+expect(
+    compactExhaustTitles == ["Gas · 650°C", "Gas 650°C", "650°C"],
+    "carplay grid titles: exhaust temperature uses the compact Gas label"
+)
 expect(
     CarPlayGridTitlePolicy.variants(label: "Temp. scarico", value: "—") == ["Temp. scarico"],
     "carplay grid titles: unavailable values do not fabricate a reading"
@@ -822,7 +830,7 @@ do {
     let requiredValues: [String: [String: String]] = [
         "Altri": ["it": "Altri", "en": "Other", "fr": "Autres", "es": "Otros"],
         "Ult. regen": ["it": "Ult. regen", "en": "Last reg.", "fr": "Dern. régén.", "es": "Últ. regen."],
-        "Temp. scarico": ["it": "Temp. scarico", "en": "Exh. temp.", "fr": "Temp. échapp.", "es": "Temp. escape"],
+        "Gas": ["it": "Gas", "en": "Gas", "fr": "Gaz", "es": "Gas"],
         "Temp. motore": ["it": "Temp. motore", "en": "Coolant", "fr": "Temp. moteur", "es": "Temp. motor"],
         "Avanz.": ["it": "Avanz.", "en": "Prog.", "fr": "Progr.", "es": "Progr."],
         "N. regen": ["it": "N. regen", "en": "No. regens", "fr": "Nb régén.", "es": "N.º regen."],
@@ -841,7 +849,7 @@ do {
     }
     let carPlaySource = try String(contentsOfFile: "Sources/CarPlaySceneDelegate.swift", encoding: .utf8)
     let sourceUsesCompactKeys = [
-        "Ult. regen", "Temp. scarico", "Temp. motore", "Avanz.", "N. regen", "Batt.", "Altri",
+        "Ult. regen", "Gas", "Temp. motore", "Avanz.", "N. regen", "Batt.", "Altri",
     ].allSatisfy { carPlaySource.contains("AppLocalization.string(\"\($0)\")") }
     expect(
         catalogIsComplete && sourceUsesCompactKeys,

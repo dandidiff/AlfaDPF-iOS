@@ -641,7 +641,7 @@ final class CarPlaySceneDelegate: UIResponder,
         case .distance:
             return makeMetricGridButton(label: AppLocalization.string("Ult. regen"), value: compactFormatted(dpf.distanceSinceLastRegenKm, fractionDigits: 0, unit: "km"), icon: .distance, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .distance)
         case .exhaust:
-            return makeMetricGridButton(label: AppLocalization.string("Temp. scarico"), value: compactFormatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C"), icon: .exhaust, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .exhaust)
+            return makeMetricGridButton(label: AppLocalization.string("Gas"), value: compactFormatted(dpf.exhaustTempC, fractionDigits: 0, unit: "°C"), icon: .exhaust, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .exhaust)
         case .coolant:
             return makeMetricGridButton(label: AppLocalization.string("Temp. motore"), value: compactFormatted(dpf.coolantTemperatureC, fractionDigits: 0, unit: "°C"), icon: .coolant, accent: dashboardIconColor(for: metric, state: dpf, isLive: isLive), illuminated: false, detailKind: .coolant)
         case .progress:
