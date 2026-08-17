@@ -36,7 +36,7 @@ log("✓ Dongle connected.")
 
 let elm = ELM327(connection: ble)
 do {
-    try await elm.initializeSession()
+    _ = try await elm.initializeSession()
     log("✓ ELM327 init OK.")
 } catch {
     log("✗ ELM init failed: \(error)")

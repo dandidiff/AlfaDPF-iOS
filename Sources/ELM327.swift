@@ -13,13 +13,20 @@ struct ELM327 {
     /// Boots the adapter into a known state and negotiates the diagnostic
     /// protocol. Called once after (re)connect.
     ///
-    /// Protocol search is triggered with a functional (non-addressed) Mode 22
-    /// request so the live session stays DPF-only: generic Mode 01 traffic can
-    /// disturb the physical Mode 22 header context on real FCA vehicles. Some
-    /// ELM327 clones cannot start negotiation from a *physically addressed*
-    /// `22380B` request, so the trigger is sent functionally and falls back to
-    /// the generic `0100` trigger only when Mode 22 cannot negotiate at all.
-    func initializeSession() async throws {
+    /// - `cachedProtocol`: protocol number previously negotiated for this exact
+    ///   adapter endpoint (from `ATDPN`). When present, `ATSP<cached>` is tried
+    ///   instead of the automatic search (`ATSP0`). The fast path is kept only
+    ///   when the physical DPF probe proves an ECU answered (`62…` positive or
+    ///   `7F22` negative); a bare `OK` or a `NO DATA` is never treated as
+    ///   proof. Otherwise the sequence falls back once to `ATSP0`.
+    /// - `probeHeader`: physical ECU address for the Mode 22 protocol probe.
+    ///   Defaults to `18DA10F1`; pass a remembered validated route so the
+    ///   probe answers on vehicles where the DPF PID lives elsewhere.
+    /// - Returns the normalized protocol number reported by `ATDPN`, but only
+    ///   when the probe proved an ECU answered — a protocol that never proved
+    ///   itself is never cached.
+    func initializeSession(cachedProtocol: Int? = nil,
+                           probeHeader: String? = nil) async throws -> Int? {
         let initStartedAt = Date()
         var channelAcknowledged = false
 
@@ -38,12 +45,13 @@ struct ELM327 {
             channelAcknowledged = (try? await probeIdentityAfterReset()) == true
         }
 
+        // Protocol selection is intentionally not in this list: it is the only
+        // step with a cached fast path and a fallback, so it runs below.
         let boot = [
             "ATE0",        // echo off
             "ATL0",        // linefeeds off
             "ATS0",        // spaces off in responses
             "ATH1",        // headers on (needed to know which ECU replied)
-            "ATSP0",       // automatic protocol selection
             "ATAT1"        // adaptive timing
         ]
         for cmd in boot {
@@ -61,11 +69,65 @@ struct ELM327 {
             }
         }
 
-        // Trigger protocol negotiation. This request is only an autodetect
-        // trigger: a timeout, NO DATA or an adapter-specific error must not
-        // invalidate the session, because the DPF PIDs are optional and are
-        // probed independently by DPFMonitor afterwards.
-        await logOptionalProtocolSearch()
+        // First real request triggers the protocol search ("SEARCHING..."). The
+        // probe is physically addressed, so an ECU answer proves the negotiated
+        // protocol and the live session stays DPF-only: generic Mode 01 traffic
+        // can disturb the physical Mode 22 header context on real FCA vehicles.
+        let header = probeHeader ?? "18DA10F1"
+        let probeCommand = "22380B"
+        var path: String
+        var probe: String?
+
+        if let cached = cachedProtocol, (1...9).contains(cached) {
+            let spResponse = try? await connection.send("ATSP\(cached)", timeout: 2.0)
+            if let spResponse,
+               Self.isAcceptedATResponse(spResponse),
+               let fastProbe = try? await connection.send(
+                   probeCommand, header: header, timeout: 12.0
+               ),
+               Self.isECUProvenDiagnosticProbe(fastProbe) {
+                probe = fastProbe
+                path = "cached(\(cached))"
+            } else {
+                // Stale cache (adapter moved to another car, clone that did
+                // not apply ATSPx, or NO DATA ambiguity): fall back once to
+                // the automatic search.
+                if spResponse != nil {
+                    OBDLog.log("init: cached ATSP\(cached) not confirmed; falling back to ATSP0")
+                } else {
+                    OBDLog.log("init: cached ATSP\(cached) unavailable; falling back to ATSP0")
+                }
+                await logOptionalSP0()
+                probe = try? await connection.send(
+                    probeCommand, header: header, timeout: 12.0
+                )
+                path = "fallback"
+            }
+        } else {
+            await logOptionalSP0()
+            probe = try? await connection.send(
+                probeCommand, header: header, timeout: 12.0
+            )
+            path = "auto"
+        }
+
+        // When nothing proved the protocol (NO DATA, a clone that refuses to
+        // negotiate from Mode 22, or a timed-out probe), let the generic Mode
+        // 01 trigger complete the autodetect. It is diagnostic only and never
+        // invalidates the session: the DPF PIDs are optional and are probed
+        // independently by DPFMonitor afterwards.
+        if !Self.isECUProvenDiagnosticProbe(probe ?? "") {
+            OBDLog.log("init: probe did not prove the protocol; trying the 0100 trigger")
+            do {
+                let trigger = try await connection.send("0100", timeout: 12.0)
+                if !Self.isAcceptedATResponse(trigger) {
+                    OBDLog.log("init: optional 0100 protocol search returned: \(trigger)")
+                }
+            } catch {
+                OBDLog.log("init: optional 0100 protocol search unavailable: \(error)")
+            }
+            path += "+0100"
+        }
 
         guard channelAcknowledged else {
             throw OBDError.protocolError("adapter did not acknowledge the ELM327 initialization")
@@ -73,15 +135,22 @@ struct ELM327 {
 
         OBDLog.log(String(
             format: "init: protocol path %@ after %.2f s",
-            "ATSP0/Mode22",
+            path,
             Date().timeIntervalSince(initStartedAt)
         ))
 
         // Log the negotiated protocol so a NO DATA problem is diagnosable from
-        // the in-app console (e.g. "A6" = auto, CAN 11-bit 500k).
+        // the in-app console (e.g. "A7" = CAN 29-bit 500k), and hand the
+        // normalized number back for the per-adapter cache. Only a protocol
+        // whose probe proved an ECU answered is returned for caching.
         if let proto = try? await connection.send("ATDPN") {
-            OBDLog.log("protocol: \(proto.trimmingCharacters(in: .whitespacesAndNewlines))")
+            let text = proto.trimmingCharacters(in: .whitespacesAndNewlines)
+            OBDLog.log("protocol: \(text)")
+            if Self.isECUProvenDiagnosticProbe(probe ?? "") {
+                return Self.parseProtocol(from: text)
+            }
         }
+        return nil
     }
 
     private func probeIdentityAfterReset() async throws -> Bool {
@@ -95,62 +164,60 @@ struct ELM327 {
         return Self.isAcceptedATResponse(wake)
     }
 
-    /// Triggers the ELM327's automatic protocol search (the "SEARCHING..."
-    /// autodetect) with a functional Mode 22 request so the live session stays
-    /// DPF-only: generic Mode 01 traffic can disturb the physical Mode 22
-    /// header context on real FCA vehicles. `NO DATA` is an acceptable outcome
-    /// — it proves the ELM settled on a protocol even though no ECU answered
-    /// the broadcast.
-    ///
-    /// Only a failure to *negotiate* (`UNABLE TO CONNECT`, `?`, `ERROR`,
-    /// `STOPPED`, or a timeout) falls back to the generic `0100` trigger. That
-    /// reproduces the previous behavior for clones that only complete autodetect
-    /// from Mode 01, so those adapters cannot regress. Failure of either trigger
-    /// is diagnostic only and never invalidates the session.
-    private func logOptionalProtocolSearch() async {
-        if await triggerProtocolSearch("22380B") {
-            return
-        }
-        OBDLog.log("init: Mode 22 trigger did not negotiate; falling back to Mode 01")
-        _ = await triggerProtocolSearch("0100")
-    }
-
-    /// Runs one protocol-search trigger and returns whether the ELM negotiated
-    /// a protocol (even with `NO DATA`). Returns false only when the request
-    /// could not negotiate at all — the signal to try the Mode 01 fallback.
-    private func triggerProtocolSearch(_ command: String) async -> Bool {
-        do {
-            let response = try await connection.send(command, timeout: 12.0)
-            if Self.failedToNegotiate(response) {
-                OBDLog.log("init: optional \(command) did not negotiate: \(response)")
-                return false
-            }
-            if !Self.isAcceptedATResponse(response) {
-                // NO DATA (or another non-ack) still means the ELM executed the
-                // request; acceptable for a protocol trigger.
-                OBDLog.log("init: optional \(command) protocol search returned: \(response)")
-            }
-            return true
-        } catch {
-            OBDLog.log("init: optional \(command) protocol search unavailable: \(error)")
-            return false
+    /// Sends `ATSP0` (automatic search) tolerating rejection: the diagnostic
+    /// probe that follows decides whether a protocol actually got negotiated.
+    private func logOptionalSP0() async {
+        if let sp0 = try? await connection.send("ATSP0", timeout: 2.0),
+           !Self.isAcceptedATResponse(sp0) {
+            OBDLog.log("init: ATSP0 rejected: \(sp0)")
         }
     }
 
-    /// True when the ELM327 could not even complete protocol negotiation for
-    /// the request — the signal for the Mode 01 fallback. `NO DATA` and a bare
-    /// `SEARCHING...` preamble are NOT negotiation failures: they mean the ELM
-    /// settled on a protocol but no ECU answered.
-    static func failedToNegotiate(_ response: String) -> Bool {
+    /// Strict probe acceptance: only an ECU reply proves the negotiated
+    /// protocol — a positive `62…` or a negative `7F 22 …`. `NO DATA` alone
+    /// proves nothing: it can also mean the forced protocol does not match the
+    /// vehicle, or that autodetect never completed on this clone. The cached
+    /// fast path and the protocol cache are kept exclusively on ECU-proven
+    /// probes.
+    static func isECUProvenDiagnosticProbe(_ response: String) -> Bool {
         let lines = response
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
-        return lines.contains(where: {
+            .filter { !$0.isEmpty && !$0.hasPrefix("SEARCHING") }
+        guard !lines.isEmpty else { return false }
+        guard !lines.contains(where: {
             $0 == "?"
+                || $0 == "NO DATA"
                 || $0 == "STOPPED"
                 || $0.contains("ERROR")
                 || $0.contains("UNABLE TO CONNECT")
+        }) else { return false }
+        return lines.contains(where: { line in
+            let compact = line.filter { !$0.isWhitespace }
+            guard compact.allSatisfy(\.isHexDigit) else { return false }
+            return compact.contains("62380B") || compact.contains("7F22")
         })
+    }
+
+    /// Normalizes an `ATDPN` reply into the numeric ELM327 protocol (1–9).
+    /// Accepts the common forms (`7`, `A7`, `A6`, with spaces/echo) and
+    /// rejects descriptions and the automatic-search marker (`0`/`A0`), which
+    /// must not be cached.
+    static func parseProtocol(from response: String) -> Int? {
+        let lines = response
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+        for line in lines {
+            var compact = line.filter { !$0.isWhitespace }
+            guard !compact.isEmpty, !compact.hasPrefix("AT") else { continue }
+            if compact.hasPrefix("A") { compact.removeFirst() }
+            let numberPrefix = String(compact.prefix(while: \.isNumber))
+            guard let number = Int(numberPrefix), (1...9).contains(number) else {
+                continue
+            }
+            return number
+        }
+        return nil
     }
 
     static func isAcceptedATResponse(_ response: String) -> Bool {

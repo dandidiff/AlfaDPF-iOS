@@ -108,11 +108,14 @@ do {
 
 actor InitializationTestTransport: OBDTransport {
     enum Behavior {
-        case valid                       // FCA: Mode 22 negotiates, session stays DPF-only
+        case valid                       // physical DPF probe answers 62 -> proven, no 0100
+        case probeNoDataThen0100         // probe NO DATA -> 0100 completes autodetect
+        case probeUnableThen0100         // probe UNABLE TO CONNECT -> 0100 fallback
+        case probeTimeoutThen0100        // probe times out -> 0100 fallback
+        case cachedConfirmed             // ATSP7 fast path confirmed by an ECU-proven probe
+        case cachedRejectedThenAuto      // ATSP7 + NO DATA -> one ATSP0 fallback proves 7F22
         case rejectsEverything
-        case resetTimeoutThenLegacy      // ATZ times out -> ATI, Mode 22 negotiates
-        case mode22NegotiationFailure    // Mode 22 -> UNABLE TO CONNECT -> 0100 fallback
-        case mode22Timeout               // Mode 22 -> timeout -> 0100 fallback
+        case resetTimeoutThenLegacy      // ATZ times out -> ATI, then the normal probe path
     }
 
     struct Sent: Equatable {
@@ -122,6 +125,7 @@ actor InitializationTestTransport: OBDTransport {
 
     private let behavior: Behavior
     private var sent: [Sent] = []
+    private var probeCount = 0
 
     init(_ behavior: Behavior) {
         self.behavior = behavior
@@ -136,7 +140,40 @@ actor InitializationTestTransport: OBDTransport {
         switch behavior {
         case .valid:
             if command == "ATZ" { return "ELM327 v1.5" }
+            if command == "22380B" { return "18DAF1100562380B0000" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .probeNoDataThen0100:
+            if command == "ATZ" { return "ELM327 v1.5" }
             if command == "22380B" { return "NO DATA" }
+            if command == "0100" { return "41 00 BE 3F A8 13" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .probeUnableThen0100:
+            if command == "ATZ" { return "ELM327 v1.5" }
+            if command == "22380B" { return "UNABLE TO CONNECT" }
+            if command == "0100" { return "41 00 BE 3F A8 13" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .probeTimeoutThen0100:
+            if command == "ATZ" { return "ELM327 v1.5" }
+            if command == "22380B" { throw OBDError.timeout }
+            if command == "0100" { return "41 00 BE 3F A8 13" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .cachedConfirmed:
+            if command == "ATZ" { return "ELM327 v1.5" }
+            if command.hasPrefix("ATSP") { return "OK" }
+            if command == "22380B" { return "18DAF1100562380B0000" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .cachedRejectedThenAuto:
+            if command == "ATZ" { return "ELM327 v1.5" }
+            if command.hasPrefix("ATSP") { return "OK" }
+            if command == "22380B" {
+                probeCount += 1
+                return probeCount == 1 ? "NO DATA" : "18DAF118037F2231"
+            }
             if command == "ATDPN" { return "A7" }
             return "OK"
         case .rejectsEverything:
@@ -144,21 +181,9 @@ actor InitializationTestTransport: OBDTransport {
         case .resetTimeoutThenLegacy:
             if command == "ATZ" { throw OBDError.timeout }
             if command == "ATI" { return "ELM327 v1.5" }
-            if command == "22380B" { return "NO DATA" }
+            if command == "22380B" { return "18DAF1100562380B0000" }
             if command == "ATDPN" { return "A7" }
             return "?"
-        case .mode22NegotiationFailure:
-            if command == "ATZ" { return "ELM327 v1.5" }
-            if command == "22380B" { return "UNABLE TO CONNECT" }
-            if command == "0100" { return "41 00 BE 3F A8 13" }
-            if command == "ATDPN" { return "A7" }
-            return "OK"
-        case .mode22Timeout:
-            if command == "ATZ" { return "ELM327 v1.5" }
-            if command == "22380B" { throw OBDError.timeout }
-            if command == "0100" { return "41 00 BE 3F A8 13" }
-            if command == "ATDPN" { return "A7" }
-            return "OK"
         }
     }
 
@@ -1618,8 +1643,9 @@ expect(
 )
 
 // Some FCA ECUs return a permanently-zero regeneration progress PID. In
-// that case a high exhaust temperature plus a sustained soot-load drop must
-// still create stable start/end edges for notifications and CarPlay.
+// that case hot exhaust plus a soot-load drop must still create stable
+// start/end edges — and the start must fire on the FIRST sample that proves
+// the burn, not after several confirming declines.
 let inferredAt = Date(timeIntervalSince1970: 2_000)
 var inferredTracker = RegenActivityTracker()
 expect(
@@ -1632,35 +1658,25 @@ expect(
 expect(
     inferredTracker.observe(progressPercent: 0,
                             at: inferredAt.addingTimeInterval(5),
-                            cloggingPercent: 91.6,
-                            exhaustTemperatureC: 580) == nil,
-    "regen fallback: first decline remains a candidate"
+                            cloggingPercent: 91.2,
+                            exhaustTemperatureC: 580)
+        == .started(at: inferredAt, cloggingPercent: 91.2) &&
+    inferredTracker.isActive == true,
+    "regen fallback: the first meaningful load drop emits start immediately"
 )
 expect(
     inferredTracker.observe(progressPercent: nil,
                             at: inferredAt.addingTimeInterval(7),
                             cloggingPercent: nil,
                             exhaustTemperatureC: nil) == nil &&
+    inferredTracker.isActive == true,
+    "regen fallback: a missing sample preserves active state"
+)
+expect(
     inferredTracker.observe(progressPercent: 0,
                             at: inferredAt.addingTimeInterval(10),
-                            cloggingPercent: 91.2,
-                            exhaustTemperatureC: 590) == nil,
-    "regen fallback: missing sample preserves sustained decline"
-)
-expect(
-    inferredTracker.observe(progressPercent: 0,
-                            at: inferredAt.addingTimeInterval(15),
                             cloggingPercent: 90.8,
-                            exhaustTemperatureC: 600)
-        == .started(at: inferredAt, cloggingPercent: 90.8) &&
-    inferredTracker.isActive == true,
-    "regen fallback: hot sustained load drop emits start"
-)
-expect(
-    inferredTracker.observe(progressPercent: 0,
-                            at: inferredAt.addingTimeInterval(20),
-                            cloggingPercent: 90.3,
-                            exhaustTemperatureC: 610) == nil &&
+                            exhaustTemperatureC: 600) == nil &&
     inferredTracker.isActive == true,
     "regen fallback: zero progress PID does not end inferred burn"
 )
@@ -1685,6 +1701,31 @@ expect(
     "regen fallback: cool-down emits finish"
 )
 
+var tinyWiggleTracker = RegenActivityTracker()
+expect(
+    tinyWiggleTracker.observe(progressPercent: 0,
+                              at: inferredAt,
+                              cloggingPercent: 92.0,
+                              exhaustTemperatureC: 570) == nil
+        && tinyWiggleTracker.observe(progressPercent: 0,
+                                     at: inferredAt.addingTimeInterval(5),
+                                     cloggingPercent: 91.9,
+                                     exhaustTemperatureC: 575) == nil
+        && tinyWiggleTracker.isActive == false,
+    "regen fallback: a sub-threshold wiggle stays a candidate"
+)
+
+var hotJumpTracker = RegenActivityTracker()
+expect(
+    hotJumpTracker.observe(progressPercent: 0,
+                           at: inferredAt,
+                           cloggingPercent: 86.0,
+                           exhaustTemperatureC: 605)
+        == .started(at: inferredAt, cloggingPercent: 86.0) &&
+    hotJumpTracker.isActive == true,
+    "regen fallback: post-injection heat with a loaded filter warns on the first sample"
+)
+
 var hotButStableTracker = RegenActivityTracker()
 for offset in stride(from: 0.0, through: 30.0, by: 5.0) {
     _ = hotButStableTracker.observe(
@@ -1696,7 +1737,7 @@ for offset in stride(from: 0.0, through: 30.0, by: 5.0) {
 }
 expect(
     hotButStableTracker.isActive == false,
-    "regen fallback: high temperature without load drop stays idle"
+    "regen fallback: high temperature without a loaded filter stays idle"
 )
 
 var postRegenTailTracker = RegenActivityTracker()
@@ -1926,69 +1967,128 @@ expect(!ELMLineEngine.isSuccessfulATResponse("NO DATA"),
 expect(!ELMLineEngine.isSuccessfulATResponse("ERROR\rOK"),
        "header: mixed error and OK is rejected")
 
-expect(!ELM327.failedToNegotiate("NO DATA"),
-       "trigger: NO DATA means negotiated, no fallback")
-expect(!ELM327.failedToNegotiate("SEARCHING...\rNO DATA"),
-       "trigger: SEARCHING + NO DATA is still negotiated")
-expect(!ELM327.failedToNegotiate("41 00 BE 3F A8 13"),
-       "trigger: a valid response means negotiated")
-expect(ELM327.failedToNegotiate("UNABLE TO CONNECT"),
-       "trigger: UNABLE TO CONNECT means negotiation failed")
-expect(ELM327.failedToNegotiate("SEARCHING...\rUNABLE TO CONNECT"),
-       "trigger: SEARCHING + UNABLE TO CONNECT is a failure")
-expect(ELM327.failedToNegotiate("?"),
-       "trigger: '?' means negotiation failed")
-expect(ELM327.failedToNegotiate("STOPPED"),
-       "trigger: STOPPED means negotiation failed")
-expect(ELM327.failedToNegotiate("CAN ERROR"),
-       "trigger: CAN ERROR means negotiation failed")
+expect(ELM327.isECUProvenDiagnosticProbe("18DAF1100562380B0000"),
+       "init: a positive 62 380B reply proves the protocol")
+expect(ELM327.isECUProvenDiagnosticProbe("18DAF118037F2231"),
+       "init: a negative 7F22 reply proves the protocol")
+expect(!ELM327.isECUProvenDiagnosticProbe("NO DATA"),
+       "init: NO DATA does not prove the protocol")
+expect(!ELM327.isECUProvenDiagnosticProbe("SEARCHING...\rNO DATA"),
+       "init: SEARCHING + NO DATA does not prove the protocol")
+expect(!ELM327.isECUProvenDiagnosticProbe("OK"),
+       "init: a bare OK does not prove the protocol")
+expect(!ELM327.isECUProvenDiagnosticProbe("UNABLE TO CONNECT"),
+       "init: UNABLE TO CONNECT does not prove the protocol")
+expect(!ELM327.isECUProvenDiagnosticProbe(""),
+       "init: an empty probe does not prove the protocol")
+
+expect(ELM327.parseProtocol(from: "A7") == 7, "protocol: A7 parses to 7")
+expect(ELM327.parseProtocol(from: "7") == 7, "protocol: bare 7 parses")
+expect(ELM327.parseProtocol(from: "A6\r") == 6, "protocol: A6 with CR parses")
+expect(ELM327.parseProtocol(from: "A0") == nil, "protocol: the auto marker is never cached")
+expect(ELM327.parseProtocol(from: "ATDPN\rA7") == 7, "protocol: echo lines are skipped")
+expect(ELM327.parseProtocol(from: "ISO 15765-4 (CAN 29/500)") == nil,
+       "protocol: descriptive form is rejected")
 
 let validInitialization = InitializationTestTransport(.valid)
 do {
-    try await ELM327(connection: validInitialization).initializeSession()
+    let protocolNumber = try await ELM327(connection: validInitialization).initializeSession()
     let commands = await validInitialization.commands()
     let atsp0 = commands.firstIndex { $0.command == "ATSP0" }
     let search = commands.firstIndex { $0.command == "22380B" }
     let protocolQuery = commands.firstIndex { $0.command == "ATDPN" }
     expect(atsp0 != nil && search != nil && protocolQuery != nil
            && atsp0! < search! && search! < protocolQuery!,
-           "init: ATSP0/Mode22 autodetect runs before ATDPN")
+           "init: ATSP0 + physical DPF probe runs before ATDPN")
     expect(!commands.contains(where: { $0.command == "0100" }),
-           "init: live bootstrap never sends Mode 01 when Mode 22 negotiates")
+           "init: an ECU-proven probe never sends Mode 01")
+    expect(protocolNumber == 7,
+           "init: a proven protocol is returned for caching")
 } catch {
     failures += 1
-    print("FAIL: init: valid ATSP0/Mode22 bootstrap threw \(error)")
+    print("FAIL: init: valid probe bootstrap threw \(error)")
 }
 
-let mode22NegotiationFailure = InitializationTestTransport(.mode22NegotiationFailure)
+let probeNoDataInitialization = InitializationTestTransport(.probeNoDataThen0100)
 do {
-    try await ELM327(connection: mode22NegotiationFailure).initializeSession()
-    let commands = await mode22NegotiationFailure.commands()
-    let mode22 = commands.firstIndex { $0.command == "22380B" }
+    let protocolNumber = try await ELM327(connection: probeNoDataInitialization).initializeSession()
+    let commands = await probeNoDataInitialization.commands()
+    let search = commands.firstIndex { $0.command == "22380B" }
     let mode01 = commands.firstIndex { $0.command == "0100" }
-    expect(mode22 != nil && mode01 != nil && mode22! < mode01!,
-           "init: UNABLE TO CONNECT from Mode 22 falls back to Mode 01")
+    expect(search != nil && mode01 != nil && search! < mode01!,
+           "init: NO DATA probe falls back to the 0100 trigger")
+    expect(protocolNumber == nil,
+           "init: an unproven protocol is never returned for caching")
 } catch {
     failures += 1
-    print("FAIL: init: Mode 22 UNABLE TO CONNECT fallback threw \(error)")
+    print("FAIL: init: NO DATA fallback threw \(error)")
 }
 
-let mode22Timeout = InitializationTestTransport(.mode22Timeout)
+let probeUnableInitialization = InitializationTestTransport(.probeUnableThen0100)
 do {
-    try await ELM327(connection: mode22Timeout).initializeSession()
-    let commands = await mode22Timeout.commands()
-    let mode22 = commands.firstIndex { $0.command == "22380B" }
-    let mode01 = commands.firstIndex { $0.command == "0100" }
-    expect(mode22 != nil && mode01 != nil && mode22! < mode01!,
-           "init: timed-out Mode 22 trigger falls back to Mode 01 and stays non-fatal")
+    _ = try await ELM327(connection: probeUnableInitialization).initializeSession()
+    let commands = await probeUnableInitialization.commands()
+    expect(commands.contains(where: { $0.command == "0100" }),
+           "init: UNABLE TO CONNECT probe falls back to the 0100 trigger")
 } catch {
     failures += 1
-    print("FAIL: init: Mode 22 timeout fallback incorrectly failed initialization: \(error)")
+    print("FAIL: init: UNABLE TO CONNECT fallback threw \(error)")
+}
+
+let probeTimeoutInitialization = InitializationTestTransport(.probeTimeoutThen0100)
+do {
+    _ = try await ELM327(connection: probeTimeoutInitialization).initializeSession()
+    let commands = await probeTimeoutInitialization.commands()
+    expect(commands.contains(where: { $0.command == "0100" }),
+           "init: a timed-out probe falls back to the 0100 trigger and stays non-fatal")
+} catch {
+    failures += 1
+    print("FAIL: init: timed-out probe fallback incorrectly failed initialization: \(error)")
+}
+
+let cachedConfirmedInitialization = InitializationTestTransport(.cachedConfirmed)
+do {
+    let protocolNumber = try await ELM327(connection: cachedConfirmedInitialization)
+        .initializeSession(cachedProtocol: 7, probeHeader: "18DA18F1")
+    let commands = await cachedConfirmedInitialization.commands()
+    let sp7 = commands.firstIndex { $0.command == "ATSP7" }
+    let sp0 = commands.firstIndex { $0.command == "ATSP0" }
+    expect(sp7 != nil && sp0 == nil,
+           "init: a confirmed cached protocol skips ATSP0 entirely")
+    expect(commands.filter { $0.command == "22380B" }.count == 1,
+           "init: the cached fast path probes the DPF PID once")
+    expect(commands.contains(where: { $0.command == "22380B" && $0.header == "18DA18F1" }),
+           "init: the remembered header is used for the cached probe")
+    expect(protocolNumber == 7,
+           "init: the cached path returns the proven protocol")
+} catch {
+    failures += 1
+    print("FAIL: init: cached fast path threw \(error)")
+}
+
+let cachedRejectedInitialization = InitializationTestTransport(.cachedRejectedThenAuto)
+do {
+    let protocolNumber = try await ELM327(connection: cachedRejectedInitialization)
+        .initializeSession(cachedProtocol: 7)
+    let commands = await cachedRejectedInitialization.commands()
+    let sp7 = commands.firstIndex { $0.command == "ATSP7" }
+    let sp0 = commands.firstIndex { $0.command == "ATSP0" }
+    expect(sp7 != nil && sp0 != nil && sp7! < sp0!,
+           "init: an unconfirmed cached protocol falls back once to ATSP0")
+    expect(commands.filter { $0.command == "22380B" }.count == 2,
+           "init: the fallback re-probes the DPF PID")
+    expect(!commands.contains(where: { $0.command == "0100" }),
+           "init: a 7F22-proven fallback probe never sends Mode 01")
+    expect(protocolNumber == 7,
+           "init: the fallback probe proving 7F22 returns the protocol")
+} catch {
+    failures += 1
+    print("FAIL: init: cached fallback path threw \(error)")
 }
 
 let rejectingInitialization = InitializationTestTransport(.rejectsEverything)
 do {
-    try await ELM327(connection: rejectingInitialization).initializeSession()
+    _ = try await ELM327(connection: rejectingInitialization).initializeSession()
     failures += 1
     print("FAIL: init: adapter rejecting every command was accepted")
 } catch {
@@ -1997,12 +2097,14 @@ do {
 
 let legacyInitialization = InitializationTestTransport(.resetTimeoutThenLegacy)
 do {
-    try await ELM327(connection: legacyInitialization).initializeSession()
+    let protocolNumber = try await ELM327(connection: legacyInitialization).initializeSession()
     let commands = await legacyInitialization.commands()
     expect(commands.contains(where: { $0.command == "ATI" })
            && commands.contains(where: { $0.command == "22380B" })
            && !commands.contains(where: { $0.command == "0100" }),
-           "init: timed-out ATZ falls back to ATI and triggers Mode 22 DPF-only")
+           "init: timed-out ATZ falls back to ATI and proves the DPF-only probe")
+    expect(protocolNumber == 7,
+           "init: the legacy reset path still returns the proven protocol")
 } catch {
     failures += 1
     print("FAIL: init: legacy reset fallback threw \(error)")

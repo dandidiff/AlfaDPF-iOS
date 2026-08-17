@@ -1643,8 +1643,18 @@ struct RegenActivityTracker {
     /// prevents that cool-down tail (or a reconnect during it) from becoming
     /// a second, false start notification.
     private static let inferredMinimumStartingLoad = 80.0
-    private static let inferredMinimumLoadDrop = 1.0
-    private static let inferredDeclineSamples = 3
+    /// The start notification is load-bearing: the first sample that proves
+    /// the burn must already emit `.started`. One declining sample with a
+    /// half-point net drop is proof; requiring several confirming samples
+    /// delayed real notifications by minutes (a 102→98 % drop was observed
+    /// before the alert fired).
+    private static let inferredDeclineSamples = 1
+    private static let inferredMinimumLoadDrop = 0.5
+    /// Exhaust temperature that is only reached with active post-injection.
+    /// Combined with a still-loaded filter it is the earliest unambiguous
+    /// active-burn signal and fires the start edge on the first hot sample,
+    /// before the load index has even moved.
+    private static let inferredHotStartTemperatureC = 600.0
     private static let inferredCoolSamplesToFinish = 3
     private static let maximumCandidateGap: TimeInterval = 90
 
@@ -1736,6 +1746,20 @@ struct RegenActivityTracker {
             isActive = true
             startedAt = timestamp
             evidence = .modePID
+            consecutiveCoolSamples = 0
+            resetHotCandidate()
+            return .started(at: timestamp, cloggingPercent: cloggingPercent)
+        }
+
+        // Earliest unambiguous thermal evidence: post-injection exhaust heat
+        // with a still-loaded filter is an active burn even before the load
+        // index starts moving. The load floor keeps the hot post-regeneration
+        // tail (low soot, still-hot exhaust) from becoming a second start.
+        if exhaustTemperatureC.map({ $0 >= Self.inferredHotStartTemperatureC }) == true,
+           cloggingPercent.map({ $0 >= Self.inferredMinimumStartingLoad }) == true {
+            isActive = true
+            startedAt = timestamp
+            evidence = .thermalLoadTrend
             consecutiveCoolSamples = 0
             resetHotCandidate()
             return .started(at: timestamp, cloggingPercent: cloggingPercent)
@@ -1988,5 +2012,32 @@ final class DPFECUProfileStore: @unchecked Sendable {
     func save(_ profile: DPFECUProfile) {
         guard let data = try? JSONEncoder().encode(profile) else { return }
         defaults.set(data, forKey: key)
+    }
+}
+
+/// Normalized ELM327 protocol number (1–9) negotiated for one adapter
+/// endpoint. Reusing it on reconnect skips the automatic protocol search
+/// (`ATSP0`), which dominates warm reconnect time on slow adapters. It is a
+/// performance hint only: `ELM327` re-validates the cached protocol with the
+/// physical DPF probe and falls back once to `ATSP0` when the probe does not
+/// prove an ECU answered, so a stale cache can never block a connection.
+final class OBDProtocolCache: @unchecked Sendable {
+    private static let keyPrefix = "obdProtocol.v1."
+    private let defaults: UserDefaults
+    private let key: String
+
+    init(identifier: String, defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.key = Self.keyPrefix + identifier
+    }
+
+    func load() -> Int? {
+        guard defaults.object(forKey: key) != nil else { return nil }
+        let value = defaults.integer(forKey: key)
+        return (1...9).contains(value) ? value : nil
+    }
+
+    func save(_ protocolNumber: Int) {
+        defaults.set(protocolNumber, forKey: key)
     }
 }

@@ -178,6 +178,14 @@ connessione finale conserva esclusivamente il polling DPF già validato. Il
 parser Mode 01 resta nel repository e nei test, ma non interviene nella sessione
 in auto.
 
+Il bootstrap riusa il protocollo negoziato nella sessione precedente (cache per
+adattatore, da `ATDPN`) e lo conferma con un probe fisico `22380B`: soltanto una
+risposta ECU-proven (`62…` o `7F22…`) mantiene il fast path, altrimenti un solo
+fallback ad `ATSP0` ripete la ricerca. Se nemmeno il probe prova che un
+protocollo è stato negoziato (`NO DATA`, `UNABLE TO CONNECT`, timeout), un unico
+trigger `0100` completa l'autodetect durante l'init — il polling live resta
+comunque DPF-only.
+
 L'app non identifica automaticamente marca o modello: un header ECU descrive
 il destinatario diagnostico, non distingue in modo affidabile Stelvio, Giulia,
 500X o altri veicoli FCA.
@@ -200,10 +208,12 @@ il destinatario diagnostico, non distingue in modo affidabile Stelvio, Giulia,
 `DPFMonitor` prova gli indirizzi ECU FCA conosciuti, memorizza separatamente
 l'header funzionante per ogni PID e mantiene il rilevamento attivo attraverso
 brevi campioni mancanti. Se `22380B` resta a zero o non risponde, una seconda
-strategia riconosce la rigenerazione solo dopo aver osservato insieme scarico
-caldo e calo sostenuto dell'intasamento; il raffreddamento confermato chiude il
-ciclo. Il PID di stato è opzionale: valori sconosciuti o `NO DATA` non
-disattivano mai il rilevatore già esistente.
+strategia riconosce la rigenerazione **al primo segnale certo**: scarico in
+temperatura da post-iniezione (≥ 600 °C) con filtro carico, oppure scarico
+caldo (≥ 500 °C) con il primo calo significativo dell'intasamento — la
+notifica di inizio parte immediatamente su quel campione. Il raffreddamento
+confermato chiude il ciclo. Il PID di stato è opzionale: valori sconosciuti o
+`NO DATA` non disattivano mai il rilevatore già esistente.
 
 ## Test automatici
 
