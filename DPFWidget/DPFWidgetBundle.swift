@@ -47,7 +47,7 @@ struct DPFActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
-                        Label(temperatureText(context.state.exhaustTemperatureC), systemImage: "thermometer.high")
+                        Label(temperatureText(context.state.exhaustTemperatureC), systemImage: "smoke.fill")
                         Spacer()
                         Text(relativeUpdate(context.state.updatedAt))
                     }

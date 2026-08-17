@@ -37,27 +37,80 @@ actor DPFMonitor {
         var header: String
     }
 
+    private struct BatteryVoltageReading {
+        var pid: DPFPID
+        var value: Double
+    }
+
+    private struct BatteryTelemetryReading {
+        var source: BatteryStateOfChargeSource
+        var stateOfCharge: PIDReading
+        var voltage: BatteryVoltageReading?
+    }
+
     private let elm: ELM327
     private let alerts: AlertService
+    private let profileStore: DPFECUProfileStore?
     private var pollTask: Task<Void, Never>?
 
     private(set) var latest = DPFState()
     private(set) var snapshot = DPFMonitorSnapshot()
     private var regenTracker = RegenActivityTracker()
+    private var finishNotificationGate = RegenFinishNotificationGate()
+    private var finishConfirmationSequence: UInt64 = 0
     private var pollSequence: UInt64 = 0
     private var lastSuccessfulReadAt: Date?
     private var lastSuccessfulCoreReadAt: Date?
     private var pidRetryAfter: [DPFPID: Date] = [:]
+    /// First NO-DATA failure per PID in the current session, driving the
+    /// escalating retry schedule and the eventual abandonment below.
+    private var pidFirstFailureAt: [DPFPID: Date] = [:]
+    /// PIDs abandoned for the rest of the session after sustained NO DATA,
+    /// so only the signals this vehicle actually publishes keep using bus time.
+    private var pidAbandoned: Set<DPFPID> = []
     private var preferredExhaustTemperaturePID: DPFPID?
+    private var preferredBatteryStateOfChargeSource: BatteryStateOfChargeSource?
+    private var lastCoolantReadAt: Date?
 
     /// Number of consecutive polls where the regen-progress read failed.
     /// After a few, we drop the state to unknown so we don't keep firing
     /// transitions off stale truth.
     private var consecutiveProgressFailures = 0
     private static let progressFailureThreshold = 3
-    init(elm: ELM327, alerts: AlertService) {
+
+    /// Escalating retry policy for a PID that returns NO DATA. Early failures
+    /// after connect retry quickly so an ECU still warming up its DPF
+    /// diagnostics becomes visible within seconds (the old fixed 30 s backoff
+    /// turned a short warm-up into a half-minute data gap). A PID that keeps
+    /// failing for `abandonAfter` is dropped for the rest of the session. All
+    /// state is per-instance and resets on reconnect.
+    private enum PIDRetryPolicy {
+        static let warmupBackoff: TimeInterval = 5
+        static let warmupWindow: TimeInterval = 15
+        static let periodicBackoff: TimeInterval = 10
+        static let abandonAfter: TimeInterval = 60
+    }
+    init(elm: ELM327,
+         alerts: AlertService,
+         profileStore: DPFECUProfileStore? = nil) {
         self.elm = elm
         self.alerts = alerts
+        self.profileStore = profileStore
+        if let profile = profileStore?.load() {
+            self.ecuHeaders = Dictionary(uniqueKeysWithValues: profile.headersByPID.compactMap {
+                key, value in
+                guard let raw = UInt16(key, radix: 16), let pid = DPFPID(rawValue: raw) else {
+                    return nil
+                }
+                return (pid, value)
+            })
+            self.lastGoodHeader = profile.lastGoodHeader
+            self.preferredExhaustTemperaturePID = profile.preferredExhaustTemperaturePID
+                .flatMap(DPFPID.init(rawValue:))
+            self.preferredBatteryStateOfChargeSource =
+                profile.preferredBatteryStateOfChargeSource
+            OBDLog.log("DPF: loaded \(self.ecuHeaders.count) remembered ECU routes")
+        }
     }
 
     func start(interval: Duration = .seconds(2)) {
@@ -126,7 +179,10 @@ actor DPFMonitor {
         // (voltage drops from 14V to 12V) from a transient BLE dropout.
         // Outside active regen it stays a secondary read (every 5th cycle).
         if regenTracker.isActive == true {
-            fresh.batteryVoltage = try? await elm.readBatteryVoltage()
+            if let voltage = try? await elm.readBatteryVoltage() {
+                fresh.batteryVoltage = voltage
+                fresh.batteryVoltageUpdatedAt = sampledAt
+            }
         }
 
         let event = regenTracker.observe(
@@ -137,6 +193,9 @@ actor DPFMonitor {
         )
         fresh.regenActive = regenTracker.isActive
         var next = latest.mergingFreshTelemetry(from: fresh)
+        if CoolantTelemetryPolicy.isExpired(lastValidSampleAt: lastCoolantReadAt, now: sampledAt) {
+            next.coolantTemperatureC = nil
+        }
         if consecutiveProgressFailures >= Self.progressFailureThreshold {
             // The tracker deliberately keeps its internal edge state so a
             // recovered zero can still emit a finish event. The display,
@@ -150,9 +209,15 @@ actor DPFMonitor {
         // poller can render the edge without waiting for secondary ECU reads.
         latest = next
 
-        // Queue the notification as part of this background work item. An
+        // Queue start notifications as part of this background work item. A
         // unstructured Task could be suspended before reaching the system.
-        if let event { await emit(event) }
+        if let event,
+           let immediateEvent = finishNotificationGate.observe(
+               event,
+               distanceBeforeFinishRaw: next.distanceSinceLastRegenRaw
+           ) {
+            await emit(immediateEvent)
+        }
 
         // Make the established signals observable before any optional Mode 22
         // request. Actor reentrancy lets the UI poll this snapshot while the
@@ -180,19 +245,23 @@ actor DPFMonitor {
         // Non-critical telemetry comes last. A slow or unsupported PID cannot
         // delay the transition detector or its local notification.
         var secondary = DPFState(timestamp: sampledAt)
-        // These values change slowly and are not needed for a regeneration
-        // edge. Polling every fifth cycle keeps unsupported optional PIDs away
-        // from the critical 2-second path.
-        switch cadenceSequence % 5 {
-        case 0:
+        var confirmedFinish: RegenEvent?
+        switch DPFSecondaryPollSlot.resolve(sequence: cadenceSequence) {
+        case .distanceSinceRegeneration:
             do {
                 let reading = try await read(.distanceSinceRegenKm)
                 secondary.distanceSinceLastRegenKm = reading.value
+                secondary.distanceSinceLastRegenRaw = reading.raw
                 freshPIDs.insert(.distanceSinceRegenKm)
+                if let event = finishNotificationGate.confirm(freshDistanceRaw: reading.raw) {
+                    finishConfirmationSequence &+= 1
+                    secondary.finishConfirmationSequence = finishConfirmationSequence
+                    confirmedFinish = event
+                }
             } catch {
                 failedPIDs.insert(.distanceSinceRegenKm)
             }
-        case 1:
+        case .totalRegenerations:
             do {
                 let reading = try await read(.totalRegenCount)
                 secondary.totalRegenCount = reading.value
@@ -200,7 +269,7 @@ actor DPFMonitor {
             } catch {
                 failedPIDs.insert(.totalRegenCount)
             }
-        case 2:
+        case .oilPressure:
             do {
                 let reading = try await read(.oilPressureStatus)
                 guard reading.raw <= UInt32(UInt8.max) else {
@@ -211,12 +280,39 @@ actor DPFMonitor {
             } catch {
                 failedPIDs.insert(.oilPressureStatus)
             }
-        case 3:
-            // Adapter voltage is intentionally secondary: a slow clone must
-            // never delay regeneration detection or make core DPF data stale.
-            secondary.batteryVoltage = try? await elm.readBatteryVoltage()
-        default:
-            break
+        case .adapterVoltage:
+            // ATRV is kept solely as independent evidence for engine-off
+            // detection. It is not displayed as battery voltage.
+            if let voltage = try? await elm.readBatteryVoltage() {
+                secondary.batteryVoltage = voltage
+                secondary.batteryVoltageUpdatedAt = sampledAt
+            }
+        case .coolantTemperature:
+            do {
+                let reading = try await read(.coolantTemperatureC)
+                secondary.coolantTemperatureC = reading.value
+                lastCoolantReadAt = sampledAt
+                freshPIDs.insert(.coolantTemperatureC)
+            } catch {
+                failedPIDs.insert(.coolantTemperatureC)
+                OBDLog.log("DPF 221003 unavailable: \(error.localizedDescription)")
+            }
+        case .batteryIBS:
+            do {
+                let reading = try await readBatteryTelemetry()
+                secondary.batteryStateOfChargePercent = reading.stateOfCharge.value
+                secondary.batteryStateOfChargeSource = reading.source
+                secondary.batteryStateOfChargeUpdatedAt = sampledAt
+                freshPIDs.insert(reading.source.pid)
+                if let voltage = reading.voltage {
+                    secondary.batterySystemVoltage = voltage.value
+                    secondary.batterySystemVoltageUpdatedAt = sampledAt
+                    freshPIDs.insert(voltage.pid)
+                }
+            } catch {
+                failedPIDs.insert(.batteryStateOfChargeDirect)
+                failedPIDs.insert(.batteryStateOfChargeMirror)
+            }
         }
 
         next = next.mergingFreshTelemetry(from: secondary)
@@ -240,6 +336,9 @@ actor DPFMonitor {
             lastSuccessfulReadAt: lastSuccessfulReadAt,
             lastSuccessfulCoreReadAt: lastSuccessfulCoreReadAt
         )
+        if let confirmedFinish {
+            await emit(confirmedFinish)
+        }
     }
 
     /// Candidate request headers for enhanced (Mode 22) PIDs. The DPF data
@@ -266,6 +365,7 @@ actor DPFMonitor {
                 return (.postDPFTempC, try await read(.postDPFTempC))
             } catch {
                 preferredExhaustTemperaturePID = nil
+                persistProfile()
             }
         }
 
@@ -277,26 +377,157 @@ actor DPFMonitor {
         do {
             let reading = try await read(.postDPFTempC)
             preferredExhaustTemperaturePID = .postDPFTempC
+            persistProfile()
             return (.postDPFTempC, reading)
         } catch {
             let reading = try await read(.exhaustTempC)
             preferredExhaustTemperaturePID = .exhaustTempC
+            persistProfile()
             return (.exhaustTempC, reading)
         }
     }
 
+    private func readBatteryTelemetry() async throws -> BatteryTelemetryReading {
+        let (source, stateOfCharge) = try await readBatteryStateOfCharge()
+        let voltage: BatteryVoltageReading?
+
+        if source == .ibsDirect,
+           let embedded = try? BatteryTelemetryPolicy.directEmbeddedVoltage(
+               bytes: stateOfCharge.bytes
+           ) {
+            voltage = .init(pid: .batteryStateOfChargeDirect, value: embedded)
+        } else if let fallback = try? await readBatteryVoltage(
+            pid: source.voltagePID,
+            header: stateOfCharge.header
+        ) {
+            voltage = .init(pid: source.voltagePID, value: fallback.value)
+        } else {
+            voltage = nil
+        }
+
+        return .init(
+            source: source,
+            stateOfCharge: stateOfCharge,
+            voltage: voltage
+        )
+    }
+
+    private func readBatteryVoltage(
+        pid: DPFPID,
+        header: String
+    ) async throws -> PIDReading {
+        if pidUnavailable(pid) {
+            throw OBDError.protocolError("\(pid.command) temporarily unavailable")
+        }
+        do {
+            let reading = try await read(pid, header: header)
+            registerPIDSuccess(pid)
+            return reading
+        } catch {
+            registerPIDFailure(pid)
+            throw error
+        }
+    }
+
+    /// Reads the IBS ECU directly first, then falls back to the engine ECU's
+    /// mirror. Once validated, the working route is remembered per adapter.
+    private func readBatteryStateOfCharge() async throws
+        -> (BatteryStateOfChargeSource, PIDReading) {
+        var sources: [BatteryStateOfChargeSource] = [.ibsDirect, .engineECUMirror]
+        if let preferredBatteryStateOfChargeSource {
+            sources.removeAll { $0 == preferredBatteryStateOfChargeSource }
+            sources.insert(preferredBatteryStateOfChargeSource, at: 0)
+        }
+
+        var lastError: Error = OBDError.protocolError("IBS state of charge unavailable")
+        for source in sources {
+            do {
+                let reading = try await readBatteryStateOfCharge(source: source)
+                if preferredBatteryStateOfChargeSource != source {
+                    preferredBatteryStateOfChargeSource = source
+                    persistProfile()
+                }
+                return (source, reading)
+            } catch {
+                lastError = error
+                if preferredBatteryStateOfChargeSource == source {
+                    preferredBatteryStateOfChargeSource = nil
+                    persistProfile()
+                }
+            }
+        }
+        throw lastError
+    }
+
+    private func readBatteryStateOfCharge(
+        source: BatteryStateOfChargeSource
+    ) async throws -> PIDReading {
+        let pid = source.pid
+        if pidUnavailable(pid) {
+            throw OBDError.protocolError("\(pid.command) temporarily unavailable")
+        }
+        do {
+            let reading: PIDReading
+            switch source {
+            case .ibsDirect:
+                reading = try await read(pid, header: source.requestHeader)
+            case .engineECUMirror:
+                // The engine mirror can move between FCA ECU addresses; use
+                // the same per-PID discovery/cache path as the DPF signals.
+                reading = try await read(pid)
+            }
+            registerPIDSuccess(pid)
+            return reading
+        } catch {
+            registerPIDFailure(pid)
+            throw error
+        }
+    }
+
+    private func pidUnavailable(_ pid: DPFPID) -> Bool {
+        pidAbandoned.contains(pid)
+            || (pidRetryAfter[pid].map { $0 > Date() } ?? false)
+    }
+
+    private func registerPIDFailure(_ pid: DPFPID) {
+        let now = Date()
+        let first = pidFirstFailureAt[pid] ?? now
+        pidFirstFailureAt[pid] = first
+        let elapsed = now.timeIntervalSince(first)
+        if elapsed >= PIDRetryPolicy.abandonAfter {
+            pidAbandoned.insert(pid)
+            pidRetryAfter[pid] = nil
+            OBDLog.log(
+                "DPF: \(pid.command) unanswered for \(Int(elapsed.rounded()))s; abandoning this session"
+            )
+        } else {
+            let backoff = elapsed < PIDRetryPolicy.warmupWindow
+                ? PIDRetryPolicy.warmupBackoff
+                : PIDRetryPolicy.periodicBackoff
+            pidRetryAfter[pid] = now.addingTimeInterval(backoff)
+        }
+    }
+
+    private func registerPIDSuccess(_ pid: DPFPID) {
+        pidRetryAfter[pid] = nil
+        pidFirstFailureAt[pid] = nil
+    }
+
     private func read(_ pid: DPFPID) async throws -> PIDReading {
-        if let retryAt = pidRetryAfter[pid], retryAt > Date() {
+        if pidUnavailable(pid) {
             throw OBDError.protocolError("\(pid.command) temporarily unavailable")
         }
         if let header = ecuHeaders[pid] {
             do {
-                return try await read(pid, header: header)
+                let reading = try await read(pid, header: header)
+                registerPIDSuccess(pid)
+                return reading
             } catch {
                 // A reconnect, ECU wake-up or different vehicle can invalidate
                 // yesterday's cached address. Re-probe instead of remaining
                 // permanently stuck on a dead header.
                 ecuHeaders[pid] = nil
+                persistProfile()
                 OBDLog.log("DPF \(pid.command): cached header \(header) failed; probing again")
             }
         }
@@ -317,16 +548,30 @@ actor DPFMonitor {
             do {
                 let reading = try await read(pid, header: header)
                 ecuHeaders[pid] = header
-                pidRetryAfter[pid] = nil
+                registerPIDSuccess(pid)
                 lastGoodHeader = header
+                persistProfile()
                 OBDLog.log("DPF: \(pid) locked to \(header)")
                 return reading
             } catch {
                 lastError = error
             }
         }
-        pidRetryAfter[pid] = Date().addingTimeInterval(30)
+        registerPIDFailure(pid)
         throw lastError
+    }
+
+    private func persistProfile() {
+        guard let profileStore else { return }
+        let headers = Dictionary(uniqueKeysWithValues: ecuHeaders.map {
+            (String(format: "%04X", $0.key.rawValue), $0.value)
+        })
+        profileStore.save(.init(
+            headersByPID: headers,
+            lastGoodHeader: lastGoodHeader,
+            preferredExhaustTemperaturePID: preferredExhaustTemperaturePID?.rawValue,
+            preferredBatteryStateOfChargeSource: preferredBatteryStateOfChargeSource
+        ))
     }
 
     private func read(_ pid: DPFPID, header: String) async throws -> PIDReading {
@@ -338,7 +583,12 @@ actor DPFMonitor {
             || pid == .regenProgressPercent
             || pid == .oilPressureStatus
             || pid == .exhaustTempC
-            || pid == .postDPFTempC {
+            || pid == .postDPFTempC
+            || pid == .batteryStateOfChargeDirect
+            || pid == .batteryStateOfChargeMirror
+            || pid == .batteryVoltageDirect
+            || pid == .batteryVoltageMirror
+            || pid == .coolantTemperatureC {
             OBDLog.log(
                 String(
                     format: "DPF %@ header=%@ bytes=%@ raw=%u formula=%@ value=%.3f",

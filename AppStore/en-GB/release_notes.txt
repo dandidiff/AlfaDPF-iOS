@@ -1,12 +1,8 @@
-Version 1.2 improves reliability, Live Activities and available data:
+Version 1.3.1 improves telemetry accuracy and reliability:
 
-• new native CarPlay dashboard with direct adapter connection, updated DPF data and regeneration notifications;
-• redesigned Live Activity without the double border, fully localised in Italian and English;
-• more reliable DPF polling, protected from interfering diagnostic requests;
-• detection of Konnwei KW903 Bluetooth LE adapters and support for the FFE0/FFE1 profile;
-• smoother dashboard and more readable value transitions;
-• removed unreliable automatic vehicle-model identification;
-• clearer timeouts and messages when an adapter cannot be found or is incompatible;
-• tapping the Live Activity now opens the app and reconnects correctly;
-• screen wake behaviour fixed during interruptions and reconnections;
-• added an optional project-support link in Settings; the app remains completely free.
+• battery state of charge and voltage now come from the IBS/battery ECU;
+• regeneration-finish alerts no longer require observing an exact zero-distance sample;
+• regeneration history recovers when DPF load is missing from the first active sample;
+• CarPlay telemetry refreshes follow Apple’s 10-second limit;
+• the CarPlay alert bell now shows and confirms its state more clearly;
+• improved ECU-header discovery and handling of temporarily unavailable data.

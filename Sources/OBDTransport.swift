@@ -52,6 +52,9 @@ protocol OBDTransport: Actor {
     /// when setup fails or times out, and `CancellationError` when `stop()`
     /// tears down a pending connection.
     func isReady() async throws
+    /// Stable identity used only to scope validated connection hints. A cached
+    /// hint is always retried with the normal discovery path on failure.
+    func cacheIdentifier() -> String?
     /// Sends `command` (without trailing `\r`), awaits the `>` prompt, returns
     /// the raw response body with the prompt and echo stripped.
     ///
@@ -63,6 +66,8 @@ protocol OBDTransport: Actor {
 }
 
 extension OBDTransport {
+    func cacheIdentifier() -> String? { nil }
+
     func send(_ command: String, timeout: TimeInterval = 2.0) async throws -> String {
         try await send(command, header: nil, timeout: timeout)
     }

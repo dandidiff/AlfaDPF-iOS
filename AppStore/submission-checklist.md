@@ -1,31 +1,38 @@
-# Alpha DPF Monitor 1.2 — scheda di pubblicazione
+# Alpha DPF Monitor 1.3.1 — scheda di pubblicazione
 
 ## Identità
 
 - Nome pubblico: `Alpha DPF Monitor` (la grafia pubblica è sempre **Alpha**;
   “Alfa” resta solo negli identificatori interni del progetto)
 - Bundle ID: `com.tamburi.AlfaDPF`
-- Versione: `1.2`
-- Build: `10` (`CURRENT_PROJECT_VERSION` aggiornato nel progetto; il target
+- Versione: `1.3.1`
+- Build: `19` (`CURRENT_PROJECT_VERSION` aggiornato nel progetto; il target
   `DPFWidget` usa la stessa versione/build)
 - SKU suggerito: `dpf-monitor-ios-001`
-- Lingue: Italiano e Inglese (Regno Unito)
+- Lingue app: Italiano, Inglese, Francese e Spagnolo
+- Metadati App Store disponibili: Italiano e Inglese (Regno Unito)
 - Categoria primaria: Utility
 - Categoria secondaria: nessuna
 - Copyright: `2026 Eddy Tamburi`
 - Prezzo: **Gratis** — nessun prezzo di listino, acquisto in-app o abbonamento.
 
-## Novità della 1.2
+## Novità della 1.3.1
 
-- Branding pubblico uniforme: il widget Live Activity mostra `ALPHA DPF`;
-  `Localizable.xcstrings` è allineato.
-- Notifiche localizzate IT/EN: titoli e testi di inizio/fine rigenerazione
-  (con carico e durata formattati) e avviso di test passano da
-  `String(localized:)` + catalogo.
-- Metadati App Store completi in inglese (Regno Unito): `AppStore/en-GB/`.
-- Piano screenshot ampliato: Live Activity/Dynamic Island e compatibilità
-  adattatore BLE (da catturare con schermate reali; nessuno screenshot
-  inventato).
+- Connessione ELM327 sia Bluetooth LE sia Wi‑Fi TCP, con tolleranza migliorata
+  per i clone v1.5 e diagnostica degli header CAN.
+- Selezione lingua in-app con catalogo Italiano, Inglese, Francese e Spagnolo.
+- Dashboard e CarPlay allineati sulle stesse soglie DPF, accesso prioritario
+  alla connessione e conferma di sicurezza durante una rigenerazione.
+- Stima prudente del tempo residuo quando il PID di avanzamento offre campioni
+  sufficienti; lo storico aggiunge statistiche e selezione interattiva.
+- Gestione tri-state degli edge di rigenerazione: un PID temporaneamente
+  sconosciuto non chiude più falsamente il ciclo nello storico.
+- Stato di carica e tensione batteria letti dall’IBS/ECU batteria; `ATRV` non
+  viene più presentato come dato della batteria.
+- Conferma di fine rigenerazione robusta quando il primo campione dopo il reset
+  è già maggiore di zero, e recupero dell’inizio storico se manca il carico.
+- Refresh telemetrico CarPlay limitato a 10 secondi; campanella con stato e
+  conferma espliciti, mantenendo reattivi gli eventi discreti di sicurezza.
 
 ## URL
 
@@ -68,8 +75,8 @@
 - [ ] Caricare gli screenshot reali: set `it-IT/` (5 presenti) + Live
       Activity/Dynamic Island e BLE da catturare; set `en-GB/` da catturare.
 - [ ] Verificare `App/Localizable.xcstrings` e `App/InfoPlist.xcstrings`
-      (notifiche, errori, autorizzazione Bluetooth e branding IT/EN).
-- [ ] Build 10 con versione 1.2: archiviare con `AppStore/ExportOptions.plist`,
+      (notifiche, errori, autorizzazione Bluetooth e branding IT/EN/FR/ES).
+- [ ] Build 19 con versione 1.3.1: archiviare con `AppStore/ExportOptions.plist`,
       caricare con `AppStore/UploadOptions.plist`.
 - [ ] Recensione: usare `AppStore/review-notes-en.txt` aggiornato.
 

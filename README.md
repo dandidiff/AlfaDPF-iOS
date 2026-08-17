@@ -2,10 +2,16 @@
 
 Monitor DPF per Alfa Romeo / FCA diesel via adattatore ELM327 Bluetooth LE o Wi-Fi.
 La versione corrente è volutamente concentrata sui dati del filtro e sulla
-rilevazione affidabile della rigenerazione. La dashboard mostra anche la
-tensione di alimentazione reale restituita dall’adattatore tramite `ATRV`.
+rilevazione affidabile della rigenerazione. La scheda Batteria mostra stato di
+carica e tensione letti dall’IBS/ECU batteria; `ATRV` resta esclusivamente un
+segnale interno indipendente per il rilevamento prudente del motore spento e non
+viene presentato come dato batteria. Il monitor interroga prima `221005`
+sull’IBS (`18DA40F1`), ricavando SOC e tensione dallo stesso payload, con
+fallback tensione `221004`; usa `2219BD` e `221955` sull’ECU motore come
+compatibilità. Risposte assenti, malformate, fuori intervallo o più vecchie di
+30 secondi non vengono presentate come dato live.
 
-Versione in sviluppo: **1.3 (build 11)**.
+Versione in sviluppo: **1.3.1 (build 19)**.
 
 Il nome pubblico della versione App Store è **Alpha DPF Monitor** — non “Alfa
 DPF”: “Alpha” è il marchio pubblico, scelto per restare distintivo senza usare
@@ -104,16 +110,17 @@ Riferimenti Apple:
 [ActivityKit](https://developer.apple.com/documentation/activitykit),
 [Live Activities](https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities).
 
-## Localizzazione (1.2)
+## Localizzazione (1.3)
 
-- Notifiche localizzate IT/EN: `AlertService` usa `String(localized:)` con
+- Interfaccia e notifiche sono localizzate in IT/EN/FR/ES; `AlertService` usa
+  `String(localized:)` con
   carico (`%.0f%%`) e durata (`%d min.`) formattati; le traduzioni stanno in
   `App/Localizable.xcstrings`.
 - Il messaggio di autorizzazione Bluetooth è localizzato in
   `App/InfoPlist.xcstrings`.
 - Il widget mostra il nome pubblico `Alpha DPF Monitor` anche su Lock Screen.
-- Le stringhe della Live Activity hanno localizzazioni `it` ed `en` esplicite:
-  il bundle dell'estensione deve contenere entrambi gli `.lproj`.
+- Le stringhe della Live Activity seguono lo stesso catalogo a quattro lingue:
+  il bundle dell'estensione deve contenere i relativi `.lproj`.
 
 ## Test senza automobile
 
@@ -139,23 +146,27 @@ poi `…` o il triangolo diagnostico:
 
 In **Impostazioni → Notifiche → Alpha DPF Monitor** devono essere consentiti
 CarPlay, Schermata di blocco, Notifiche urgenti e Suoni. La Full immersion Guida
-può silenziare le notifiche delle app anche su CarPlay: per ricevere i banner in
-modo affidabile, configurarla su attivazione manuale oppure disabilitare
-**Attiva con CarPlay** in **Impostazioni → Full immersion → Guida → Durante la
-guida**. Attivare **Annuncia notifiche** dà a Siri la possibilità di leggerle,
-ma le app Driving Task non possono forzare la voce.
+riduce le distrazioni e va mantenuta attiva. iOS può limitare comunque gli
+avvisi delle app durante la guida; abilitare **Notifiche urgenti**, **Mostra in
+CarPlay** e **Annuncia notifiche** aumenta la probabilità che l’avviso sia
+presentato o letto, ma un’app Driving Task non può forzarlo. Non modificare
+queste impostazioni mentre si guida.
 
 Ogni scenario può anche essere selezionato singolarmente. Per provare soltanto
 il canale di notifica usare **Prova solo banner e suono**. Il simulatore usa lo
 stesso `RegenActivityTracker`, lo stesso `AlertService` e la stessa Live
 Activity della connessione reale: non è un mock soltanto grafico.
 
-Per QA automatica di una build Debug sono disponibili due variabili di lancio:
+Per QA automatica di una build Debug sono disponibili tre variabili di lancio:
 
 ```text
 ALFADPF_AUTORUN_TEST=1
 ALFADPF_SCENARIO=regenInProgress
+ALFADPF_SIMULATION_STEP_SECONDS=6
 ```
+
+La terza variabile è facoltativa e disponibile soltanto in Debug: rallenta ogni
+passaggio del ciclo automatico (1–30 secondi) per screenshot e QA visuale.
 
 ## Perché i dati motore non vengono letti
 
@@ -166,6 +177,14 @@ sospensione del Mode 01. Poiché il prodotto serve al monitoraggio DPF, la
 connessione finale conserva esclusivamente il polling DPF già validato. Il
 parser Mode 01 resta nel repository e nei test, ma non interviene nella sessione
 in auto.
+
+Il bootstrap riusa il protocollo negoziato nella sessione precedente (cache per
+adattatore, da `ATDPN`) e lo conferma con un probe fisico `22380B`: soltanto una
+risposta ECU-proven (`62…` o `7F22…`) mantiene il fast path, altrimenti un solo
+fallback ad `ATSP0` ripete la ricerca. Se nemmeno il probe prova che un
+protocollo è stato negoziato (`NO DATA`, `UNABLE TO CONNECT`, timeout), un unico
+trigger `0100` completa l'autodetect durante l'init — il polling live resta
+comunque DPF-only.
 
 L'app non identifica automaticamente marca o modello: un header ECU descrive
 il destinatario diagnostico, non distingue in modo affidabile Stelvio, Giulia,
@@ -189,10 +208,12 @@ il destinatario diagnostico, non distingue in modo affidabile Stelvio, Giulia,
 `DPFMonitor` prova gli indirizzi ECU FCA conosciuti, memorizza separatamente
 l'header funzionante per ogni PID e mantiene il rilevamento attivo attraverso
 brevi campioni mancanti. Se `22380B` resta a zero o non risponde, una seconda
-strategia riconosce la rigenerazione solo dopo aver osservato insieme scarico
-caldo e calo sostenuto dell'intasamento; il raffreddamento confermato chiude il
-ciclo. Il PID di stato è opzionale: valori sconosciuti o `NO DATA` non
-disattivano mai il rilevatore già esistente.
+strategia riconosce la rigenerazione **al primo segnale certo**: scarico in
+temperatura da post-iniezione (≥ 600 °C) con filtro carico, oppure scarico
+caldo (≥ 500 °C) con il primo calo significativo dell'intasamento — la
+notifica di inizio parte immediatamente su quel campione. Il raffreddamento
+confermato chiude il ciclo. Il PID di stato è opzionale: valori sconosciuti o
+`NO DATA` non disattivano mai il rilevatore già esistente.
 
 ## Test automatici
 

@@ -29,6 +29,69 @@ struct DPFRegenCycle: Equatable, Sendable {
     let status: Status
 }
 
+/// Honest aggregate of locally recorded cycles. Active and unconfirmed rows
+/// remain visible in the history but do not dilute outcome or duration stats.
+struct DPFHistoryInsights: Equatable, Sendable {
+    let completedCycles: Int
+    let interruptedCycles: Int
+    let unconfirmedCycles: Int
+    let averageDuration: TimeInterval?
+    let averageLoadReduction: Double?
+
+    var observedOutcomeCount: Int { completedCycles + interruptedCycles }
+
+    var completionRate: Double? {
+        guard observedOutcomeCount > 0 else { return nil }
+        return Double(completedCycles) / Double(observedOutcomeCount)
+    }
+
+    init(
+        completedCycles: Int,
+        interruptedCycles: Int,
+        unconfirmedCycles: Int,
+        averageDuration: TimeInterval?,
+        averageLoadReduction: Double?
+    ) {
+        self.completedCycles = completedCycles
+        self.interruptedCycles = interruptedCycles
+        self.unconfirmedCycles = unconfirmedCycles
+        self.averageDuration = averageDuration
+        self.averageLoadReduction = averageLoadReduction
+    }
+
+    init(cycles: [DPFRegenCycle]) {
+        let completedCycles = cycles.count { $0.status == .completed }
+        let interruptedCycles = cycles.count { $0.status == .interrupted }
+        let unconfirmedCycles = cycles.count { $0.status == .unconfirmed }
+
+        let completedDurations = cycles.compactMap { cycle -> TimeInterval? in
+            guard cycle.status == .completed, let finishedAt = cycle.finishedAt else { return nil }
+            let duration = finishedAt.timeIntervalSince(cycle.startedAt)
+            return duration >= 0 ? duration : nil
+        }
+        let averageDuration = completedDurations.isEmpty
+            ? nil
+            : completedDurations.reduce(0, +) / Double(completedDurations.count)
+
+        let completedReductions = cycles.compactMap { cycle -> Double? in
+            guard cycle.status == .completed, let endingLoad = cycle.endingLoad else { return nil }
+            let reduction = cycle.startingLoad - endingLoad
+            return reduction >= 0 ? reduction : nil
+        }
+        let averageLoadReduction = completedReductions.isEmpty
+            ? nil
+            : completedReductions.reduce(0, +) / Double(completedReductions.count)
+
+        self.init(
+            completedCycles: completedCycles,
+            interruptedCycles: interruptedCycles,
+            unconfirmedCycles: unconfirmedCycles,
+            averageDuration: averageDuration,
+            averageLoadReduction: averageLoadReduction
+        )
+    }
+}
+
 // MARK: - Store
 
 /// On-device SQLite store for DPF time-series samples and regeneration cycles.
@@ -124,6 +187,28 @@ final class DPFHistoryStore: @unchecked Sendable {
                 regenActive: regenActive,
                 distanceSinceLastRegenKm: distanceSinceLastRegenKm
             )
+        }
+    }
+
+    /// Records without blocking the caller. MonitorSession is main-actor
+    /// isolated, so its regular telemetry path must never wait for SQLite.
+    func recordSampleAsync(
+        timestamp: Date,
+        cloggingPercent: Double,
+        exhaustTempC: Double?,
+        regenActive: Bool,
+        distanceSinceLastRegenKm: Double?
+    ) async -> Bool {
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in
+                continuation.resume(returning: _recordSample(
+                    timestamp: timestamp,
+                    cloggingPercent: cloggingPercent,
+                    exhaustTempC: exhaustTempC,
+                    regenActive: regenActive,
+                    distanceSinceLastRegenKm: distanceSinceLastRegenKm
+                ))
+            }
         }
     }
 
@@ -338,6 +423,53 @@ final class DPFHistoryStore: @unchecked Sendable {
         }
         sqlite3_finalize(stmt)
         return result
+    }
+
+    /// Aggregates every recorded cycle. The visible list is intentionally
+    /// capped for rendering, but summary cards must not silently change their
+    /// meaning once the database contains more than 50 rows.
+    func insights() -> DPFHistoryInsights {
+        queue.sync { _insights() }
+    }
+
+    private func _insights() -> DPFHistoryInsights {
+        let sql = """
+            SELECT
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN status = 'interrupted' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN status = 'unconfirmed' THEN 1 ELSE 0 END),
+                AVG(CASE
+                    WHEN status = 'completed'
+                     AND finished_at IS NOT NULL
+                     AND finished_at >= started_at
+                    THEN finished_at - started_at
+                END),
+                AVG(CASE
+                    WHEN status = 'completed'
+                     AND ending_load IS NOT NULL
+                     AND starting_load >= ending_load
+                    THEN starting_load - ending_load
+                END)
+            FROM regen_cycles
+            """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            sqlite3_finalize(stmt)
+            return DPFHistoryInsights(cycles: [])
+        }
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_step(stmt) == SQLITE_ROW else {
+            return DPFHistoryInsights(cycles: [])
+        }
+        return DPFHistoryInsights(
+            completedCycles: Int(sqlite3_column_int64(stmt, 0)),
+            interruptedCycles: Int(sqlite3_column_int64(stmt, 1)),
+            unconfirmedCycles: Int(sqlite3_column_int64(stmt, 2)),
+            averageDuration: sqlite3_column_type(stmt, 3) == SQLITE_NULL
+                ? nil : sqlite3_column_double(stmt, 3),
+            averageLoadReduction: sqlite3_column_type(stmt, 4) == SQLITE_NULL
+                ? nil : sqlite3_column_double(stmt, 4)
+        )
     }
 
     /// Returns true if there's currently an active (unfinished) regeneration.

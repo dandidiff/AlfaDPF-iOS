@@ -176,14 +176,24 @@ struct RegenEngineOffDetector: Equatable, Sendable {
     private var runningBaseline: Double?
     private var lowVoltageStartedAt: Date?
     private var lowSampleCount = 0
+    private var lastVoltageSampleAt: Date?
 
     mutating func observe(
         voltage: Double?,
-        at timestamp: Date,
+        at timestamp: Date?,
         coreTelemetryAvailable: Bool
     ) -> Bool {
         if coreTelemetryAvailable {
             clearLowEvidence()
+        }
+        guard let timestamp else { return false }
+        if let lastVoltageSampleAt,
+           timestamp <= lastVoltageSampleAt {
+            return false
+        }
+        lastVoltageSampleAt = timestamp
+
+        if coreTelemetryAvailable {
             guard let voltage, voltage.isFinite, (0...100).contains(voltage) else {
                 runningBaseline = nil
                 return false
@@ -221,6 +231,7 @@ struct RegenEngineOffDetector: Equatable, Sendable {
 
     mutating func reset() {
         runningBaseline = nil
+        lastVoltageSampleAt = nil
         clearLowEvidence()
     }
 
@@ -237,10 +248,161 @@ enum CarPlayConnectionAction: Equatable, Sendable {
 }
 
 /// Apple limits periodic data-item refreshes in Driving Task apps to no more
-/// than once every ten seconds. Keep this policy shared with tests so a future
-/// UI change cannot silently reintroduce a non-compliant real-time refresh.
+/// than once every ten seconds. Telemetry follows that limit; only discrete
+/// user, regeneration and liveness transitions may update sooner.
 enum CarPlayRefreshPolicy {
+    /// Apple’s current CarPlay Developer Guide limits periodic Driving Task
+    /// data-item refreshes to no more than once every ten seconds.
     static let interval: Duration = .seconds(10)
+    static let periodicDataMinimumInterval: TimeInterval = 10
+    /// True state transitions are not periodic engine-data refreshes. Keep a
+    /// small global guard so duplicate edge/liveness callbacks cannot thrash
+    /// the template while still reaching the driver promptly.
+    static let eventMinimumRenderInterval: TimeInterval = 2
+    static let metricsLogInterval: TimeInterval = 30
+}
+
+enum CarPlayRefreshEvent: Sendable {
+    case telemetry
+    case regenerationEdge
+    case liveness
+    /// A driver changed the phone dashboard selection; this is not telemetry.
+    case interaction
+
+    var trigger: CarPlayRefreshTrigger {
+        switch self {
+        case .telemetry: return .telemetry
+        case .regenerationEdge: return .regenerationEdge
+        case .liveness: return .liveness
+        case .interaction: return .interaction
+        }
+    }
+}
+
+enum CarPlayRefreshTrigger: String, Sendable {
+    case periodic
+    case telemetry
+    case regenerationEdge = "regeneration_edge"
+    case liveness
+    case interaction
+    case deferredEvent = "deferred_event"
+
+    var isEventDriven: Bool {
+        switch self {
+        case .telemetry, .regenerationEdge, .liveness, .deferredEvent:
+            return true
+        case .periodic, .interaction:
+            return false
+        }
+    }
+
+    var minimumInterval: TimeInterval {
+        switch self {
+        case .interaction, .deferredEvent:
+            return 0
+        case .periodic, .telemetry:
+            return CarPlayRefreshPolicy.periodicDataMinimumInterval
+        case .regenerationEdge, .liveness:
+            return CarPlayRefreshPolicy.eventMinimumRenderInterval
+        }
+    }
+}
+
+enum CarPlayDeferredRefreshPolicy {
+    /// Keep an existing earlier deadline, but replace a telemetry deferral when
+    /// a later safety/liveness edge needs to render sooner.
+    static func shouldReplace(
+        currentDeadline: Date?,
+        proposedDeadline: Date
+    ) -> Bool {
+        guard let currentDeadline else { return true }
+        return proposedDeadline < currentDeadline
+    }
+}
+
+enum CarPlayRefreshDecision: Equatable, Sendable {
+    case render(effectiveInterval: TimeInterval?)
+    case skipDuplicate
+    case deferFor(TimeInterval)
+}
+
+/// Pure content gate shared by CarPlay and the standalone suite. It commits a
+/// signature only when a render is actually allowed, so a throttled change is
+/// reconsidered by the deferred event instead of being lost.
+struct CarPlayRefreshGate<Signature: Equatable & Sendable>: Sendable {
+    private var lastRenderedSignature: Signature?
+    private var lastRenderedAt: Date?
+
+    mutating func evaluate(
+        signature: Signature,
+        at now: Date,
+        minimumInterval: TimeInterval
+    ) -> CarPlayRefreshDecision {
+        if lastRenderedSignature == signature {
+            return .skipDuplicate
+        }
+
+        let effectiveInterval = lastRenderedAt.map {
+            max(0, now.timeIntervalSince($0))
+        }
+        let boundedMinimum = max(0, minimumInterval)
+        if let effectiveInterval, effectiveInterval < boundedMinimum {
+            return .deferFor(boundedMinimum - effectiveInterval)
+        }
+
+        lastRenderedSignature = signature
+        lastRenderedAt = now
+        return .render(effectiveInterval: effectiveInterval)
+    }
+
+    mutating func reset() {
+        lastRenderedSignature = nil
+        lastRenderedAt = nil
+    }
+}
+
+/// Aggregate-only diagnostics: no PID values, VIN, adapter identifiers, or
+/// location data are accepted by this type, so its log line is safe to retain.
+struct CarPlayRefreshMetrics: Sendable {
+    private(set) var requests = 0
+    private(set) var renders = 0
+    private(set) var duplicateSkips = 0
+    private(set) var deferrals = 0
+    private(set) var failures = 0
+    private(set) var eventRequests = 0
+    private(set) var lastEffectiveInterval: TimeInterval?
+
+    mutating func recordRequest(trigger: CarPlayRefreshTrigger) {
+        requests += 1
+        if trigger.isEventDriven {
+            eventRequests += 1
+        }
+    }
+
+    mutating func recordDecision(_ decision: CarPlayRefreshDecision) {
+        switch decision {
+        case .render(let effectiveInterval):
+            renders += 1
+            lastEffectiveInterval = effectiveInterval
+        case .skipDuplicate:
+            duplicateSkips += 1
+        case .deferFor:
+            deferrals += 1
+        }
+    }
+
+    mutating func recordFailure() {
+        failures += 1
+    }
+
+    var summaryLine: String {
+        let interval = lastEffectiveInterval.map {
+            String(format: "%.2fs", $0)
+        } ?? "initial"
+        return "CarPlay refresh metrics: requests=\(requests) renders=\(renders) "
+            + "duplicates=\(duplicateSkips) deferred=\(deferrals) failures=\(failures) "
+            + "event_requests=\(eventRequests) effective_interval=\(interval)"
+    }
 }
 
 enum CarPlayNotificationTestPolicy {
@@ -396,23 +558,93 @@ enum CarPlayTelemetryPolicy {
     }
 }
 
-/// The eight glanceable CarPlay tiles. Each tile pushes one compact
-/// `CPInformationTemplate` detail surface; this type stays Foundation-only so
-/// the hierarchy can be tested without UIKit/CarPlay.
+/// Telemetry tiles supported by CarPlay. A `CPGridTemplate` can show only
+/// eight buttons, so `CarPlayDashboardLayout` keeps every selected metric
+/// accessible through a compact overflow details surface when necessary.
+/// This type stays Foundation-only so the hierarchy can be tested without
+/// UIKit/CarPlay.
 enum CarPlayDashboardMetric: CaseIterable, Equatable, Sendable {
     case dpf
     case regeneration
     case distance
     case exhaust
+    case coolant
     case progress
     case totalRegenerations
     case oil
     case battery
+
+    var dashboardMetric: DashboardMetric? {
+        switch self {
+        case .dpf, .regeneration: return nil
+        case .distance: return .distanceSinceRegeneration
+        case .exhaust: return .exhaustTemperature
+        case .coolant: return .coolantTemperature
+        case .progress: return .regenerationProgress
+        case .totalRegenerations: return .totalRegenerations
+        case .oil: return .oilPressure
+        case .battery: return .batteryVoltage
+        }
+    }
 }
 
 enum CarPlayDashboardPolicy {
     static let maximumTileCount = 8
     static let maximumInformationItemCount = 4
+}
+
+/// Ordered title fallbacks for compact CarPlay grid tiles. CarPlay selects the
+/// first variant that fits; once the combined title and value no longer fit,
+/// the live reading remains more useful than a truncated descriptive label.
+enum CarPlayGridTitlePolicy {
+    static func variants(
+        label: String,
+        value: String,
+        shortLabel: String? = nil
+    ) -> [String] {
+        let preferredLabel = shortLabel ?? label
+        guard !value.isEmpty, value != "—" else {
+            return [preferredLabel]
+        }
+        return [
+            "\(preferredLabel) · \(value)",
+            "\(preferredLabel) \(value)",
+            value,
+        ]
+    }
+}
+
+/// Mirrors the driver's iPhone dashboard choices in a deterministic order.
+/// DPF load and regeneration remain the fixed driving-critical tiles. When
+/// more than six chosen secondary metrics remain, the eighth tile opens the
+/// compact overflow details rather than silently dropping a selection.
+enum CarPlayDashboardLayout {
+    static func selectedMetrics(
+        visibleDashboardMetrics: Set<DashboardMetric>
+    ) -> [CarPlayDashboardMetric] {
+        CarPlayDashboardMetric.allCases.filter { metric in
+            metric.dashboardMetric.map(visibleDashboardMetrics.contains) ?? true
+        }
+    }
+
+    static func primaryMetrics(
+        visibleDashboardMetrics: Set<DashboardMetric>
+    ) -> [CarPlayDashboardMetric] {
+        let selected = selectedMetrics(visibleDashboardMetrics: visibleDashboardMetrics)
+        let capacity = selected.count > CarPlayDashboardPolicy.maximumTileCount
+            ? CarPlayDashboardPolicy.maximumTileCount - 1
+            : CarPlayDashboardPolicy.maximumTileCount
+        return Array(selected.prefix(capacity))
+    }
+
+    static func overflowMetrics(
+        visibleDashboardMetrics: Set<DashboardMetric>
+    ) -> [CarPlayDashboardMetric] {
+        let selected = selectedMetrics(visibleDashboardMetrics: visibleDashboardMetrics)
+        return Array(selected.dropFirst(primaryMetrics(
+            visibleDashboardMetrics: visibleDashboardMetrics
+        ).count))
+    }
 }
 
 enum CarPlayDashboardIconTone: Equatable, Sendable {
@@ -445,7 +677,7 @@ enum CarPlayDashboardIconPolicy {
             case .passive, .active:
                 return .regenerationSemantic(state.effectiveRegenerationMode)
             }
-        case .distance, .exhaust, .progress, .totalRegenerations, .oil, .battery:
+        case .distance, .exhaust, .coolant, .progress, .totalRegenerations, .oil, .battery:
             return .accent
         }
     }
@@ -461,13 +693,16 @@ enum CarPlayRegenerationAlertEvent: Equatable, Sendable {
 /// telemetry interruption resets it so reconnection cannot replay stale data.
 struct CarPlayRegenerationAlertTracker: Equatable, Sendable {
     private var previousIsRegenerating: Bool?
+    private var previousFinishConfirmationSequence: UInt64?
 
     mutating func observe(
         isRegenerating: Bool?,
+        finishConfirmationSequence: UInt64,
         telemetryIsLive: Bool
     ) -> CarPlayRegenerationAlertEvent? {
         guard telemetryIsLive else {
             previousIsRegenerating = nil
+            previousFinishConfirmationSequence = nil
             return nil
         }
 
@@ -477,12 +712,19 @@ struct CarPlayRegenerationAlertTracker: Equatable, Sendable {
 
         guard let previousIsRegenerating else {
             self.previousIsRegenerating = isRegenerating
+            previousFinishConfirmationSequence = finishConfirmationSequence
             return nil
         }
 
         self.previousIsRegenerating = isRegenerating
-        guard previousIsRegenerating != isRegenerating else { return nil }
-        return isRegenerating ? .started : .finished
+        let finishWasConfirmed = previousFinishConfirmationSequence
+            .map { $0 != finishConfirmationSequence } ?? false
+        previousFinishConfirmationSequence = finishConfirmationSequence
+
+        if isRegenerating {
+            return previousIsRegenerating ? nil : .started
+        }
+        return finishWasConfirmed ? .finished : nil
     }
 }
 
@@ -626,6 +868,7 @@ enum StelvioAccent: String, CaseIterable, Codable, Identifiable, Sendable {
 enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
     case distanceSinceRegeneration
     case exhaustTemperature
+    case coolantTemperature
     case regenerationProgress
     case totalRegenerations
     case oilPressure
@@ -637,11 +880,77 @@ enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .distanceSinceRegeneration: return AppLocalization.string("Distanza dall’ultima rigenerazione")
         case .exhaustTemperature: return AppLocalization.string("Temperatura gas di scarico")
+        case .coolantTemperature: return AppLocalization.string("Temperatura liquido motore")
         case .regenerationProgress: return AppLocalization.string("Avanzamento rigenerazione")
         case .totalRegenerations: return AppLocalization.string("Rigenerazioni totali")
         case .oilPressure: return AppLocalization.string("Stato pressione olio")
-        case .batteryVoltage: return AppLocalization.string("Tensione batteria")
+        case .batteryVoltage: return AppLocalization.string("Batteria")
         }
+    }
+}
+
+/// Deterministic six-slot wheel for non-critical ECU reads. Keeping this pure
+/// makes it impossible to hide a telemetry branch in an unreachable `default`.
+enum DPFSecondaryPollSlot: Int, CaseIterable, Equatable, Sendable {
+    case distanceSinceRegeneration
+    case totalRegenerations
+    case oilPressure
+    case adapterVoltage
+    case coolantTemperature
+    case batteryIBS
+
+    static func resolve(sequence: UInt64) -> Self {
+        allCases[Int(sequence % UInt64(allCases.count))]
+    }
+}
+
+/// FCA source that supplied the IBS state of charge. The direct IBS ECU is
+/// preferred; the engine-ECU mirror exists as a compatibility fallback.
+enum BatteryStateOfChargeSource: String, Codable, Equatable, Sendable {
+    case ibsDirect
+    case engineECUMirror
+
+    var pid: DPFPID {
+        switch self {
+        case .ibsDirect: return .batteryStateOfChargeDirect
+        case .engineECUMirror: return .batteryStateOfChargeMirror
+        }
+    }
+
+    var requestHeader: String {
+        switch self {
+        case .ibsDirect: return "18DA40F1"
+        case .engineECUMirror: return "18DA10F1"
+        }
+    }
+
+    var voltagePID: DPFPID {
+        switch self {
+        case .ibsDirect: return .batteryVoltageDirect
+        case .engineECUMirror: return .batteryVoltageMirror
+        }
+    }
+}
+
+/// Published FCA/Giulia/Stelvio formulas used by compatible diagnostic apps:
+/// direct IBS `221005` carries SOC in byte B and voltage in bytes J/K ÷ 800;
+/// `221004` and engine-ECU `221955` are voltage fallbacks.
+enum BatteryTelemetryPolicy {
+    static let validVoltageRange = 6.0...18.0
+
+    static func validatedVoltage(_ value: Double) throws -> Double {
+        guard value.isFinite, validVoltageRange.contains(value) else {
+            throw OBDError.protocolError("invalid IBS battery voltage")
+        }
+        return value
+    }
+
+    static func directEmbeddedVoltage(bytes: [UInt8]) throws -> Double {
+        guard bytes.count >= 11 else {
+            throw OBDError.protocolError("IBS 221005 needs bytes J/K for voltage")
+        }
+        let raw = UInt16(bytes[9]) << 8 | UInt16(bytes[10])
+        return try validatedVoltage(Double(raw) / 800.0)
     }
 }
 
@@ -653,16 +962,34 @@ struct DPFState: Codable, Equatable, Sendable {
     /// saturation measurement and must not be compared blindly across apps.
     var cloggingPercent: Double?
     var exhaustTempC: Double?
+    var coolantTemperatureC: Double?
     var distanceSinceLastRegenKm: Double?
+    /// Raw UInt24 counter retained so a post-finish reset can be detected even
+    /// when the exact zero sample is skipped.
+    var distanceSinceLastRegenRaw: UInt32?
     var regenProgressPercent: Double?     // 0 when idle, >0 while a regen is running
     var totalRegenCount: Double?
     var regenActive: Bool?                // derived: progress > hysteresis
+    /// Advances only when a fresh post-finish distance PID confirms the counter
+    /// reset, including a small first sample when the exact zero was skipped.
+    var finishConfirmationSequence: UInt64?
     var regenerationMode: DPFRegenerationMode?
     /// EDC17C69 exposes a pressure state, not a trustworthy pressure in bar.
     var oilPressureStatusRaw: UInt8?
-    /// Supply voltage reported by the ELM327 (`ATRV`). This is the adapter's
-    /// measured vehicle voltage, not an Alfa-specific ECU PID.
+    /// Supply voltage reported by the ELM327 (`ATRV`). Kept only as an
+    /// independent engine-off signal; it is never presented as battery data.
     var batteryVoltage: Double?
+    /// Timestamp of the last successful ATRV command. Required so one cached
+    /// low value cannot be counted repeatedly as fresh engine-off evidence.
+    var batteryVoltageUpdatedAt: Date?
+    /// Battery voltage reported by the FCA IBS/battery ECU.
+    var batterySystemVoltage: Double?
+    var batterySystemVoltageUpdatedAt: Date?
+    /// Battery state of charge reported by the IBS, in the inclusive 0...100
+    /// percent range. Unsupported, malformed and out-of-range replies stay nil.
+    var batteryStateOfChargePercent: Double?
+    var batteryStateOfChargeSource: BatteryStateOfChargeSource?
+    var batteryStateOfChargeUpdatedAt: Date?
     /// PID that supplied `exhaustTempC`, retained for diagnostics.
     var exhaustTemperaturePID: UInt16?
     /// Audit data for the load value. Persisting it makes an on-road
@@ -679,12 +1006,14 @@ extension DPFState {
     var hasTelemetry: Bool {
         cloggingPercent != nil
             || exhaustTempC != nil
+            || coolantTemperatureC != nil
             || distanceSinceLastRegenKm != nil
             || regenProgressPercent != nil
             || totalRegenCount != nil
             || regenerationMode != nil
             || oilPressureStatusRaw != nil
-            || batteryVoltage != nil
+            || batterySystemVoltage != nil
+            || batteryStateOfChargePercent != nil
     }
 
     /// Prefer the dedicated ECU state when it reports a regeneration, while
@@ -725,21 +1054,67 @@ extension DPFState {
         }
     }
 
+    /// Prevents an old optional IBS sample from being presented beside live
+    /// core telemetry. The cached value remains serializable for diagnostics.
+    func freshBatteryStateOfChargePercent(
+        at now: Date = .init(),
+        maximumAge: TimeInterval = 30
+    ) -> Double? {
+        guard let value = batteryStateOfChargePercent,
+              let updatedAt = batteryStateOfChargeUpdatedAt,
+              now.timeIntervalSince(updatedAt) <= maximumAge,
+              updatedAt.timeIntervalSince(now) <= 1,
+              (0...100).contains(value)
+        else { return nil }
+        return value
+    }
+
+    func freshBatterySystemVoltage(
+        at now: Date = .init(),
+        maximumAge: TimeInterval = 30
+    ) -> Double? {
+        guard let value = batterySystemVoltage,
+              let updatedAt = batterySystemVoltageUpdatedAt,
+              now.timeIntervalSince(updatedAt) <= maximumAge,
+              updatedAt.timeIntervalSince(now) <= 1,
+              value.isFinite,
+              BatteryTelemetryPolicy.validVoltageRange.contains(value)
+        else { return nil }
+        return value
+    }
+
     /// Applies only values that were actually read in the new sample.
     /// `nil` means “not refreshed”, never “replace the last valid value”.
     func mergingFreshTelemetry(from fresh: DPFState) -> DPFState {
         var merged = self
         merged.cloggingPercent = fresh.cloggingPercent ?? cloggingPercent
         merged.exhaustTempC = fresh.exhaustTempC ?? exhaustTempC
+        merged.coolantTemperatureC = fresh.coolantTemperatureC ?? coolantTemperatureC
         merged.distanceSinceLastRegenKm =
             fresh.distanceSinceLastRegenKm ?? distanceSinceLastRegenKm
+        merged.distanceSinceLastRegenRaw =
+            fresh.distanceSinceLastRegenRaw ?? distanceSinceLastRegenRaw
         merged.regenProgressPercent =
             fresh.regenProgressPercent ?? regenProgressPercent
         merged.totalRegenCount = fresh.totalRegenCount ?? totalRegenCount
+        merged.finishConfirmationSequence =
+            fresh.finishConfirmationSequence ?? finishConfirmationSequence
         merged.regenerationMode = fresh.regenerationMode ?? regenerationMode
         merged.oilPressureStatusRaw =
             fresh.oilPressureStatusRaw ?? oilPressureStatusRaw
-        merged.batteryVoltage = fresh.batteryVoltage ?? batteryVoltage
+        if fresh.batteryVoltage != nil {
+            merged.batteryVoltage = fresh.batteryVoltage
+            merged.batteryVoltageUpdatedAt = fresh.batteryVoltageUpdatedAt
+        }
+        if fresh.batterySystemVoltage != nil {
+            merged.batterySystemVoltage = fresh.batterySystemVoltage
+            merged.batterySystemVoltageUpdatedAt = fresh.batterySystemVoltageUpdatedAt
+        }
+        if fresh.batteryStateOfChargePercent != nil {
+            merged.batteryStateOfChargePercent = fresh.batteryStateOfChargePercent
+            merged.batteryStateOfChargeSource = fresh.batteryStateOfChargeSource
+            merged.batteryStateOfChargeUpdatedAt = fresh.batteryStateOfChargeUpdatedAt
+        }
         if fresh.exhaustTempC != nil {
             merged.exhaustTemperaturePID = fresh.exhaustTemperaturePID
         }
@@ -755,6 +1130,72 @@ extension DPFState {
             merged.timestamp = fresh.timestamp
         }
         return merged
+    }
+}
+
+/// Pure presentation policy shared by the iPhone and CarPlay battery tiles.
+/// The card displays only battery-ECU/IBS data. `ATRV` remains an internal
+/// adapter signal for engine-off detection and never appears as battery data.
+enum BatteryMetricHeadline: Equatable, Sendable {
+    case stateOfChargePercent(Double)
+    case voltage(Double)
+    case unavailable
+}
+
+struct BatteryMetricPresentation: Equatable, Sendable {
+    var headline: BatteryMetricHeadline
+    var voltageDetail: Double?
+
+    static func resolve(
+        state: DPFState,
+        isLive: Bool,
+        at now: Date = .init()
+    ) -> BatteryMetricPresentation {
+        let liveVoltage = isLive ? state.freshBatterySystemVoltage(at: now) : nil
+        if isLive, let percent = state.freshBatteryStateOfChargePercent(at: now) {
+            return .init(
+                headline: .stateOfChargePercent(percent),
+                voltageDetail: liveVoltage
+            )
+        }
+        if let voltage = liveVoltage ?? (!isLive ? state.batterySystemVoltage : nil) {
+            return .init(headline: .voltage(voltage), voltageDetail: nil)
+        }
+        return .init(headline: .unavailable, voltageDetail: nil)
+    }
+}
+
+/// Coolant samples are optional, plausibility checked and short-lived. Keeping
+/// this policy pure makes missing/invalid/expired behavior testable.
+enum CoolantTelemetryPolicy {
+    static let validRangeCelsius = -40.0...215.0
+    static let liveTTL: TimeInterval = 30
+
+    static func validated(_ value: Double) throws -> Double {
+        guard value.isFinite, validRangeCelsius.contains(value) else {
+            throw OBDError.protocolError("invalid coolant temperature")
+        }
+        return value
+    }
+
+    static func isExpired(lastValidSampleAt: Date?, now: Date) -> Bool {
+        guard let lastValidSampleAt else { return false }
+        return now.timeIntervalSince(lastValidSampleAt) >= liveTTL
+    }
+}
+
+/// One-shot dashboard migration: existing users see a newly introduced card
+/// once, while a later manual opt-out remains respected.
+enum DashboardMetricPreference {
+    static func load(
+        stored: [String]?,
+        migrated: Bool,
+        adding metric: DashboardMetric
+    ) -> (visible: Set<DashboardMetric>, didMigrate: Bool) {
+        guard let stored else { return (Set(DashboardMetric.allCases), true) }
+        var visible = Set(stored.compactMap(DashboardMetric.init(rawValue:)))
+        if !migrated { visible.insert(metric) }
+        return (visible, !migrated)
     }
 }
 
@@ -856,6 +1297,7 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
             return DPFState(
                 cloggingPercent: 28,
                 exhaustTempC: 168,
+                coolantTemperatureC: 88,
                 distanceSinceLastRegenKm: 35,
                 regenProgressPercent: 0,
                 totalRegenCount: 291,
@@ -863,12 +1305,19 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 12.6,
+                batteryVoltageUpdatedAt: timestamp,
+                batterySystemVoltage: 12.7,
+                batterySystemVoltageUpdatedAt: timestamp,
+                batteryStateOfChargePercent: 82,
+                batteryStateOfChargeSource: .ibsDirect,
+                batteryStateOfChargeUpdatedAt: timestamp,
                 timestamp: timestamp
             )
         case .loaded:
             return DPFState(
                 cloggingPercent: 88,
                 exhaustTempC: 238,
+                coolantTemperatureC: 94,
                 distanceSinceLastRegenKm: 410,
                 regenProgressPercent: 0,
                 totalRegenCount: 291,
@@ -876,12 +1325,19 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.2,
+                batteryVoltageUpdatedAt: timestamp,
+                batterySystemVoltage: 14.1,
+                batterySystemVoltageUpdatedAt: timestamp,
+                batteryStateOfChargePercent: 74,
+                batteryStateOfChargeSource: .ibsDirect,
+                batteryStateOfChargeUpdatedAt: timestamp,
                 timestamp: timestamp
             )
         case .regenStarted:
             return DPFState(
                 cloggingPercent: 96,
                 exhaustTempC: 575,
+                coolantTemperatureC: 96,
                 distanceSinceLastRegenKm: 414,
                 regenProgressPercent: 1.5,
                 totalRegenCount: 291,
@@ -889,12 +1345,19 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: .active,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.1,
+                batteryVoltageUpdatedAt: timestamp,
+                batterySystemVoltage: 14.0,
+                batterySystemVoltageUpdatedAt: timestamp,
+                batteryStateOfChargePercent: 71,
+                batteryStateOfChargeSource: .ibsDirect,
+                batteryStateOfChargeUpdatedAt: timestamp,
                 timestamp: timestamp
             )
         case .regenInProgress:
             return DPFState(
                 cloggingPercent: 72,
                 exhaustTempC: 648,
+                coolantTemperatureC: 98,
                 distanceSinceLastRegenKm: 419,
                 regenProgressPercent: 52,
                 totalRegenCount: 291,
@@ -902,12 +1365,19 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: .active,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 14.0,
+                batteryVoltageUpdatedAt: timestamp,
+                batterySystemVoltage: 13.9,
+                batterySystemVoltageUpdatedAt: timestamp,
+                batteryStateOfChargePercent: 70,
+                batteryStateOfChargeSource: .ibsDirect,
+                batteryStateOfChargeUpdatedAt: timestamp,
                 timestamp: timestamp
             )
         case .regenFinished:
             return DPFState(
                 cloggingPercent: 32,
                 exhaustTempC: 408,
+                coolantTemperatureC: 97,
                 distanceSinceLastRegenKm: 0.3,
                 regenProgressPercent: 0,
                 totalRegenCount: 292,
@@ -915,6 +1385,12 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
                 regenerationMode: DPFRegenerationMode.none,
                 oilPressureStatusRaw: 2,
                 batteryVoltage: 13.9,
+                batteryVoltageUpdatedAt: timestamp,
+                batterySystemVoltage: 13.8,
+                batterySystemVoltageUpdatedAt: timestamp,
+                batteryStateOfChargePercent: 69,
+                batteryStateOfChargeSource: .ibsDirect,
+                batteryStateOfChargeUpdatedAt: timestamp,
                 timestamp: timestamp
             )
         case .unavailable:
@@ -926,6 +1402,227 @@ enum DPFSimulationScenario: String, CaseIterable, Identifiable {
 enum RegenEvent: Equatable {
     case started(at: Date, cloggingPercent: Double?)
     case finished(at: Date, duration: TimeInterval)
+}
+
+/// Delays a regeneration-finished notification until a fresh ECU distance
+/// sample proves that the distance-since-regeneration counter reset. The first
+/// post-reset sample may already be above zero, so a small plausible value is
+/// accepted only when it is lower than the pre-finish baseline.
+struct RegenFinishNotificationGate: Equatable, Sendable {
+    private static let maximumPostResetRaw: UInt32 = 10 // 1.0 km
+    private var pendingFinish: RegenEvent?
+    private var distanceBeforeFinishRaw: UInt32?
+
+    var isWaitingForDistanceReset: Bool {
+        pendingFinish != nil
+    }
+
+    mutating func observe(
+        _ event: RegenEvent,
+        distanceBeforeFinishRaw: UInt32? = nil
+    ) -> RegenEvent? {
+        switch event {
+        case .started:
+            pendingFinish = nil
+            self.distanceBeforeFinishRaw = nil
+            return event
+        case .finished:
+            pendingFinish = event
+            self.distanceBeforeFinishRaw = distanceBeforeFinishRaw
+            return nil
+        }
+    }
+
+    mutating func confirm(freshDistanceRaw: UInt32) -> RegenEvent? {
+        guard freshDistanceRaw <= 0xFF_FF_FF,
+              let pendingFinish
+        else { return nil }
+
+        let isExactReset = freshDistanceRaw == 0
+        let isMissedZeroAfterReset: Bool
+        if let distanceBeforeFinishRaw {
+            isMissedZeroAfterReset = freshDistanceRaw <= Self.maximumPostResetRaw
+                && freshDistanceRaw < distanceBeforeFinishRaw
+        } else {
+            isMissedZeroAfterReset = freshDistanceRaw <= Self.maximumPostResetRaw
+        }
+        guard isExactReset || isMissedZeroAfterReset else { return nil }
+
+        self.pendingFinish = nil
+        distanceBeforeFinishRaw = nil
+        return pendingFinish
+    }
+
+    mutating func reset() {
+        pendingFinish = nil
+        distanceBeforeFinishRaw = nil
+    }
+}
+
+/// Conservative remaining-time estimate for an active regeneration. The ECU
+/// exposes progress, not an ETA, so this estimator only publishes a value
+/// after observing a meaningful increase over time. Missing samples preserve
+/// the last estimate; an inactive mode or a new progress cycle clears it.
+struct RegenTimeEstimator: Equatable, Sendable {
+    private struct Sample: Equatable, Sendable {
+        let progress: Double
+        let timestamp: Date
+    }
+
+    private static let minimumProgressDelta = 2.0
+    private static let minimumObservationDuration: TimeInterval = 30
+    private static let maximumSampleGap: TimeInterval = 10 * 60
+    private static let minimumPublishedETA: TimeInterval = 60
+    private static let maximumPublishedETA: TimeInterval = 60 * 60
+    // Keep enough history for fast adapters too: at one fresh sample per
+    // second, eight samples could never satisfy the 30-second observation
+    // window and the ETA would remain permanently hidden.
+    private static let maximumSamples = 120
+
+    private var samples: [Sample] = []
+    private(set) var estimatedTimeRemaining: TimeInterval?
+
+    @discardableResult
+    mutating func observe(
+        progressPercent: Double?,
+        regenerationMode: DPFRegenerationMode,
+        at timestamp: Date
+    ) -> TimeInterval? {
+        guard regenerationMode == .active else {
+            reset()
+            return nil
+        }
+
+        guard let progressPercent,
+              progressPercent.isFinite,
+              (0...100).contains(progressPercent)
+        else {
+            if let last = samples.last {
+                let gap = timestamp.timeIntervalSince(last.timestamp)
+                if gap < 0 || gap > Self.maximumSampleGap {
+                    reset()
+                }
+            }
+            return estimatedTimeRemaining
+        }
+
+        if progressPercent >= 99.5 {
+            estimatedTimeRemaining = nil
+            return nil
+        }
+
+        if let last = samples.last {
+            let gap = timestamp.timeIntervalSince(last.timestamp)
+            if gap < 0 || gap > Self.maximumSampleGap || progressPercent < last.progress - 2 {
+                reset()
+            } else if progressPercent <= last.progress + 0.05 {
+                return estimatedTimeRemaining
+            }
+        }
+
+        samples.append(Sample(progress: progressPercent, timestamp: timestamp))
+        if samples.count > Self.maximumSamples {
+            samples.removeFirst(samples.count - Self.maximumSamples)
+        }
+
+        guard let first = samples.first, let last = samples.last else { return nil }
+        let duration = last.timestamp.timeIntervalSince(first.timestamp)
+        let progressDelta = last.progress - first.progress
+        guard duration >= Self.minimumObservationDuration,
+              progressDelta >= Self.minimumProgressDelta
+        else {
+            return nil
+        }
+
+        let progressPerSecond = progressDelta / duration
+        let rawETA = (100 - last.progress) / progressPerSecond
+        guard rawETA >= Self.minimumPublishedETA,
+              rawETA <= Self.maximumPublishedETA
+        else {
+            estimatedTimeRemaining = nil
+            return nil
+        }
+
+        if let previous = estimatedTimeRemaining {
+            estimatedTimeRemaining = previous * 0.65 + rawETA * 0.35
+        } else {
+            estimatedTimeRemaining = rawETA
+        }
+        return estimatedTimeRemaining
+    }
+
+    mutating func reset() {
+        samples.removeAll(keepingCapacity: true)
+        estimatedTimeRemaining = nil
+    }
+}
+
+/// Keeps the history layer tri-state. `nil` means the latest poll could not
+/// prove either active or inactive and must never be converted into a finish
+/// edge. This is intentionally separate from UI presentation, where unknown
+/// may still use neutral styling.
+struct RegenHistoryTransition: Equatable, Sendable {
+    let previousKnownState: Bool?
+    let nextKnownState: Bool?
+    let didStart: Bool
+    let didFinish: Bool
+    let confirmedInitialInactivity: Bool
+
+    static func resolve(previous: Bool?, observed: Bool?) -> Self {
+        guard let observed else {
+            return Self(
+                previousKnownState: previous,
+                nextKnownState: previous,
+                didStart: false,
+                didFinish: false,
+                confirmedInitialInactivity: false
+            )
+        }
+
+        return Self(
+            previousKnownState: previous,
+            nextKnownState: observed,
+            didStart: observed && previous != true,
+            didFinish: !observed && previous == true,
+            confirmedInitialInactivity: !observed && previous == nil
+        )
+    }
+}
+
+struct RegenHistoryStartRecord: Equatable, Sendable {
+    let startedAt: Date
+    let startingLoad: Double
+}
+
+/// Holds a start edge until a valid load sample arrives. Without this gate a
+/// one-poll timeout of the load PID consumes `didStart` and loses the entire
+/// regeneration cycle from history.
+struct RegenHistoryStartGate: Equatable, Sendable {
+    private var pendingStartedAt: Date?
+
+    mutating func observe(
+        transition: RegenHistoryTransition,
+        at timestamp: Date,
+        load: Double?
+    ) -> RegenHistoryStartRecord? {
+        if transition.didStart {
+            pendingStartedAt = timestamp
+        }
+        if transition.didFinish || transition.nextKnownState != true {
+            pendingStartedAt = nil
+            return nil
+        }
+        guard let startedAt = pendingStartedAt,
+              let load,
+              load.isFinite
+        else { return nil }
+        pendingStartedAt = nil
+        return .init(startedAt: startedAt, startingLoad: load)
+    }
+
+    mutating func reset() {
+        pendingStartedAt = nil
+    }
 }
 
 /// Converts the continuous ECU "regen process" percentage into stable
@@ -946,8 +1643,18 @@ struct RegenActivityTracker {
     /// prevents that cool-down tail (or a reconnect during it) from becoming
     /// a second, false start notification.
     private static let inferredMinimumStartingLoad = 80.0
-    private static let inferredMinimumLoadDrop = 1.0
-    private static let inferredDeclineSamples = 3
+    /// The start notification is load-bearing: the first sample that proves
+    /// the burn must already emit `.started`. One declining sample with a
+    /// half-point net drop is proof; requiring several confirming samples
+    /// delayed real notifications by minutes (a 102→98 % drop was observed
+    /// before the alert fired).
+    private static let inferredDeclineSamples = 1
+    private static let inferredMinimumLoadDrop = 0.5
+    /// Exhaust temperature that is only reached with active post-injection.
+    /// Combined with a still-loaded filter it is the earliest unambiguous
+    /// active-burn signal and fires the start edge on the first hot sample,
+    /// before the load index has even moved.
+    private static let inferredHotStartTemperatureC = 600.0
     private static let inferredCoolSamplesToFinish = 3
     private static let maximumCandidateGap: TimeInterval = 90
 
@@ -1039,6 +1746,20 @@ struct RegenActivityTracker {
             isActive = true
             startedAt = timestamp
             evidence = .modePID
+            consecutiveCoolSamples = 0
+            resetHotCandidate()
+            return .started(at: timestamp, cloggingPercent: cloggingPercent)
+        }
+
+        // Earliest unambiguous thermal evidence: post-injection exhaust heat
+        // with a still-loaded filter is an active burn even before the load
+        // index starts moving. The load floor keeps the hot post-regeneration
+        // tail (low soot, still-hot exhaust) from becoming a second start.
+        if exhaustTemperatureC.map({ $0 >= Self.inferredHotStartTemperatureC }) == true,
+           cloggingPercent.map({ $0 >= Self.inferredMinimumStartingLoad }) == true {
+            isActive = true
+            startedAt = timestamp
+            evidence = .thermalLoadTrend
             consecutiveCoolSamples = 0
             resetHotCandidate()
             return .started(at: timestamp, cloggingPercent: cloggingPercent)
@@ -1158,6 +1879,11 @@ enum DPFPID: UInt16, Hashable, Sendable {
     case regenProgressPercent = 0x380B
     case distanceSinceRegenKm = 0x3807
     case oilPressureStatus    = 0x194D
+    case batteryVoltageDirect = 0x1004
+    case batteryStateOfChargeDirect = 0x1005
+    case batteryStateOfChargeMirror = 0x19BD
+    case batteryVoltageMirror = 0x1955
+    case coolantTemperatureC  = 0x1003
 
     var mode: UInt8 { 0x22 }
 
@@ -1169,7 +1895,7 @@ enum DPFPID: UInt16, Hashable, Sendable {
         switch self {
         case .cloggingPercent:
             return "raw×1000/65535"
-        case .exhaustTempC, .postDPFTempC:
+        case .exhaustTempC, .postDPFTempC, .coolantTemperatureC:
             return "raw×0.02−40 °C"
         case .totalRegenCount:
             return "raw"
@@ -1179,6 +1905,14 @@ enum DPFPID: UInt16, Hashable, Sendable {
             return "raw24×0.1 km"
         case .oilPressureStatus:
             return "stato ECU"
+        case .batteryStateOfChargeDirect:
+            return "byte B, 0...100%"
+        case .batteryStateOfChargeMirror:
+            return "byte A, 0...100%"
+        case .batteryVoltageDirect:
+            return "byte A÷10 V"
+        case .batteryVoltageMirror:
+            return "raw×0.0005 V"
         }
     }
 
@@ -1192,7 +1926,21 @@ enum DPFPID: UInt16, Hashable, Sendable {
                 UInt32(bytes[2])
         }
 
-        if self == .oilPressureStatus {
+        if self == .oilPressureStatus || self == .batteryVoltageDirect {
+            guard let first = bytes.first else {
+                throw OBDError.protocolError("\(self) needs at least 1 byte")
+            }
+            return UInt32(first)
+        }
+
+        if self == .batteryStateOfChargeDirect {
+            guard bytes.count >= 2 else {
+                throw OBDError.protocolError("\(self) needs at least 2 bytes")
+            }
+            return UInt32(bytes[1])
+        }
+
+        if self == .batteryStateOfChargeMirror {
             guard let first = bytes.first else {
                 throw OBDError.protocolError("\(self) needs at least 1 byte")
             }
@@ -1216,10 +1964,90 @@ enum DPFPID: UInt16, Hashable, Sendable {
         case .cloggingPercent:      return raw * (1000.0 / 65_535.0)
         case .exhaustTempC,
              .postDPFTempC:         return raw * 0.02 - 40.0
+        case .coolantTemperatureC:
+            return try CoolantTelemetryPolicy.validated(raw * 0.02 - 40.0)
         case .totalRegenCount:      return raw
         case .regenProgressPercent: return raw * (100.0 / 65_535.0)
         case .distanceSinceRegenKm: return raw * 0.1
         case .oilPressureStatus:    return raw
+        case .batteryStateOfChargeDirect,
+             .batteryStateOfChargeMirror:
+            guard raw <= 100 else {
+                throw OBDError.protocolError("invalid IBS state of charge \(Int(raw))%")
+            }
+            return raw
+        case .batteryVoltageDirect:
+            return try BatteryTelemetryPolicy.validatedVoltage(raw / 10.0)
+        case .batteryVoltageMirror:
+            return try BatteryTelemetryPolicy.validatedVoltage(raw * 0.0005)
         }
+    }
+}
+
+/// Validated ECU routing hints for one adapter endpoint. These are performance
+/// hints, never trusted data: DPFMonitor retries the full FCA header list when
+/// a remembered route does not answer on the current vehicle.
+struct DPFECUProfile: Codable, Equatable, Sendable {
+    var headersByPID: [String: String] = [:]
+    var lastGoodHeader: String?
+    var preferredExhaustTemperaturePID: UInt16?
+    var preferredBatteryStateOfChargeSource: BatteryStateOfChargeSource?
+
+    /// Header to use for the physical Mode 22 protocol probe (PID 380B): the
+    /// route validated for that exact PID when present, else the last header
+    /// that answered anything. `lastGoodHeader` alone is unsafe — it tracks the
+    /// last ECU that replied to *any* PID, which may not own the DPF-load PID
+    /// the probe addresses.
+    var protocolProbeHeader: String? {
+        headersByPID[String(format: "%04X", DPFPID.regenProgressPercent.rawValue)]
+            ?? lastGoodHeader
+    }
+}
+
+final class DPFECUProfileStore: @unchecked Sendable {
+    private static let keyPrefix = "dpfECUProfile.v1."
+    private let defaults: UserDefaults
+    private let key: String
+
+    init(identifier: String, defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.key = Self.keyPrefix + identifier
+    }
+
+    func load() -> DPFECUProfile? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(DPFECUProfile.self, from: data)
+    }
+
+    func save(_ profile: DPFECUProfile) {
+        guard let data = try? JSONEncoder().encode(profile) else { return }
+        defaults.set(data, forKey: key)
+    }
+}
+
+/// Normalized ELM327 protocol number (1–9) negotiated for one adapter
+/// endpoint. Reusing it on reconnect skips the automatic protocol search
+/// (`ATSP0`), which dominates warm reconnect time on slow adapters. It is a
+/// performance hint only: `ELM327` re-validates the cached protocol with the
+/// physical DPF probe and falls back once to `ATSP0` when the probe does not
+/// prove an ECU answered, so a stale cache can never block a connection.
+final class OBDProtocolCache: @unchecked Sendable {
+    private static let keyPrefix = "obdProtocol.v1."
+    private let defaults: UserDefaults
+    private let key: String
+
+    init(identifier: String, defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.key = Self.keyPrefix + identifier
+    }
+
+    func load() -> Int? {
+        guard defaults.object(forKey: key) != nil else { return nil }
+        let value = defaults.integer(forKey: key)
+        return (1...9).contains(value) ? value : nil
+    }
+
+    func save(_ protocolNumber: Int) {
+        defaults.set(protocolNumber, forKey: key)
     }
 }

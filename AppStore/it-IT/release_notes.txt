@@ -1,12 +1,8 @@
-La versione 1.2 migliora affidabilità, Live Activity e dati disponibili:
+La versione 1.3.1 migliora affidabilità e chiarezza della telemetria:
 
-• nuova dashboard CarPlay nativa con connessione diretta all’adattatore, dati DPF aggiornati e notifiche di rigenerazione;
-• Live Activity ridisegnata senza doppio bordo e completamente localizzata in italiano e inglese;
-• polling DPF reso più affidabile e protetto da richieste diagnostiche interferenti;
-• rilevamento degli adattatori Konnwei KW903 Bluetooth LE e supporto del profilo FFE0/FFE1;
-• dashboard più fluida e valori con transizioni più leggibili;
-• rimossa l’identificazione automatica inaffidabile del modello del veicolo;
-• timeout e messaggi più chiari quando l’adattatore non viene trovato o non è compatibile;
-• toccando la Live Activity l’app si apre e riconnette correttamente;
-• gestione dello schermo corretta durante interruzioni e riconnessioni;
-• aggiunto nelle Impostazioni un link facoltativo per sostenere il progetto: l’app resta completamente gratuita.
+• stato di carica e tensione batteria letti dall’IBS/ECU batteria;
+• correzione delle notifiche di fine rigenerazione quando il campione esatto a zero non viene osservato;
+• recupero dello storico se il carico DPF manca nel primo campione di rigenerazione;
+• refresh CarPlay conforme al limite Apple di 10 secondi per la telemetria;
+• campanella CarPlay più chiara, con conferma dello stato degli avvisi;
+• maggiore robustezza nella discovery degli header ECU e nei dati temporaneamente non disponibili.

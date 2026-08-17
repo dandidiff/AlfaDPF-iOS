@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import UserNotifications
 import Charts
+import Accessibility
 
 /// iOS normally hides local notifications while the app is open. Presenting
 /// them explicitly is essential here: a regeneration must still create a
@@ -79,7 +80,7 @@ private extension StelvioAccent {
 private enum AppLinks {
     static let privacy = URL(string: "https://dpf-monitor-support.etamburi.chatgpt.site/privacy")!
     static let support = URL(string: "https://dpf-monitor-support.etamburi.chatgpt.site/support")!
-    static let email = URL(string: "mailto:tamburiukeddy+alfadpf@gmail.com")!
+    static let email = URL(string: "mailto:tamburiukeddy+alphadpf@gmail.com")!
 }
 
 private extension View {
@@ -106,7 +107,29 @@ private extension View {
                     lineWidth: 0.8
                 )
         )
-        .shadow(color: .black.opacity(0.24), radius: 22, y: 12)
+        .shadow(color: .black.opacity(0.18), radius: 10, y: 5)
+    }
+
+    /// Static dashboard surfaces avoid the per-frame backdrop sampling of
+    /// Material. Repeated cards use this cheaper treatment so scrolling stays
+    /// smooth while the hero and connection controls retain the glass accent.
+    func dashboardTile(cornerRadius: CGFloat = 22) -> some View {
+        background(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color(red: 0.105, green: 0.115, blue: 0.145).opacity(0.96))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.16), Color.white.opacity(0.045)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.8
+                )
+        )
+        .shadow(color: .black.opacity(0.14), radius: 5, y: 3)
     }
 }
 
@@ -115,6 +138,7 @@ private extension View {
 struct PhoneRootView: View {
     @Bindable var session: MonitorSession
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var showSettings = false
     @State private var showTestLab = false
     @State private var showAbout = false
@@ -137,6 +161,11 @@ struct PhoneRootView: View {
                         onAbout: { showAbout = true }
                     )
 
+                    if dynamicTypeSize.isAccessibilitySize,
+                       !embedsConnectionDock {
+                        ConnectionDock(session: session)
+                    }
+
                     if session.alertAuthorization.needsSettingsAttention {
                         NotificationGuidanceCard(state: session.alertAuthorization)
                     }
@@ -153,14 +182,24 @@ struct PhoneRootView: View {
                         dpf: session.dpf,
                         isCached: session.isShowingCachedTelemetry,
                         isSessionActive: session.status == .running || session.status == .simulating,
-                        isAwaitingTelemetry: session.isAwaitingTelemetry
+                        isAwaitingTelemetry: session.isAwaitingTelemetry,
+                        estimatedTimeRemaining: session.isShowingCachedTelemetry
+                            ? nil
+                            : session.estimatedRegenerationTimeRemaining
                     )
 
-                    DPFDetailGrid(
-                        dpf: session.dpf,
-                        isCached: session.isShowingCachedTelemetry,
-                        visibleMetrics: session.visibleDashboardMetrics
-                    )
+                    if session.dpf.hasTelemetry {
+                        DPFDetailGrid(
+                            dpf: session.dpf,
+                            isCached: session.isShowingCachedTelemetry,
+                            visibleMetrics: session.visibleDashboardMetrics
+                        )
+                    } else if !session.isAwaitingTelemetry {
+                        DashboardEmptyCard(
+                            isSimulation: session.status == .simulating,
+                            onOpenLab: { showTestLab = true }
+                        )
+                    }
 
                     if session.historyStore != nil {
                         HistoryNavigationRow(
@@ -173,13 +212,25 @@ struct PhoneRootView: View {
                         EventStrip(text: event, simulated: session.status == .simulating)
                     }
 
-                    ConnectionPanel(session: session)
+                    if embedsConnectionDock {
+                        ConnectionDock(session: session)
+                    }
+
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 10)
                 .padding(.bottom, 30)
             }
             .scrollIndicators(.hidden)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !dynamicTypeSize.isAccessibilitySize,
+               !embedsConnectionDock {
+                ConnectionDock(session: session)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 8)
+                    .padding(.bottom, 6)
+            }
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(session: session)
@@ -197,7 +248,6 @@ struct PhoneRootView: View {
                 showNotificationSetup = false
                 session.startAutomaticallyIfNeeded()
             }
-            .interactiveDismissDisabled()
         }
         .fullScreenCover(isPresented: $showHistory) {
             DPFHistoryView(store: session.historyStore)
@@ -240,11 +290,21 @@ struct PhoneRootView: View {
             session.start()
         }
         .onAppear(perform: applyDebugLaunchScenarioIfNeeded)
+        .sensoryFeedback(.success, trigger: session.status) { _, newStatus in
+            newStatus == .running
+        }
+        .sensoryFeedback(.warning, trigger: session.isRegenerationInProgress) { wasActive, isActive in
+            !wasActive && isActive
+        }
     }
 
     private func presentProjectSupportPrompt() {
         ProjectSupportPromptPolicy.markPresented()
         showProjectSupportPrompt = true
+    }
+
+    private var embedsConnectionDock: Bool {
+        session.status == .running || session.status == .simulating
     }
 
     private func applyDebugLaunchScenarioIfNeeded() {
@@ -265,6 +325,8 @@ struct PhoneRootView: View {
             showSettings = true
         case "about":
             showAbout = true
+        case "history":
+            showHistory = true
         default:
             break
         }
@@ -306,9 +368,8 @@ private struct NotificationSetupView: View {
         ZStack {
             DashboardBackground()
 
-            VStack(spacing: 24) {
-                Spacer()
-
+            ScrollView {
+                VStack(spacing: 24) {
                 Image(systemName: setupIcon)
                     .font(.system(size: 54, weight: .semibold))
                     .foregroundStyle(setupTint)
@@ -318,11 +379,11 @@ private struct NotificationSetupView: View {
 
                 VStack(spacing: 12) {
                     Text(title)
-                        .font(.system(size: 29, weight: .bold, design: .rounded))
+                        .font(.system(.title, design: .rounded, weight: .bold))
                         .multilineTextAlignment(.center)
 
                     Text(explanation)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .font(.body.weight(.medium))
                         .foregroundStyle(.white.opacity(0.72))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -331,17 +392,17 @@ private struct NotificationSetupView: View {
                 VStack(alignment: .leading, spacing: 13) {
                     if page == .drivingFocus {
                         setupRow(
-                            symbol: "gearshape.fill",
-                            title: "Apri Impostazioni › Full immersion › Guida",
-                            enabled: false
+                            symbol: "shield.checkered",
+                            title: "Mantieni attiva Full immersion Guida",
+                            enabled: true
                         )
                         setupRow(
-                            symbol: "car.side.fill",
-                            title: "In “Durante la guida”, disattiva “Attiva con CarPlay” oppure scegli l’attivazione manuale",
+                            symbol: "bell.badge.fill",
+                            title: "Gli avvisi urgenti restano soggetti alle impostazioni di iOS",
                             enabled: false
                         )
-                        Text("Alpha DPF Monitor non può rilevare o modificare la Full immersion. Configurala prima di metterti alla guida.")
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                        Text("Non modificare queste impostazioni durante la guida.")
+                            .font(.caption.weight(.medium))
                             .foregroundStyle(.orange.opacity(0.86))
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
@@ -364,8 +425,6 @@ private struct NotificationSetupView: View {
                 }
                 .padding(18)
                 .glassPanel(cornerRadius: 22)
-
-                Spacer()
 
                 switch page {
                 case .notificationSettings:
@@ -413,6 +472,12 @@ private struct NotificationSetupView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(appAccent)
                     .disabled(isRequesting)
+
+                    Button("Non ora") {
+                        page = .drivingFocus
+                    }
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.72))
                 case .drivingFocus:
                     Button {
                         session.acknowledgeDrivingFocusGuidance()
@@ -426,10 +491,12 @@ private struct NotificationSetupView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(appAccent)
                 }
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 32)
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 32)
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -440,7 +507,7 @@ private struct NotificationSetupView: View {
         case .notificationSettings:
             return "iOS non permette ad Alpha DPF Monitor di cambiare queste preferenze al posto tuo."
         case .drivingFocus:
-            return "Quando Guida è attiva, iOS silenzia o limita le notifiche delle app, anche su CarPlay."
+            return "Full immersion Guida riduce le distrazioni. Mantienila attiva: gli avvisi di Alpha DPF Monitor sono solo un supporto e possono essere limitati da iOS."
         }
     }
 
@@ -478,7 +545,7 @@ private struct NotificationSetupView: View {
                 .foregroundStyle(enabled ? .green : .white.opacity(0.72))
                 .frame(width: 24)
             Text(title)
-                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .font(.subheadline.weight(.medium))
                 .foregroundStyle(.white.opacity(0.82))
         }
     }
@@ -596,25 +663,84 @@ private struct TelemetryLoadingStrip: View {
     }
 }
 
+private struct DashboardEmptyCard: View {
+    let isSimulation: Bool
+    let onOpenLab: () -> Void
+    @Environment(\.appAccent) private var appAccent
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "gauge.with.dots.needle.0percent")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(appAccent)
+                .frame(width: 54, height: 54)
+                .background(appAccent.opacity(0.12), in: Circle())
+                .accessibilityHidden(true)
+
+            VStack(spacing: 5) {
+                Text(LocalizedStringKey(title))
+                    .font(.headline.weight(.semibold))
+                Text(LocalizedStringKey(detail))
+                    .font(.subheadline)
+                    .foregroundStyle(Brand.textDim)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: onOpenLab) {
+                Label(LocalizedStringKey(buttonTitle), systemImage: "testtube.2")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.bordered)
+            .tint(appAccent)
+        }
+        .foregroundStyle(.white)
+        .padding(18)
+        .glassPanel(cornerRadius: 22)
+    }
+
+    private var title: String {
+        isSimulation ? "Scenario dati assenti" : "Pronto per la prima lettura"
+    }
+
+    private var detail: String {
+        isSimulation
+            ? "Questo scenario verifica come l’app gestisce PID non disponibili. Scegli un altro stato per continuare la demo."
+            : "Connetti l’adattatore dal comando qui sotto oppure esplora una rigenerazione simulata."
+    }
+
+    private var buttonTitle: String {
+        isSimulation ? "Scegli un altro scenario" : "Esplora la demo"
+    }
+}
+
 private struct DashboardBackground: View {
     @Environment(\.appAccent) private var appAccent
 
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [appAccent.opacity(0.30), Brand.ink, .black],
+                colors: [Color(red: 0.07, green: 0.08, blue: 0.11), Brand.ink, .black],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            Circle()
-                .fill(appAccent.opacity(0.22))
+            RadialGradient(
+                colors: [appAccent.opacity(0.12), appAccent.opacity(0)],
+                center: .center,
+                startRadius: 0,
+                endRadius: 165
+            )
                 .frame(width: 330, height: 330)
-                .blur(radius: 80)
                 .offset(x: -170, y: -330)
-            Circle()
-                .fill(Color.orange.opacity(0.10))
+            RadialGradient(
+                colors: [Color.orange.opacity(0.12), Color.orange.opacity(0)],
+                center: .center,
+                startRadius: 0,
+                endRadius: 140
+            )
                 .frame(width: 280, height: 280)
-                .blur(radius: 100)
                 .offset(x: 190, y: 330)
         }
         .ignoresSafeArea()
@@ -627,24 +753,47 @@ private struct HeaderBar: View {
     let status: MonitorSession.Status
     let onSettings: () -> Void
     let onAbout: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Alpha DPF Monitor")
-                    .font(.system(size: 25, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Text(verbatim: "Alpha DPF")
+                            .font(.system(.title3, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Spacer(minLength: 8)
+                        controls
+                    }
+                    StatusBadge(status: status)
+                }
+            } else {
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Alpha DPF Monitor")
+                            .font(.system(.title2, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+
+                        StatusBadge(status: status)
+                    }
+
+                    Spacer(minLength: 8)
+                    controls
+                }
             }
+        }
+    }
 
-            Spacer(minLength: 8)
-
+    @ViewBuilder
+    private var controls: some View {
+        Group {
             RoundGlassButton(symbol: "gearshape.fill", action: onSettings)
                 .accessibilityLabel("Impostazioni")
             RoundGlassButton(symbol: "info.circle", action: onAbout)
                 .accessibilityLabel("Informazioni, sicurezza e privacy")
-            StatusBadge(status: status)
         }
     }
 }
@@ -658,7 +807,7 @@ private struct RoundGlassButton: View {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.82))
-                .frame(width: 38, height: 38)
+                .frame(width: 44, height: 44)
                 .background(.thinMaterial, in: Circle())
                 .overlay(Circle().stroke(Brand.hairline, lineWidth: 0.7))
         }
@@ -683,10 +832,7 @@ private struct StatusBadge: View {
                 .lineLimit(1)
         }
         .foregroundStyle(.white.opacity(0.9))
-        .padding(.horizontal, 11)
-        .padding(.vertical, 9)
-        .background(.thinMaterial, in: Capsule())
-        .overlay(Capsule().stroke(Brand.hairline, lineWidth: 0.7))
+        .accessibilityElement(children: .combine)
     }
 
     private var display: (label: String, color: Color) {
@@ -708,24 +854,36 @@ private struct HeroGauge: View {
     let isCached: Bool
     let isSessionActive: Bool
     let isAwaitingTelemetry: Bool
+    let estimatedTimeRemaining: TimeInterval?
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .largeTitle) private var scaledGaugeSize = 172.0
 
     private var load: Double { dpf.cloggingPercent ?? 0 }
     private var hasData: Bool { dpf.cloggingPercent != nil }
+    private var gaugeSize: CGFloat { min(scaledGaugeSize, 210) }
 
     private var tint: Color {
         guard hasData else { return .gray }
         if isCached { return .gray }
-        if dpf.isRegenerating { return .orange }
-        if load >= 80 { return Brand.redBright }
-        if load >= 60 { return .orange }
-        return .green
+        switch dpf.loadAlertLevel {
+        case .unavailable: return .gray
+        case .low: return .green
+        case .nearRegeneration: return .orange
+        case .regenerationImminent: return Brand.redBright
+        case .activeRegeneration: return .orange
+        }
     }
 
     private var loadLabel: String {
-        guard hasData else { return "Dati non disponibili" }
-        if load >= 80 { return "Carico critico" }
-        if load >= 60 { return "Carico elevato" }
-        return "DPF pulito"
+        switch dpf.loadAlertLevel {
+        case .unavailable: return "Dati non disponibili"
+        case .low: return "DPF pulito"
+        case .nearRegeneration: return "Carico elevato"
+        case .regenerationImminent: return "Rigenerazione imminente"
+        case .activeRegeneration: return "Rigenerazione in corso"
+        }
     }
 
     private var guidance: String {
@@ -741,41 +899,78 @@ private struct HeroGauge: View {
         if dpf.effectiveRegenerationMode == .active {
             return "Continua a guidare e non spegnere il motore."
         }
-        if load >= 60 { return "La rigenerazione è attesa, ma non è ancora attiva." }
-        return "Il filtro è nella normale zona di utilizzo."
+        if dpf.effectiveRegenerationMode == .passive {
+            return "Il filtro si sta rigenerando in modo passivo."
+        }
+        switch dpf.loadAlertLevel {
+        case .regenerationImminent:
+            return "La rigenerazione può iniziare a breve."
+        case .nearRegeneration:
+            return "Il carico è alto: continua a monitorare il filtro."
+        default:
+            return "Il filtro è nella normale zona di utilizzo."
+        }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center, spacing: 18) {
-                gauge
-                    .frame(width: 172, height: 172)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("DPF LOAD")
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
-                        .tracking(2.3)
-                        .foregroundStyle(Brand.textDim)
-
-                    Text(LocalizedStringKey(loadLabel))
-                        .font(.system(size: 25, weight: .bold, design: .rounded))
-                        .foregroundStyle(tint)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text(LocalizedStringKey(guidance))
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.60))
-                        .fixedSize(horizontal: false, vertical: true)
+            if dynamicTypeSize.isAccessibilitySize {
+                verticalHero
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    horizontalHero
+                    verticalHero
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Divider().overlay(Color.white.opacity(0.09))
-            RegenStatusRow(dpf: dpf, isCached: isCached)
+            RegenStatusRow(
+                dpf: dpf,
+                isCached: isCached,
+                estimatedTimeRemaining: estimatedTimeRemaining
+            )
         }
         .padding(20)
         .glassPanel(cornerRadius: 30)
-        .opacity(isCached ? 0.64 : 1)
+    }
+
+    private var horizontalHero: some View {
+        HStack(alignment: .center, spacing: 18) {
+            gauge
+                .frame(width: gaugeSize, height: gaugeSize)
+            heroCopy(centered: false)
+        }
+    }
+
+    private var verticalHero: some View {
+        VStack(spacing: 18) {
+            gauge
+                .frame(width: gaugeSize, height: gaugeSize)
+            heroCopy(centered: true)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func heroCopy(centered: Bool) -> some View {
+        VStack(alignment: centered ? .center : .leading, spacing: 8) {
+            Text("DPF LOAD")
+                .font(.caption.weight(.heavy))
+                .tracking(2.3)
+                .foregroundStyle(Brand.textDim)
+
+            Text(LocalizedStringKey(loadLabel))
+                .font(.system(.title2, design: .rounded, weight: .bold))
+                .foregroundStyle(tint)
+                .multilineTextAlignment(centered ? .center : .leading)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(LocalizedStringKey(guidance))
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white.opacity(0.68))
+                .multilineTextAlignment(centered ? .center : .leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: centered ? .center : .leading)
     }
 
     private var gauge: some View {
@@ -793,14 +988,14 @@ private struct HeroGauge: View {
                 )
                 .rotationEffect(.degrees(-90))
                 .shadow(color: tint.opacity(0.38), radius: 10)
-                .animation(.smooth(duration: 1.2), value: load)
+                .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: load)
 
             VStack(spacing: -2) {
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
                     Text(hasData ? String(format: "%.1f", load) : "—")
                         .font(.system(size: 49, weight: .bold, design: .rounded).monospacedDigit())
                         .contentTransition(.numericText())
-                        .animation(.smooth(duration: 0.45), value: load)
+                        .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: load)
                     if hasData {
                         Text("%")
                             .font(.system(size: 21, weight: .semibold, design: .rounded))
@@ -814,12 +1009,21 @@ private struct HeroGauge: View {
             }
             .foregroundStyle(.white)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Carico DPF")
+        .accessibilityValue(
+            hasData
+                ? Text(verbatim: String(format: "%.1f%%", load))
+                : Text("Dati non disponibili")
+        )
+        .accessibilityHint(Text(LocalizedStringKey(guidance)))
     }
 }
 
 private struct RegenStatusRow: View {
     let dpf: DPFState
     let isCached: Bool
+    let estimatedTimeRemaining: TimeInterval?
 
     var body: some View {
         let mode = dpf.effectiveRegenerationMode
@@ -833,11 +1037,16 @@ private struct RegenStatusRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(LocalizedStringKey(regenTitle))
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(active ? .orange : .white.opacity(0.82))
                 Text(LocalizedStringKey(statusDetail))
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(Brand.textDim)
+                if let estimateText {
+                    Text(verbatim: estimateText)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.orange.opacity(0.9))
+                }
             }
 
             Spacer()
@@ -848,6 +1057,10 @@ private struct RegenStatusRow: View {
                     .foregroundStyle(.orange)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(LocalizedStringKey(regenTitle)))
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint(Text(LocalizedStringKey(statusDetail)))
     }
 
     private var regenTitle: String {
@@ -868,6 +1081,32 @@ private struct RegenStatusRow: View {
         }
         return "Stato stimato dai dati disponibili"
     }
+
+    private var estimateText: String? {
+        guard dpf.effectiveRegenerationMode == .active,
+              let estimatedTimeRemaining
+        else { return nil }
+        let minutes = max(1, Int((estimatedTimeRemaining / 60).rounded()))
+        return String(
+            format: AppLocalization.string("Circa %d min rimanenti"),
+            minutes
+        )
+    }
+
+    private var accessibilityValue: Text {
+        if let progress = dpf.regenProgressPercent,
+           dpf.effectiveRegenerationMode == .active {
+            let progressText = String(format: "%.0f%%", progress)
+            if let estimateText {
+                return Text(verbatim: "\(progressText), \(estimateText)")
+            }
+            return Text(verbatim: progressText)
+        }
+        if let estimateText {
+            return Text(verbatim: estimateText)
+        }
+        return Text(LocalizedStringKey(statusDetail))
+    }
 }
 
 // MARK: - Details
@@ -877,7 +1116,14 @@ private struct DPFDetailGrid: View {
     let isCached: Bool
     let visibleMetrics: Set<DashboardMetric>
     @Environment(\.appAccent) private var appAccent
-    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var columns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize {
+            return [GridItem(.flexible())]
+        }
+        return [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    }
 
     var body: some View {
         if !visibleMetrics.isEmpty {
@@ -889,7 +1135,6 @@ private struct DPFDetailGrid: View {
                     }
                 }
             }
-            .opacity(isCached ? 0.64 : 1)
         }
     }
 
@@ -906,11 +1151,19 @@ private struct DPFDetailGrid: View {
             )
         case .exhaustTemperature:
             MetricCard(
-                icon: "thermometer.high",
+                icon: "smoke.fill",
                 title: "SCARICO",
                 value: dpf.exhaustTempC.map { String(format: "%.0f", $0) },
                 unit: "°C",
                 accent: isCached ? .gray : .orange
+            )
+        case .coolantTemperature:
+            MetricCard(
+                icon: "thermometer.medium",
+                title: "LIQUIDO MOTORE",
+                value: dpf.coolantTemperatureC.map { String(format: "%.0f", $0) },
+                unit: "°C",
+                accent: isCached || dpf.coolantTemperatureC == nil ? .gray : .cyan
             )
         case .regenerationProgress:
             MetricCard(
@@ -937,21 +1190,22 @@ private struct DPFDetailGrid: View {
                 accent: oilPressureAccent
             )
         case .batteryVoltage:
-            MetricCard(
-                icon: "battery.75percent",
-                title: "BATTERIA",
-                value: dpf.batteryVoltage.map { String(format: "%.1f", $0) },
-                unit: "V",
+            BatteryMetricCard(
+                dpf: dpf,
+                isCached: isCached,
                 accent: batteryVoltageAccent
             )
         }
     }
 
     private var batteryVoltageAccent: Color {
-        guard !isCached, let voltage = dpf.batteryVoltage else { return .gray }
-        if voltage < 11.8 { return Brand.redBright }
-        if voltage < 12.2 { return .orange }
-        return .green
+        guard !isCached else { return .gray }
+        if let percent = dpf.freshBatteryStateOfChargePercent() {
+            if percent < 20 { return Brand.redBright }
+            if percent < 50 { return .orange }
+            return .green
+        }
+        return dpf.freshBatterySystemVoltage() != nil ? .green : .gray
     }
 
     private var oilPressureAccent: Color {
@@ -974,9 +1228,104 @@ private struct SectionLabel: View {
             Image(systemName: icon)
             Text(LocalizedStringKey(text)).tracking(2)
         }
-        .font(.system(size: 10, weight: .bold, design: .rounded))
+        .font(.caption2.weight(.bold))
         .foregroundStyle(Brand.textDim)
         .padding(.leading, 3)
+    }
+}
+
+/// Battery tile showing the IBS state of charge as the headline value when
+/// fresh, with the adapter voltage as a compact detail. Voltage alone remains
+/// fully supported on vehicles without an IBS reply.
+private struct BatteryMetricCard: View {
+    let dpf: DPFState
+    let isCached: Bool
+    let accent: Color
+    @ScaledMetric(relativeTo: .body) private var cardHeight = 112.0
+
+    private var presentation: BatteryMetricPresentation {
+        .resolve(state: dpf, isLive: !isCached)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 7) {
+                Image(systemName: "battery.75percent")
+                    .foregroundStyle(accent)
+                    .accessibilityHidden(true)
+                Text(LocalizedStringKey("BATTERIA"))
+                    .lineLimit(2)
+            }
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(Brand.textDim)
+
+            Spacer(minLength: 4)
+
+            HStack(alignment: .lastTextBaseline, spacing: 5) {
+                Text(valueText)
+                    .font(.system(.title2, design: .rounded, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                if !unitText.isEmpty {
+                    Text(unitText)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Brand.textDim)
+                        .lineLimit(1)
+                }
+            }
+
+            if let voltage = presentation.voltageDetail {
+                Text(String(format: "%.1f V", voltage))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Brand.textDim)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(16)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: cardHeight,
+            maxHeight: cardHeight,
+            alignment: .leading
+        )
+        .dashboardTile(cornerRadius: 22)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Batteria"))
+        .accessibilityValue(accessibilityValue)
+    }
+
+    private var valueText: String {
+        switch presentation.headline {
+        case .stateOfChargePercent(let percent):
+            return String(format: "%.0f", percent)
+        case .voltage(let voltage):
+            return String(format: "%.1f", voltage)
+        case .unavailable:
+            return "—"
+        }
+    }
+
+    private var unitText: String {
+        switch presentation.headline {
+        case .stateOfChargePercent: return "%"
+        case .voltage: return "V"
+        case .unavailable: return ""
+        }
+    }
+
+    private var accessibilityValue: Text {
+        switch presentation.headline {
+        case .stateOfChargePercent(let percent):
+            let voltage = presentation.voltageDetail.map { String(format: "%.1f V", $0) }
+                ?? AppLocalization.string("Dati non disponibili")
+            return Text(verbatim: String(format: "%.0f%% · %@", percent, voltage))
+        case .voltage(let voltage):
+            return Text(verbatim: String(format: "%.1f V", voltage))
+        case .unavailable:
+            return Text("Dati non disponibili")
+        }
     }
 }
 
@@ -986,38 +1335,53 @@ private struct MetricCard: View {
     let value: String?
     let unit: String
     let accent: Color
+    @ScaledMetric(relativeTo: .body) private var cardHeight = 112.0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 7) {
                 Image(systemName: icon)
                     .foregroundStyle(accent)
+                    .accessibilityHidden(true)
                 Text(LocalizedStringKey(title))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .lineLimit(2)
             }
-            .font(.system(size: 10, weight: .bold, design: .rounded))
+            .font(.caption2.weight(.bold))
             .foregroundStyle(Brand.textDim)
+
+            Spacer(minLength: 4)
 
             HStack(alignment: .lastTextBaseline, spacing: 5) {
                 Text(value ?? "—")
-                    .font(.system(size: 27, weight: .semibold, design: .rounded).monospacedDigit())
+                    .font(.system(.title2, design: .rounded, weight: .semibold).monospacedDigit())
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.55)
-                    .contentTransition(.numericText())
-                    .animation(.smooth(duration: 0.35), value: value)
+                    .minimumScaleFactor(0.75)
                 if value != nil, !unit.isEmpty {
                     Text(unit)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(.caption.weight(.medium))
                         .foregroundStyle(Brand.textDim)
                         .lineLimit(1)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding(16)
-        .glassPanel(cornerRadius: 22)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: cardHeight,
+            maxHeight: cardHeight,
+            alignment: .leading
+        )
+        .dashboardTile(cornerRadius: 22)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(LocalizedStringKey(title)))
+        .accessibilityValue(accessibilityValue)
+    }
+
+    private var accessibilityValue: Text {
+        guard let value else { return Text("Dati non disponibili") }
+        return Text(verbatim: unit.isEmpty ? value : "\(value) \(unit)")
     }
 }
 
@@ -1035,64 +1399,107 @@ private struct EventStrip: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .glassPanel(cornerRadius: 18)
+        .dashboardTile(cornerRadius: 18)
     }
 }
 
 // MARK: - Connection
 
-private struct ConnectionPanel: View {
+private struct ConnectionDock: View {
     @Bindable var session: MonitorSession
     @Environment(\.appAccent) private var appAccent
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var showDisconnectConfirmation = false
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                SectionLabel(text: "CONNESSIONE", icon: "cable.connector")
-                Spacer()
-                if session.status == .simulating {
-                    Text("OBD disattivato durante il test")
-                        .font(.system(size: 9, weight: .medium, design: .rounded))
-                        .foregroundStyle(.cyan.opacity(0.75))
-                }
-            }
-
-            Label("Configura la connessione da fermo. Non usare iPhone durante la guida.", systemImage: "steeringwheel")
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(.orange.opacity(0.86))
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button(action: toggle) {
-                HStack(spacing: 10) {
-                    if session.status == .connecting {
-                        ProgressView().tint(.white)
-                    } else {
-                        Image(systemName: buttonSymbol)
+        VStack(alignment: .leading, spacing: 10) {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
+                        statusIcon
+                        statusCopy
+                        Spacer(minLength: 0)
                     }
-                    Text(LocalizedStringKey(buttonTitle))
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    actionButton
+                        .frame(maxWidth: .infinity)
                 }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(buttonGradient, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.white.opacity(0.20), lineWidth: 0.8)
-                )
-                .shadow(color: appAccent.opacity(isStopped ? 0.35 : 0.05), radius: 15, y: 7)
+            } else {
+                HStack(spacing: 12) {
+                    statusIcon
+                    statusCopy
+                    Spacer(minLength: 4)
+                    actionButton
+                }
             }
-            .buttonStyle(.plain)
 
-            if case .failed(let message) = session.status {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.red.opacity(0.85))
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if isStopped {
+                Label(
+                    "Configura la connessione da fermo. Non usare iPhone durante la guida.",
+                    systemImage: "steeringwheel"
+                )
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.orange.opacity(0.9))
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(16)
+        .padding(14)
         .glassPanel(cornerRadius: 24)
+        .alert("Rigenerazione attiva", isPresented: $showDisconnectConfirmation) {
+            Button("Continua il monitoraggio", role: .cancel) {}
+            Button("Disconnetti", role: .destructive) { session.stop() }
+        } message: {
+            Text("Disconnettendo ora lo storico non potrà verificare la conclusione del ciclo.")
+        }
+    }
+
+    private var statusIcon: some View {
+        ZStack {
+            Circle()
+                .fill(statusColor.opacity(0.15))
+                .frame(width: 42, height: 42)
+            if session.status == .connecting {
+                ProgressView().tint(statusColor)
+            } else {
+                Image(systemName: statusSymbol)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(statusColor)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var statusCopy: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(LocalizedStringKey(statusTitle))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+            Text(verbatim: statusDetail)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(Brand.textDim)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var actionButton: some View {
+        Button(action: requestToggle) {
+            Label(LocalizedStringKey(buttonTitle), systemImage: buttonSymbol)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(buttonGradient, in: Capsule())
+                .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 0.8))
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(
+            session.isRegenerationInProgress
+                ? Text("Una rigenerazione è attiva; verrà richiesta conferma.")
+                : Text(verbatim: "")
+        )
     }
 
     private var isStopped: Bool {
@@ -1104,11 +1511,11 @@ private struct ConnectionPanel: View {
 
     private var buttonTitle: String {
         switch session.status {
-        case .idle:       return "Connetti all'OBD"
-        case .connecting: return "Annulla connessione"
+        case .idle:       return "Connetti"
+        case .connecting: return "Annulla"
         case .running:    return "Disconnetti"
-        case .simulating: return "Termina simulazione"
-        case .failed:     return "Riprova connessione"
+        case .simulating: return "Termina"
+        case .failed:     return "Riprova"
         }
     }
 
@@ -1121,6 +1528,51 @@ private struct ConnectionPanel: View {
         }
     }
 
+    private var statusTitle: String {
+        switch session.status {
+        case .idle: return "Pronto"
+        case .connecting: return "Connessione"
+        case .running: return "Live"
+        case .simulating: return "Test"
+        case .failed: return "Errore"
+        }
+    }
+
+    private var statusDetail: String {
+        switch session.status {
+        case .idle:
+            return session.transportKind.title
+        case .connecting:
+            return AppLocalization.string("Ricerca dell’adattatore in corso")
+        case .running:
+            return AppLocalization.string("Dati DPF in tempo reale")
+        case .simulating:
+            return AppLocalization.string("OBD disattivato durante il test")
+        case .failed(let message):
+            return message
+        }
+    }
+
+    private var statusSymbol: String {
+        switch session.status {
+        case .idle: return "bolt.horizontal.circle"
+        case .connecting: return "dot.radiowaves.left.and.right"
+        case .running: return "checkmark.circle.fill"
+        case .simulating: return "testtube.2"
+        case .failed: return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var statusColor: Color {
+        switch session.status {
+        case .idle: return appAccent
+        case .connecting: return .orange
+        case .running: return .green
+        case .simulating: return .cyan
+        case .failed: return Brand.redBright
+        }
+    }
+
     private var buttonGradient: LinearGradient {
         let colors: [Color]
         switch session.status {
@@ -1130,6 +1582,14 @@ private struct ConnectionPanel: View {
         default:             colors = [Color.white.opacity(0.22), Color.white.opacity(0.10)]
         }
         return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    private func requestToggle() {
+        if session.status == .running && session.isRegenerationInProgress {
+            showDisconnectConfirmation = true
+            return
+        }
+        toggle()
     }
 
     private func toggle() {
@@ -1649,7 +2109,8 @@ private struct DiagnosticsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         if dpf.exhaustTemperaturePID != nil
                             || dpf.regenerationMode != nil
-                            || dpf.oilPressureStatusRaw != nil {
+                            || dpf.oilPressureStatusRaw != nil
+                            || dpf.batteryStateOfChargePercent != nil {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("TELEMETRIA ECU")
                                     .font(.caption2.weight(.bold))
@@ -1659,6 +2120,7 @@ private struct DiagnosticsView: View {
                                 }
                                 Text("Rigenerazione: \(regenerationModeText)")
                                 Text("Stato pressione olio 22194D: \(oilPressureDiagnosticText)")
+                                Text("SOC batteria: \(batteryStateOfChargeDiagnosticText)")
                             }
                             .font(.system(.caption2, design: .monospaced))
                             .padding(12)
@@ -1731,6 +2193,19 @@ private struct DiagnosticsView: View {
             return AppLocalization.string("PID non disponibile")
         }
         return "\(raw) · \(dpf.oilPressureStatusText ?? AppLocalization.string("Sconosciuto"))"
+    }
+
+    private var batteryStateOfChargeDiagnosticText: String {
+        guard let percent = dpf.batteryStateOfChargePercent else {
+            return AppLocalization.string("PID non disponibile")
+        }
+        let source = dpf.batteryStateOfChargeSource == .engineECUMirror
+            ? "2219BD/18DA10F1"
+            : "221005/18DA40F1"
+        let updated = dpf.batteryStateOfChargeUpdatedAt.map {
+            $0.formatted(.dateTime.hour().minute().second())
+        } ?? "—"
+        return String(format: "%.0f%% · %@ · %@", percent, source, updated)
     }
 }
 
@@ -1810,12 +2285,64 @@ private struct HistoryNavigationRow: View {
     }
 }
 
+private struct DPFHistoryChartAccessibility: AXChartDescriptorRepresentable {
+    let samples: [DPFHistorySample]
+
+    func makeChartDescriptor() -> AXChartDescriptor {
+        let timestamps = samples.map { $0.timestamp.timeIntervalSince1970 }
+        let lowerBound = timestamps.min() ?? 0
+        let upperBound = max(timestamps.max() ?? lowerBound, lowerBound + 1)
+        let timeFormatter = DateFormatter()
+        timeFormatter.locale = AppLocalization.language.locale
+        timeFormatter.dateStyle = .none
+        timeFormatter.timeStyle = .short
+
+        let xAxis = AXNumericDataAxisDescriptor(
+            title: AppLocalization.string("Ora"),
+            range: lowerBound...upperBound,
+            gridlinePositions: [lowerBound, upperBound]
+        ) { value in
+            timeFormatter.string(from: Date(timeIntervalSince1970: value))
+        }
+        let yAxis = AXNumericDataAxisDescriptor(
+            title: AppLocalization.string("Carico"),
+            range: 0...100,
+            gridlinePositions: [0, 50, 85, 95, 100]
+        ) { value in
+            String(format: "%.0f%%", value)
+        }
+        let points = samples.map { sample in
+            AXDataPoint(
+                x: sample.timestamp.timeIntervalSince1970,
+                y: sample.cloggingPercent,
+                label: sample.regenActive
+                    ? AppLocalization.string("Rigenerazione attiva")
+                    : nil
+            )
+        }
+        let series = AXDataSeriesDescriptor(
+            name: AppLocalization.string("Carico DPF"),
+            isContinuous: true,
+            dataPoints: points
+        )
+        return AXChartDescriptor(
+            title: AppLocalization.string("Andamento carico DPF"),
+            summary: nil,
+            xAxis: xAxis,
+            yAxis: yAxis,
+            series: [series]
+        )
+    }
+}
+
 private struct DPFHistoryView: View {
     let store: DPFHistoryStore?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var samples: [DPFHistorySample] = []
     @State private var cycles: [DPFRegenCycle] = []
-    @State private var selectedTab = 0
+    @State private var insights = DPFHistoryInsights(cycles: [])
+    @State private var selectedTime: Date?
 
     var body: some View {
         NavigationStack {
@@ -1827,6 +2354,7 @@ private struct DPFHistoryView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 16) {
+                            insightsSection
                             chartSection
                             cyclesSection
                         }
@@ -1848,6 +2376,65 @@ private struct DPFHistoryView: View {
             .onAppear { loadData() }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private var selectedSample: DPFHistorySample? {
+        guard let selectedTime else { return nil }
+        return samples.min { lhs, rhs in
+            abs(lhs.timestamp.timeIntervalSince(selectedTime))
+                < abs(rhs.timestamp.timeIntervalSince(selectedTime))
+        }
+    }
+
+    private var insightsSection: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            SectionLabel(text: "PANORAMICA CICLI", icon: "sparkles")
+                .padding(.leading, 3)
+
+            LazyVGrid(
+                columns: insightColumns,
+                spacing: 10
+            ) {
+                HistoryInsightCard(
+                    title: "DURATA MEDIA",
+                    value: averageDurationText,
+                    symbol: "clock.fill",
+                    accent: .cyan
+                )
+                HistoryInsightCard(
+                    title: "CALO MEDIO",
+                    value: averageReductionText,
+                    symbol: "arrow.down.right",
+                    accent: .green
+                )
+                HistoryInsightCard(
+                    title: "COMPLETATE",
+                    value: completionRateText,
+                    symbol: "checkmark.circle.fill",
+                    accent: .orange
+                )
+            }
+        }
+    }
+
+    private var averageDurationText: String {
+        guard let duration = insights.averageDuration else { return "—" }
+        return "\(max(1, Int((duration / 60).rounded()))) min"
+    }
+
+    private var insightColumns: [GridItem] {
+        let count = dynamicTypeSize.isAccessibilitySize ? 1 : 3
+        return Array(repeating: GridItem(.flexible(), spacing: 10), count: count)
+    }
+
+    private var averageReductionText: String {
+        guard let reduction = insights.averageLoadReduction else { return "—" }
+        return String(format: "−%.0f%%", reduction)
+    }
+
+    private var completionRateText: String {
+        guard let rate = insights.completionRate else { return "—" }
+        return String(format: "%.0f%%", rate * 100)
     }
 
     private var emptyState: some View {
@@ -1887,28 +2474,58 @@ private struct DPFHistoryView: View {
                         Spacer()
                     }
                 } else {
-                    Chart(samples, id: \.timestamp) { sample in
-                        LineMark(
-                            x: .value("Ora", sample.timestamp),
-                            y: .value("Carico", sample.cloggingPercent)
-                        )
-                        .foregroundStyle(.cyan)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
-
-                        AreaMark(
-                            x: .value("Ora", sample.timestamp),
-                            y: .value("Carico", sample.cloggingPercent)
-                        )
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [
-                                    .cyan.opacity(0.35),
-                                    .cyan.opacity(0.05),
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
+                    Chart {
+                        ForEach(samples, id: \.timestamp) { sample in
+                            LineMark(
+                                x: .value("Ora", sample.timestamp),
+                                y: .value("Carico", sample.cloggingPercent)
                             )
-                        )
+                            .foregroundStyle(.cyan)
+                            .lineStyle(StrokeStyle(lineWidth: 2.5))
+
+                            AreaMark(
+                                x: .value("Ora", sample.timestamp),
+                                y: .value("Carico", sample.cloggingPercent)
+                            )
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [
+                                        .cyan.opacity(0.35),
+                                        .cyan.opacity(0.05),
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+
+                            if sample.regenActive {
+                                PointMark(
+                                    x: .value("Ora", sample.timestamp),
+                                    y: .value("Carico", sample.cloggingPercent)
+                                )
+                                .foregroundStyle(.orange)
+                                .symbolSize(26)
+                            }
+                        }
+
+                        RuleMark(y: .value("Carico elevato", 85))
+                            .foregroundStyle(Color.orange.opacity(0.55))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
+
+                        RuleMark(y: .value("Rigenerazione imminente", 95))
+                            .foregroundStyle(Brand.redBright.opacity(0.65))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+
+                        if let selectedSample {
+                            RuleMark(x: .value("Selezione", selectedSample.timestamp))
+                                .foregroundStyle(Color.white.opacity(0.45))
+                            PointMark(
+                                x: .value("Selezione", selectedSample.timestamp),
+                                y: .value("Carico", selectedSample.cloggingPercent)
+                            )
+                            .foregroundStyle(.white)
+                            .symbolSize(70)
+                        }
                     }
                     .chartYScale(domain: 0...100)
                     .chartXAxis {
@@ -1934,15 +2551,23 @@ private struct DPFHistoryView: View {
                         }
                     }
                     .frame(height: 220)
+                    .chartXSelection(value: $selectedTime)
+                    .accessibilityChartDescriptor(
+                        DPFHistoryChartAccessibility(samples: samples)
+                    )
 
-                    // Legend
-                    HStack(spacing: 24) {
-                        legendItem(color: .green, label: "Basso (<45%)")
-                        legendItem(color: .orange, label: "Vicino (45–75%)")
-                        legendItem(color: Brand.redBright, label: "Critico (75+%)")
+                    if let selectedSample {
+                        historySampleDetail(selectedSample)
+                            .transition(.opacity)
+                    } else {
+                        Label("Tocca e trascina il grafico per esplorare i dati", systemImage: "hand.draw")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(Brand.textDim)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 4)
                     }
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .padding(.top, 6)
+
+                    chartLegend
                 }
             }
             .padding(16)
@@ -1958,6 +2583,73 @@ private struct DPFHistoryView: View {
             Text(LocalizedStringKey(label))
                 .foregroundStyle(Brand.textDim)
         }
+    }
+
+    private var chartLegend: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                verticalLegend
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 18) {
+                        legendItems
+                    }
+                    verticalLegend
+                }
+            }
+        }
+        .font(.caption2.weight(.medium))
+        .padding(.top, 6)
+    }
+
+    private var verticalLegend: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            legendItems
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var legendItems: some View {
+        legendItem(color: .green, label: "Normale (<85%)")
+        legendItem(color: .orange, label: "Elevato (85–95%)")
+        legendItem(color: Brand.redBright, label: "Imminente (>95%)")
+    }
+
+    private func historySampleDetail(_ sample: DPFHistorySample) -> some View {
+        HStack(spacing: 12) {
+            Text(sample.timestamp.formatted(date: .omitted, time: .shortened))
+                .font(.caption.weight(.semibold).monospacedDigit())
+                .foregroundStyle(.white)
+
+            Divider().frame(height: 24).overlay(Brand.hairline)
+
+            Label(
+                String(format: "%.1f%%", sample.cloggingPercent),
+                systemImage: "gauge.with.dots.needle.50percent"
+            )
+            .foregroundStyle(.cyan)
+
+            if let temperature = sample.exhaustTempC {
+                Label(
+                    String(format: "%.0f °C", temperature),
+                    systemImage: "smoke.fill"
+                )
+                .foregroundStyle(.orange)
+            }
+
+            Spacer(minLength: 0)
+
+            if sample.regenActive {
+                Image(systemName: "flame.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Rigenerazione attiva")
+            }
+        }
+        .font(.caption2.weight(.semibold))
+        .padding(10)
+        .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
     }
 
     private var cyclesSection: some View {
@@ -1996,6 +2688,38 @@ private struct DPFHistoryView: View {
         guard let store else { return }
         samples = store.samples()
         cycles = store.cycles()
+        insights = store.insights()
+    }
+}
+
+private struct HistoryInsightCard: View {
+    let title: String
+    let value: String
+    let symbol: String
+    let accent: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: symbol)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(accent)
+                .accessibilityHidden(true)
+            Text(verbatim: value)
+                .font(.system(.title3, design: .rounded, weight: .bold).monospacedDigit())
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            Text(LocalizedStringKey(title))
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(Brand.textDim)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, minHeight: 82, alignment: .leading)
+        .padding(12)
+        .dashboardTile(cornerRadius: 18)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(LocalizedStringKey(title)))
+        .accessibilityValue(Text(verbatim: value))
     }
 }
 

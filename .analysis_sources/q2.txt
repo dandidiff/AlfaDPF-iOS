@@ -1,0 +1,1 @@
+The template can display 10 items maximum. If the array contains more items, the template uses only the first 10.

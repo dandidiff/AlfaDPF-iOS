@@ -1,4 +1,4 @@
-# Screenshot App Store — piano 1.2
+# Screenshot App Store — piano 1.3.1
 
 Regola: solo schermate **reali** dell’app, nessuno screenshot inventato,
 ritoccato o con dati non ottenibili. Due set previsti: `it-IT/` e `en-GB/`
@@ -16,7 +16,7 @@ esempio `1320 × 2868` da iPhone 16 Pro Max oppure `1290 × 2796` da iPhone
 4. `04-laboratorio-test.jpg` — Laboratorio test, prova senza veicolo.
 5. `05-sicurezza-privacy-supporto.jpg` — Informazioni, sicurezza e privacy.
 
-## Da catturare per la 1.2 (stesso schema numerico, poi copia nel set `en-GB/`)
+## Da catturare per la 1.3.1 (stesso schema numerico, poi copia nel set `en-GB/`)
 
 6. Live Activity su schermata di blocco e Dynamic Island durante una
    rigenerazione: avviare il Laboratorio DPF → “Esegui ciclo completo

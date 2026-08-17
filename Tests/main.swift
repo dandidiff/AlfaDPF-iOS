@@ -6,7 +6,8 @@ import CoreBluetooth
 // Runs on macOS without Xcode:
 //   swiftc Sources/Models.swift Sources/OBDLog.swift Sources/OBDTransport.swift \\
 //          Sources/OBDConnection.swift Sources/BLEConnection.swift Sources/ELM327.swift \\
-//          Sources/Mode01.swift Sources/DPFHistoryStore.swift Tests/main.swift -o /tmp/alfadpf_tests && /tmp/alfadpf_tests
+//          Sources/Mode01.swift Sources/DPFHistoryStore.swift Tests/main.swift \\
+//          -lsqlite3 -o /tmp/alfadpf_tests && /tmp/alfadpf_tests
 
 var failures = 0
 
@@ -39,6 +40,48 @@ func expectThrows(_ name: String, _ body: () throws -> Void) {
     }
 }
 
+// BLE characteristic picker: the Vgate iCar Pro 18F0/2AF0/2AF1 layout is
+// recognized explicitly, while the pre-existing FFF0/FFE0 layouts (the vast
+// majority of adapters already in the field) resolve exactly as before.
+do {
+    func cand(_ service: String, _ char: String, _ notify: Bool, _ write: Bool)
+        -> BLECharacteristicPicker.Candidate {
+        .init(
+            service: CBUUID(string: service),
+            characteristic: CBUUID(string: char),
+            canNotify: notify,
+            canWrite: write
+        )
+    }
+
+    let icarPro = BLECharacteristicPicker.pick(from: [
+        cand("180A", "2A25", false, false),
+        cand("18F0", "2AF0", true, false),
+        cand("18F0", "2AF1", false, true),
+    ])
+    expect(icarPro?.service == CBUUID(string: "18F0")
+           && icarPro?.notify == CBUUID(string: "2AF0")
+           && icarPro?.write == CBUUID(string: "2AF1"),
+           "ble picker: Vgate iCar Pro 18F0/2AF0/2AF1 recognized")
+
+    let vlink = BLECharacteristicPicker.pick(from: [
+        cand("FFF0", "FFF1", true, false),
+        cand("FFF0", "FFF2", false, true),
+    ])
+    expect(vlink?.service == CBUUID(string: "FFF0")
+           && vlink?.notify == CBUUID(string: "FFF1")
+           && vlink?.write == CBUUID(string: "FFF2"),
+           "ble picker: Vlink FFF0/FFF1/FFF2 unchanged")
+
+    let konnwei = BLECharacteristicPicker.pick(from: [
+        cand("FFE0", "FFE1", true, true),
+    ])
+    expect(konnwei?.service == CBUUID(string: "FFE0")
+           && konnwei?.notify == CBUUID(string: "FFE1")
+           && konnwei?.write == CBUUID(string: "FFE1"),
+           "ble picker: Konnwei FFE0/FFE1 unchanged")
+}
+
 // Settings regression: the explanatory oil-pressure/SGW disclaimer is gone,
 // while the categorical oil-pressure telemetry and diagnostics remain.
 do {
@@ -65,9 +108,14 @@ do {
 
 actor InitializationTestTransport: OBDTransport {
     enum Behavior {
-        case valid
+        case valid                       // physical DPF probe answers 62 -> proven, no 0100
+        case probeNoDataThen0100         // probe NO DATA -> 0100 completes autodetect
+        case probeUnableThen0100         // probe UNABLE TO CONNECT -> 0100 fallback
+        case probeTimeoutThen0100        // probe times out -> 0100 fallback
+        case cachedConfirmed             // ATSP7 fast path confirmed by an ECU-proven probe
+        case cachedRejectedThenAuto      // ATSP7 + NO DATA -> one ATSP0 fallback proves 7F22
         case rejectsEverything
-        case resetTimeoutThenLegacy
+        case resetTimeoutThenLegacy      // ATZ times out -> ATI, then the normal probe path
     }
 
     struct Sent: Equatable {
@@ -77,6 +125,7 @@ actor InitializationTestTransport: OBDTransport {
 
     private let behavior: Behavior
     private var sent: [Sent] = []
+    private var probeCount = 0
 
     init(_ behavior: Behavior) {
         self.behavior = behavior
@@ -91,7 +140,40 @@ actor InitializationTestTransport: OBDTransport {
         switch behavior {
         case .valid:
             if command == "ATZ" { return "ELM327 v1.5" }
+            if command == "22380B" { return "18DAF1100562380B0000" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .probeNoDataThen0100:
+            if command == "ATZ" { return "ELM327 v1.5" }
             if command == "22380B" { return "NO DATA" }
+            if command == "0100" { return "41 00 BE 3F A8 13" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .probeUnableThen0100:
+            if command == "ATZ" { return "ELM327 v1.5" }
+            if command == "22380B" { return "UNABLE TO CONNECT" }
+            if command == "0100" { return "41 00 BE 3F A8 13" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .probeTimeoutThen0100:
+            if command == "ATZ" { return "ELM327 v1.5" }
+            if command == "22380B" { throw OBDError.timeout }
+            if command == "0100" { return "41 00 BE 3F A8 13" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .cachedConfirmed:
+            if command == "ATZ" { return "ELM327 v1.5" }
+            if command.hasPrefix("ATSP") { return "OK" }
+            if command == "22380B" { return "18DAF1100562380B0000" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .cachedRejectedThenAuto:
+            if command == "ATZ" { return "ELM327 v1.5" }
+            if command.hasPrefix("ATSP") { return "OK" }
+            if command == "22380B" {
+                probeCount += 1
+                return probeCount == 1 ? "NO DATA" : "18DAF118037F2231"
+            }
             if command == "ATDPN" { return "A7" }
             return "OK"
         case .rejectsEverything:
@@ -99,7 +181,7 @@ actor InitializationTestTransport: OBDTransport {
         case .resetTimeoutThenLegacy:
             if command == "ATZ" { throw OBDError.timeout }
             if command == "ATI" { return "ELM327 v1.5" }
-            if command == "22380B" { return "NO DATA" }
+            if command == "22380B" { return "18DAF1100562380B0000" }
             if command == "ATDPN" { return "A7" }
             return "?"
         }
@@ -138,8 +220,11 @@ var engineOffDetector = RegenEngineOffDetector()
 let voltageStart = Date(timeIntervalSince1970: 1_000)
 expect(!engineOffDetector.observe(voltage: 12.4, at: voltageStart, coreTelemetryAvailable: false),
        "history engine-off: low voltage without a running baseline is inconclusive")
-expect(!engineOffDetector.observe(voltage: 14.2, at: voltageStart, coreTelemetryAvailable: true),
-       "history engine-off: live alternator voltage arms the detector")
+expect(!engineOffDetector.observe(
+    voltage: 14.2,
+    at: voltageStart.addingTimeInterval(0.1),
+    coreTelemetryAvailable: true
+), "history engine-off: live alternator voltage arms the detector")
 expect(!engineOffDetector.observe(voltage: 12.6,
                                   at: voltageStart.addingTimeInterval(1),
                                   coreTelemetryAvailable: false),
@@ -149,9 +234,30 @@ expect(!engineOffDetector.observe(voltage: 12.5,
                                   coreTelemetryAvailable: false),
        "history engine-off: short low-voltage interval is insufficient")
 expect(engineOffDetector.observe(voltage: 12.4,
-                                 at: voltageStart.addingTimeInterval(6),
-                                 coreTelemetryAvailable: false),
+                                  at: voltageStart.addingTimeInterval(6),
+                                  coreTelemetryAvailable: false),
        "history engine-off: sustained drop after live running voltage confirms shutdown")
+var staleVoltageDetector = RegenEngineOffDetector()
+_ = staleVoltageDetector.observe(
+    voltage: 14.2,
+    at: voltageStart,
+    coreTelemetryAvailable: true
+)
+let staleLowTimestamp = voltageStart.addingTimeInterval(1)
+_ = staleVoltageDetector.observe(
+    voltage: 12.5,
+    at: staleLowTimestamp,
+    coreTelemetryAvailable: false
+)
+expect(!staleVoltageDetector.observe(
+    voltage: 12.5,
+    at: staleLowTimestamp,
+    coreTelemetryAvailable: false
+) && !staleVoltageDetector.observe(
+    voltage: 12.5,
+    at: staleLowTimestamp,
+    coreTelemetryAvailable: false
+), "history engine-off: one cached ATRV timestamp cannot count as three fresh samples")
 engineOffDetector.reset()
 _ = engineOffDetector.observe(voltage: 14.1, at: voltageStart, coreTelemetryAvailable: true)
 _ = engineOffDetector.observe(voltage: 12.5,
@@ -190,6 +296,255 @@ expect(SessionStatus.running.carPlayConnectionAction == .disconnect,
        "carplay: running state offers disconnect")
 expect(CarPlayRefreshPolicy.interval >= .seconds(10),
        "carplay: periodic dashboard refresh respects Apple's 10-second minimum")
+expect(CarPlayRefreshTrigger.telemetry.minimumInterval >= 10
+       && CarPlayRefreshTrigger.periodic.minimumInterval >= 10,
+       "carplay: periodic and telemetry refreshes respect Apple's 10-second limit")
+expect(CarPlayRefreshTrigger.regenerationEdge.minimumInterval <= 2
+       && CarPlayRefreshTrigger.liveness.minimumInterval <= 2
+       && CarPlayRefreshTrigger.deferredEvent.minimumInterval == 0,
+       "carplay: discrete safety/liveness edges stay responsive without double-throttling deferred work")
+let deferredPolicyStart = Date(timeIntervalSince1970: 2_000)
+expect(CarPlayDeferredRefreshPolicy.shouldReplace(
+    currentDeadline: deferredPolicyStart.addingTimeInterval(10),
+    proposedDeadline: deferredPolicyStart.addingTimeInterval(2)
+), "carplay refresh: a safety edge replaces a later telemetry deadline")
+expect(!CarPlayDeferredRefreshPolicy.shouldReplace(
+    currentDeadline: deferredPolicyStart.addingTimeInterval(2),
+    proposedDeadline: deferredPolicyStart.addingTimeInterval(10)
+), "carplay refresh: telemetry cannot postpone an earlier safety deadline")
+
+let carPlayRefreshStart = Date(timeIntervalSince1970: 3_000)
+var carPlayRefreshGate = CarPlayRefreshGate<String>()
+expect(carPlayRefreshGate.evaluate(
+    signature: "idle",
+    at: carPlayRefreshStart,
+    minimumInterval: 0
+) == .render(effectiveInterval: nil),
+       "carplay refresh: first presentation renders immediately")
+expect(carPlayRefreshGate.evaluate(
+    signature: "idle",
+    at: carPlayRefreshStart.addingTimeInterval(0.5),
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
+) == .skipDuplicate,
+       "carplay refresh: unchanged presentation is deduplicated")
+let throttledRefresh = carPlayRefreshGate.evaluate(
+    signature: "regen-started",
+    at: carPlayRefreshStart.addingTimeInterval(1),
+    minimumInterval: CarPlayRefreshTrigger.regenerationEdge.minimumInterval
+)
+if case .deferFor(let delay) = throttledRefresh {
+    expect(abs(delay - 1) < 0.001,
+           "carplay refresh: changed telemetry is deferred only for the remaining throttle window")
+} else {
+    expect(false, "carplay refresh: changed telemetry is throttled before two seconds")
+}
+let allowedRefresh = carPlayRefreshGate.evaluate(
+    signature: "regen-started",
+    at: carPlayRefreshStart.addingTimeInterval(2),
+    minimumInterval: CarPlayRefreshTrigger.regenerationEdge.minimumInterval
+)
+if case .render(let effectiveInterval) = allowedRefresh {
+    expect(effectiveInterval.map { abs($0 - 2) < 0.001 } == true,
+           "carplay refresh: changed telemetry renders at the bounded event interval")
+} else {
+    expect(false, "carplay refresh: changed telemetry renders after the throttle window")
+}
+expect(carPlayRefreshGate.evaluate(
+    signature: "regen-started",
+    at: carPlayRefreshStart.addingTimeInterval(10),
+    minimumInterval: CarPlayRefreshTrigger.periodic.minimumInterval
+) == .skipDuplicate,
+       "carplay refresh: periodic deadline also skips unchanged content")
+
+var periodicCollisionGate = CarPlayRefreshGate<String>()
+_ = periodicCollisionGate.evaluate(
+    signature: "before-periodic-collision",
+    at: carPlayRefreshStart.addingTimeInterval(9.5),
+    minimumInterval: 0
+)
+_ = periodicCollisionGate.evaluate(
+    signature: "changed-before-periodic-tick",
+    at: carPlayRefreshStart.addingTimeInterval(9.9),
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
+)
+expect(periodicCollisionGate.evaluate(
+    signature: "changed-before-periodic-tick",
+    at: carPlayRefreshStart.addingTimeInterval(10),
+    minimumInterval: CarPlayRefreshTrigger.periodic.minimumInterval
+) == .deferFor(9.5),
+       "carplay refresh: periodic tick cannot bypass the global render throttle")
+
+var carPlayRefreshMetrics = CarPlayRefreshMetrics()
+carPlayRefreshMetrics.recordRequest(trigger: .telemetry)
+carPlayRefreshMetrics.recordDecision(.skipDuplicate)
+carPlayRefreshMetrics.recordRequest(trigger: .regenerationEdge)
+carPlayRefreshMetrics.recordDecision(.render(effectiveInterval: 2))
+carPlayRefreshMetrics.recordFailure()
+let carPlayMetricsSummary = carPlayRefreshMetrics.summaryLine
+expect(carPlayMetricsSummary.contains("requests=2")
+       && carPlayMetricsSummary.contains("renders=1")
+       && carPlayMetricsSummary.contains("duplicates=1")
+       && carPlayMetricsSummary.contains("failures=1")
+       && carPlayMetricsSummary.contains("event_requests=2")
+       && carPlayMetricsSummary.contains("effective_interval=2.00s"),
+       "carplay refresh: privacy-safe metrics expose effective interval and deduplication")
+expect(!carPlayMetricsSummary.contains("VIN")
+       && !carPlayMetricsSummary.contains("latitude")
+       && !carPlayMetricsSummary.contains("longitude"),
+       "carplay refresh: metrics contain no sensitive vehicle or location fields")
+
+// QA matrix for the change-driven path. These virtual-clock checks exercise
+// timing deterministically instead of making the suite sleep for real seconds.
+var burstGate = CarPlayRefreshGate<String>()
+var burstMetrics = CarPlayRefreshMetrics()
+for index in 0...30 {
+    let trigger: CarPlayRefreshTrigger = index == 0 ? .interaction : .telemetry
+    burstMetrics.recordRequest(trigger: trigger)
+    let decision = burstGate.evaluate(
+        signature: "unchanged",
+        at: carPlayRefreshStart.addingTimeInterval(Double(index) * 2),
+        minimumInterval: trigger.minimumInterval
+    )
+    burstMetrics.recordDecision(decision)
+}
+expect(burstMetrics.requests == 31
+       && burstMetrics.renders == 1
+       && burstMetrics.duplicateSkips == 30
+       && burstMetrics.deferrals == 0,
+       "carplay refresh QA: one minute of unchanged ECU events causes one render")
+
+var latestValueGate = CarPlayRefreshGate<String>()
+_ = latestValueGate.evaluate(
+    signature: "sample-a",
+    at: carPlayRefreshStart,
+    minimumInterval: 0
+)
+expect(latestValueGate.evaluate(
+    signature: "sample-b",
+    at: carPlayRefreshStart.addingTimeInterval(0.5),
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
+) == .deferFor(9.5),
+       "carplay refresh QA: first burst change waits for the remaining ten-second budget")
+expect(latestValueGate.evaluate(
+    signature: "sample-c",
+    at: carPlayRefreshStart.addingTimeInterval(1),
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
+) == .deferFor(9),
+       "carplay refresh QA: a newer deferred value replaces stale work")
+expect(latestValueGate.evaluate(
+    signature: "sample-c",
+    at: carPlayRefreshStart.addingTimeInterval(10),
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
+) == .render(effectiveInterval: 10),
+       "carplay refresh QA: newest burst value renders at the ten-second boundary")
+
+var failureGate = CarPlayRefreshGate<String>()
+_ = failureGate.evaluate(
+    signature: "running",
+    at: carPlayRefreshStart,
+    minimumInterval: 0
+)
+expect(failureGate.evaluate(
+    signature: "network-failed",
+    at: carPlayRefreshStart.addingTimeInterval(2),
+    minimumInterval: CarPlayRefreshTrigger.liveness.minimumInterval
+) == .render(effectiveInterval: 2),
+       "carplay refresh QA: network/liveness failure reaches CarPlay within two seconds")
+expect(failureGate.evaluate(
+    signature: "network-failed",
+    at: carPlayRefreshStart.addingTimeInterval(10),
+    minimumInterval: 0
+) == .skipDuplicate,
+       "carplay refresh QA: periodic fallback does not redraw the same failure")
+
+var resumedGate = CarPlayRefreshGate<String>()
+_ = resumedGate.evaluate(
+    signature: "before-suspension",
+    at: carPlayRefreshStart,
+    minimumInterval: 0
+)
+expect(resumedGate.evaluate(
+    signature: "latest-after-resume",
+    at: carPlayRefreshStart.addingTimeInterval(60),
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
+) == .render(effectiveInterval: 60),
+       "carplay refresh QA: latest state renders immediately after a long suspension")
+resumedGate.reset()
+expect(resumedGate.evaluate(
+    signature: "reconnected",
+    at: carPlayRefreshStart.addingTimeInterval(61),
+    minimumInterval: CarPlayRefreshTrigger.telemetry.minimumInterval
+) == .render(effectiveInterval: nil),
+       "carplay refresh QA: scene reconnect resets stale timing and content state")
+
+let newestEventPair = AsyncStream<CarPlayRefreshEvent>.makeStream(
+    bufferingPolicy: .bufferingNewest(1)
+)
+newestEventPair.continuation.yield(.telemetry)
+newestEventPair.continuation.yield(.regenerationEdge)
+newestEventPair.continuation.yield(.liveness)
+var newestEventIterator = newestEventPair.stream.makeAsyncIterator()
+let newestBufferedEvent = await newestEventIterator.next()
+if case .liveness? = newestBufferedEvent {
+    expect(true, "carplay refresh QA: suspension backlog retains only the newest event")
+} else {
+    expect(false, "carplay refresh QA: suspension backlog retains only the newest event")
+}
+newestEventPair.continuation.finish()
+
+// Wiring audit: refresh evaluation must not start an extra ECU/network request,
+// and CarPlay scene teardown must stop all three refresh tasks.
+do {
+    let carPlaySource = try String(
+        contentsOfFile: "Sources/CarPlaySceneDelegate.swift",
+        encoding: .utf8
+    )
+    let monitorSource = try String(
+        contentsOfFile: "Sources/MonitorSession.swift",
+        encoding: .utf8
+    )
+    let dpfMonitorSource = try String(
+        contentsOfFile: "Sources/DPFMonitor.swift",
+        encoding: .utf8
+    )
+    if let refreshStart = carPlaySource.range(of: "private func refreshDashboard("),
+       let refreshEnd = carPlaySource.range(
+           of: "private func makeDashboardRenderSignature()",
+           range: refreshStart.upperBound..<carPlaySource.endIndex
+       ) {
+        let refreshBody = String(carPlaySource[refreshStart.lowerBound..<refreshEnd.lowerBound])
+        expect(!refreshBody.contains(".send(")
+               && !refreshBody.contains(".start(")
+               && !refreshBody.contains("poll"),
+               "carplay refresh QA: UI refresh performs no additional ECU/network request")
+    } else {
+        expect(false, "carplay refresh QA: refresh body remains source-auditable")
+    }
+    expect(monitorSource.contains("bufferingPolicy: .bufferingNewest(1)")
+           && monitorSource.contains("publishCarPlayRefresh(.interaction)"),
+           "carplay refresh QA: suspended consumers coalesce events and phone metric choices refresh CarPlay")
+    expect(carPlaySource.contains("periodicRefreshTask?.cancel()")
+           && carPlaySource.contains("eventRefreshTask?.cancel()")
+           && carPlaySource.contains("deferredRefreshTask?.cancel()"),
+           "carplay refresh QA: disconnect/background teardown cancels refresh work")
+    expect(carPlaySource.contains("CarPlayDeferredRefreshPolicy.shouldReplace")
+           && carPlaySource.contains("batteryTileValue(for: dpf)"),
+           "carplay refresh QA: earlier safety deadlines and displayed battery values drive rendering")
+    expect(carPlaySource.contains("batteryStateOfChargeText(from: presentation)")
+           && carPlaySource.contains("batteryVoltageText(from: presentation)")
+           && !carPlaySource.contains("formatted(dpf.batteryVoltage"),
+           "carplay battery details: SOC and voltage use the shared IBS presentation, never ATRV")
+    expect(dpfMonitorSource.contains("fresh.batteryVoltage = voltage\n                fresh.batteryVoltageUpdatedAt = sampledAt"),
+           "active regeneration ATRV: every successful sample carries its freshness timestamp")
+    expect(carPlaySource.contains("bell.fill")
+           && carPlaySource.contains("bell.slash.fill")
+           && carPlaySource.contains("I test notifiche ignorano lo stato della campanella."),
+           "carplay alerts: bell state is distinct and diagnostics disclose the test bypass")
+} catch {
+    failures += 1
+    print("FAIL: carplay refresh QA: could not audit lifecycle wiring — \(error)")
+}
+
 expect(CarPlayNotificationTestPolicy.systemDeliveryDelay >= 10,
        "carplay notifications: system test leaves enough time to return Home")
 expect(DPFLoadAlertLevel.resolve(loadPercent: nil, regenerationMode: .none) == .unavailable,
@@ -205,6 +560,102 @@ expect(DPFLoadAlertLevel.resolve(loadPercent: 30, regenerationMode: .active) == 
        "carplay colors: active regeneration overrides the load band with blue")
 expect(DPFLoadAlertLevel.resolve(loadPercent: 88, regenerationMode: .passive) == .nearRegeneration,
        "carplay colors: passive regeneration preserves the load warning band")
+
+var regenTimeEstimator = RegenTimeEstimator()
+let estimatorStart = Date(timeIntervalSince1970: 2_000)
+expect(regenTimeEstimator.observe(
+    progressPercent: 10,
+    regenerationMode: .active,
+    at: estimatorStart
+) == nil, "regen ETA: one sample never fabricates an estimate")
+let publishedETA = regenTimeEstimator.observe(
+    progressPercent: 15,
+    regenerationMode: .active,
+    at: estimatorStart.addingTimeInterval(60)
+)
+expect(publishedETA.map { abs($0 - 1_020) < 0.001 } == true,
+       "regen ETA: progress rate produces a bounded remaining-time estimate")
+expect(regenTimeEstimator.observe(
+    progressPercent: nil,
+    regenerationMode: .active,
+    at: estimatorStart.addingTimeInterval(61)
+) == publishedETA, "regen ETA: a missing active sample preserves the estimate")
+expect(regenTimeEstimator.observe(
+    progressPercent: nil,
+    regenerationMode: .active,
+    at: estimatorStart.addingTimeInterval(661)
+) == nil, "regen ETA: a missing progress PID eventually expires the estimate")
+expect(regenTimeEstimator.observe(
+    progressPercent: 15,
+    regenerationMode: .none,
+    at: estimatorStart.addingTimeInterval(62)
+) == nil, "regen ETA: leaving active mode clears the estimate")
+expect(regenTimeEstimator.estimatedTimeRemaining == nil,
+       "regen ETA: reset removes stale published state")
+
+var fastRegenTimeEstimator = RegenTimeEstimator()
+var fastAdapterETA: TimeInterval?
+for second in 0...31 {
+    fastAdapterETA = fastRegenTimeEstimator.observe(
+        progressPercent: 10 + Double(second) * 0.1,
+        regenerationMode: .active,
+        at: estimatorStart.addingTimeInterval(Double(second))
+    )
+}
+expect(fastAdapterETA != nil,
+       "regen ETA: dense one-second samples retain the full observation window")
+
+let unknownHistoryTransition = RegenHistoryTransition.resolve(
+    previous: true,
+    observed: nil
+)
+expect(unknownHistoryTransition.nextKnownState == true
+       && !unknownHistoryTransition.didFinish,
+       "history transition: an unknown poll preserves an active cycle")
+let finishedHistoryTransition = RegenHistoryTransition.resolve(
+    previous: unknownHistoryTransition.nextKnownState,
+    observed: false
+)
+expect(finishedHistoryTransition.didFinish
+       && finishedHistoryTransition.nextKnownState == false,
+       "history transition: only confirmed inactivity closes an active cycle")
+let initialInactiveTransition = RegenHistoryTransition.resolve(
+    previous: nil,
+    observed: false
+)
+expect(initialInactiveTransition.confirmedInitialInactivity,
+       "history transition: first explicit idle sample can reconcile an orphan cycle")
+let historyStartAt = Date(timeIntervalSince1970: 2_500)
+let startedHistoryTransition = RegenHistoryTransition.resolve(previous: false, observed: true)
+let continuedHistoryTransition = RegenHistoryTransition.resolve(previous: true, observed: true)
+var historyStartGate = RegenHistoryStartGate()
+expect(historyStartGate.observe(
+    transition: startedHistoryTransition,
+    at: historyStartAt,
+    load: nil
+) == nil, "history start gate: a missing edge-sample load keeps the start pending")
+expect(historyStartGate.observe(
+    transition: continuedHistoryTransition,
+    at: historyStartAt.addingTimeInterval(2),
+    load: 84
+) == .init(startedAt: historyStartAt, startingLoad: 84),
+       "history start gate: first valid active load records the original start timestamp")
+expect(historyStartGate.observe(
+    transition: continuedHistoryTransition,
+    at: historyStartAt.addingTimeInterval(4),
+    load: 83
+) == nil, "history start gate: a recovered start is recorded exactly once")
+var abandonedHistoryStartGate = RegenHistoryStartGate()
+_ = abandonedHistoryStartGate.observe(
+    transition: startedHistoryTransition,
+    at: historyStartAt,
+    load: nil
+)
+expect(abandonedHistoryStartGate.observe(
+    transition: finishedHistoryTransition,
+    at: historyStartAt.addingTimeInterval(2),
+    load: 40
+) == nil, "history start gate: finish clears an unresolved start without fabricating a cycle")
 
 let nonLiveCarPlayStatuses: [SessionStatus] = [
     .idle,
@@ -253,10 +704,67 @@ expect(CarPlayDashboardIconPolicy.tone(
     isLive: true
 ) == .regenerationSemantic(.active),
        "carplay artwork: active regeneration keeps its semantic color")
-expect(CarPlayDashboardMetric.allCases.count == CarPlayDashboardPolicy.maximumTileCount,
-       "carplay dashboard: glanceable grid stays within eight tiles")
+expect(CarPlayDashboardPolicy.maximumTileCount == 8,
+       "carplay dashboard: Apple's CPGridTemplate limit remains eight buttons")
+let allPhoneMetrics = Set(DashboardMetric.allCases)
+let carPlaySelectedMetrics = CarPlayDashboardLayout.selectedMetrics(
+    visibleDashboardMetrics: allPhoneMetrics
+)
+let carPlayPrimaryMetrics = CarPlayDashboardLayout.primaryMetrics(
+    visibleDashboardMetrics: allPhoneMetrics
+)
+let carPlayOverflowMetrics = CarPlayDashboardLayout.overflowMetrics(
+    visibleDashboardMetrics: allPhoneMetrics
+)
+expect(carPlaySelectedMetrics.count == 9
+       && carPlayPrimaryMetrics.count == 7
+       && carPlayOverflowMetrics.count == 2
+       && carPlayPrimaryMetrics.count + 1 == CarPlayDashboardPolicy.maximumTileCount
+       && carPlayPrimaryMetrics + carPlayOverflowMetrics == carPlaySelectedMetrics,
+       "carplay dashboard: all nine selected telemetry metrics remain reachable within Apple's eight-button grid limit")
+let coolantOnlyCarPlayMetrics = CarPlayDashboardLayout.selectedMetrics(
+    visibleDashboardMetrics: [.coolantTemperature]
+)
+expect(coolantOnlyCarPlayMetrics == [.dpf, .regeneration, .coolant]
+       && CarPlayDashboardLayout.overflowMetrics(
+            visibleDashboardMetrics: [.coolantTemperature]
+       ).isEmpty,
+       "carplay dashboard: phone visibility choices drive the CarPlay metric set")
 expect(CarPlayDashboardPolicy.maximumInformationItemCount == 4,
        "carplay dashboard: detail surfaces stay compact")
+let compactTemperatureTitles = CarPlayGridTitlePolicy.variants(
+    label: "Temperatura liquido motore",
+    value: "88°C"
+)
+expect(
+    compactTemperatureTitles == [
+        "Temperatura liquido motore · 88°C",
+        "Temperatura liquido motore 88°C",
+        "88°C",
+    ],
+    "carplay grid titles: value precedes the label when the combined title cannot fit"
+)
+let compactDistanceTitles = CarPlayGridTitlePolicy.variants(
+    label: "Dall’ultima",
+    value: "28 km",
+    shortLabel: "Ultima"
+)
+expect(
+    compactDistanceTitles == ["Ultima · 28 km", "Ultima 28 km", "28 km"],
+    "carplay grid titles: short label keeps the distance value as fallback"
+)
+let compactExhaustTitles = CarPlayGridTitlePolicy.variants(
+    label: "Gas",
+    value: "650°C"
+)
+expect(
+    compactExhaustTitles == ["Gas · 650°C", "Gas 650°C", "650°C"],
+    "carplay grid titles: exhaust temperature uses the compact Gas label"
+)
+expect(
+    CarPlayGridTitlePolicy.variants(label: "Temp. scarico", value: "—") == ["Temp. scarico"],
+    "carplay grid titles: unavailable values do not fabricate a reading"
+)
 
 func carPlayNotificationState(
     authorization: AlertAuthorizationState.Authorization = .authorized,
@@ -371,6 +879,62 @@ do {
     print("FAIL: carplay localization: could not read catalog — \(error)")
 }
 
+do {
+    let appSource = try String(contentsOfFile: "Sources/AlfaDPFApp.swift", encoding: .utf8)
+    let carPlaySource = try String(contentsOfFile: "Sources/CarPlaySceneDelegate.swift", encoding: .utf8)
+    let widgetSource = try String(contentsOfFile: "DPFWidget/DPFWidgetBundle.swift", encoding: .utf8)
+    expect(
+        appSource.contains("icon: \"smoke.fill\"")
+            && appSource.contains("systemImage: \"smoke.fill\"")
+            && carPlaySource.contains("case .exhaust: return \"smoke.fill\"")
+            && widgetSource.contains("systemImage: \"smoke.fill\"")
+            && !appSource.contains("thermometer.high")
+            && !carPlaySource.contains("thermometer.high")
+            && !widgetSource.contains("thermometer.high"),
+        "exhaust temperature icon: smoke symbol is consistent across phone, CarPlay and widget"
+    )
+} catch {
+    failures += 1
+    print("FAIL: exhaust temperature icon regression — \(error)")
+}
+
+do {
+    let catalogData = try Data(contentsOf: URL(fileURLWithPath: "App/Localizable.xcstrings"))
+    let catalog = try JSONSerialization.jsonObject(with: catalogData) as? [String: Any]
+    let strings = catalog?["strings"] as? [String: Any]
+    let requiredValues: [String: [String: String]] = [
+        "Altri": ["it": "Altri", "en": "Other", "fr": "Autres", "es": "Otros"],
+        "Ult. regen": ["it": "Ult. regen", "en": "Last reg.", "fr": "Dern. régén.", "es": "Últ. regen."],
+        "Gas": ["it": "Gas", "en": "Gas", "fr": "Gaz", "es": "Gas"],
+        "Temp. motore": ["it": "Temp. motore", "en": "Coolant", "fr": "Temp. moteur", "es": "Temp. motor"],
+        "Avanz.": ["it": "Avanz.", "en": "Prog.", "fr": "Progr.", "es": "Progr."],
+        "N. regen": ["it": "N. regen", "en": "No. regens", "fr": "Nb régén.", "es": "N.º regen."],
+        "Batt.": ["it": "Batt.", "en": "Batt.", "fr": "Batt.", "es": "Bater."],
+    ]
+    let catalogIsComplete = requiredValues.allSatisfy { key, values in
+        guard let entry = strings?[key] as? [String: Any],
+              let localizations = entry["localizations"] as? [String: Any]
+        else { return false }
+        return values.allSatisfy { locale, expected in
+            guard let localization = localizations[locale] as? [String: Any],
+                  let unit = localization["stringUnit"] as? [String: Any]
+            else { return false }
+            return unit["value"] as? String == expected
+        }
+    }
+    let carPlaySource = try String(contentsOfFile: "Sources/CarPlaySceneDelegate.swift", encoding: .utf8)
+    let sourceUsesCompactKeys = [
+        "Ult. regen", "Gas", "Temp. motore", "Avanz.", "N. regen", "Batt.", "Altri",
+    ].allSatisfy { carPlaySource.contains("AppLocalization.string(\"\($0)\")") }
+    expect(
+        catalogIsComplete && sourceUsesCompactKeys,
+        "carplay localization: compact labels and translated overflow title are complete"
+    )
+} catch {
+    failures += 1
+    print("FAIL: compact CarPlay labels regression — \(error)")
+}
+
 var carPlayCurrentState = DPFState()
 carPlayCurrentState.cloggingPercent = 88
 var carPlayPersistedState = DPFState()
@@ -398,23 +962,60 @@ expect(!CarPlayTelemetryPolicy.displayState(
        "carplay telemetry: no real state displays unavailable values")
 
 var carPlayAlertTracker = CarPlayRegenerationAlertTracker()
-expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: false) == nil,
-       "carplay alert: cached telemetry never creates an event")
-expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: true) == nil,
-       "carplay alert: first live sample arms without a false event")
-expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == .started,
-       "carplay alert: inactive-to-active edge starts regeneration")
-expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
-       "carplay alert: stable active state does not repeat")
-expect(carPlayAlertTracker.observe(isRegenerating: nil, telemetryIsLive: true) == nil,
-       "carplay alert: unknown regeneration sample does not emit a false finish")
-expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
-       "carplay alert: recovery from unknown preserves the active edge")
-expect(carPlayAlertTracker.observe(isRegenerating: false, telemetryIsLive: true) == .finished,
-       "carplay alert: active-to-inactive edge finishes regeneration")
-expect(carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: false) == nil
-       && carPlayAlertTracker.observe(isRegenerating: true, telemetryIsLive: true) == nil,
-       "carplay alert: telemetry interruption rearms without a false event")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: false,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: false
+) == nil, "carplay alert: cached telemetry never creates an event")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: false,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == nil, "carplay alert: first live sample arms without a false event")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: true,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == .started, "carplay alert: inactive-to-active edge starts regeneration")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: true,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == nil, "carplay alert: stable active state does not repeat")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: nil,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == nil, "carplay alert: unknown regeneration sample does not emit a false finish")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: true,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == nil, "carplay alert: recovery from unknown preserves the active edge")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: false,
+    finishConfirmationSequence: 0,
+    telemetryIsLive: true
+) == nil, "carplay alert: inactive edge waits for distance-reset confirmation")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: false,
+    finishConfirmationSequence: 1,
+    telemetryIsLive: true
+) == .finished, "carplay alert: confirmed distance reset finishes regeneration")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: false,
+    finishConfirmationSequence: 1,
+    telemetryIsLive: true
+) == nil, "carplay alert: stable confirmation sequence does not duplicate finish")
+expect(carPlayAlertTracker.observe(
+    isRegenerating: true,
+    finishConfirmationSequence: 1,
+    telemetryIsLive: false
+) == nil && carPlayAlertTracker.observe(
+    isRegenerating: true,
+    finishConfirmationSequence: 1,
+    telemetryIsLive: true
+) == nil, "carplay alert: telemetry interruption rearms without a false event")
 
 for error in [
     OBDError.notReady,
@@ -507,6 +1108,10 @@ expectThrows("mode22: PID mismatch throws") {
     _ = try ELM327.parseMode22Response("7E8056218DE0CCD", expectedPID: 0x18E4)
 }
 
+expectBytes("mode22: coolant 221003 response",
+            { try ELM327.parseMode22Response("18DAF110056210031900", expectedPID: 0x1003) },
+            prefix: [0x19, 0x00])
+
 // MARK: - Adapter voltage
 
 do {
@@ -540,6 +1145,13 @@ do {
     expect(abs(temp - 420.0) < 0.01, "decode: exhaust 420 °C")
     let postDPFTemp = try DPFPID.postDPFTempC.decode(bytes: [0x7D, 0x00])
     expect(abs(postDPFTemp - 600.0) < 0.01, "decode: post-DPF exhaust 600 °C")
+    let coolant = try DPFPID.coolantTemperatureC.decode(bytes: [0x19, 0x00])
+    expect(
+        coolant == 88
+            && DPFPID.coolantTemperatureC.command == "221003"
+            && DPFPID.coolantTemperatureC.formulaDescription == "raw×0.02−40 °C",
+        "decode: FCA coolant raw 0x1900 is 88 °C"
+    )
     let progress = try DPFPID.regenProgressPercent.decode(bytes: [0x80, 0x00])
     expect(abs(progress - 50.0) < 0.01, "decode: regen process ~50%")
     let distance = try DPFPID.distanceSinceRegenKm.decode(bytes: [0x00, 0x05, 0xE8])
@@ -557,6 +1169,312 @@ expectThrows("decode: distance requires three bytes") {
     _ = try DPFPID.distanceSinceRegenKm.decode(bytes: [0x05, 0xE8])
 }
 
+// MARK: - IBS battery state of charge
+
+do {
+    let direct = try DPFPID.batteryStateOfChargeDirect.decode(bytes: [0x01, 0x52])
+    expect(abs(direct - 82.0) < 0.01, "ibs: direct 221005 uses payload byte B → 82%")
+    let mirror = try DPFPID.batteryStateOfChargeMirror.decode(bytes: [0x4B])
+    expect(abs(mirror - 75.0) < 0.01, "ibs: mirror 2219BD uses payload byte A → 75%")
+    let directVoltage = try DPFPID.batteryVoltageDirect.decode(bytes: [0x80])
+    let mirrorVoltage = try DPFPID.batteryVoltageMirror.decode(bytes: [0x64, 0x00])
+    expect(abs(directVoltage - 12.8) < 0.001,
+           "ibs voltage: direct 221004 uses byte A ÷ 10")
+    expect(abs(mirrorVoltage - 12.8) < 0.001,
+           "ibs voltage: engine mirror 221955 uses raw × 0.0005")
+    var directIBSPayload = Array(repeating: UInt8(0), count: 13)
+    directIBSPayload[1] = 82
+    directIBSPayload[9] = 0x28
+    directIBSPayload[10] = 0x00
+    expect(abs(try BatteryTelemetryPolicy.directEmbeddedVoltage(bytes: directIBSPayload) - 12.8) < 0.001,
+           "ibs voltage: 221005 bytes J/K expose the battery voltage used by other diagnostic apps")
+    expect(try DPFPID.batteryStateOfChargeDirect.decode(bytes: [0x00, 0x00]) == 0,
+           "ibs: 0% is a valid boundary")
+    expect(try DPFPID.batteryStateOfChargeMirror.decode(bytes: [0x64]) == 100,
+           "ibs: 100% is a valid boundary")
+    expect(try (
+        DPFPID.batteryStateOfChargeDirect.decode(bytes: [0xFF, 0x64]) == 100
+            && DPFPID.batteryStateOfChargeMirror.decode(bytes: [0x00]) == 0
+    ), "ibs: both sources accept both inclusive boundaries")
+    let directFrame = try ELM327.parseMode22Response(
+        "18DAF140056210050152",
+        expectedPID: DPFPID.batteryStateOfChargeDirect.rawValue
+    )
+    let mirrorFrame = try ELM327.parseMode22Response(
+        "18DAF110046219BD4B",
+        expectedPID: DPFPID.batteryStateOfChargeMirror.rawValue
+    )
+    expect(try (
+        DPFPID.batteryStateOfChargeDirect.decode(bytes: directFrame) == 82
+            && DPFPID.batteryStateOfChargeMirror.decode(bytes: mirrorFrame) == 75
+    ), "ibs: raw ECU frames propagate through Mode 22 parsing and PID decoding")
+    expect(BatteryStateOfChargeSource.ibsDirect.pid == .batteryStateOfChargeDirect
+           && BatteryStateOfChargeSource.engineECUMirror.pid == .batteryStateOfChargeMirror,
+           "ibs: source maps to the right SOC PID")
+    expect(BatteryStateOfChargeSource.ibsDirect.voltagePID == .batteryVoltageDirect
+           && BatteryStateOfChargeSource.engineECUMirror.voltagePID == .batteryVoltageMirror,
+           "ibs: source maps to the right battery-voltage fallback PID")
+    expect(BatteryStateOfChargeSource.ibsDirect.requestHeader == "18DA40F1"
+           && BatteryStateOfChargeSource.engineECUMirror.requestHeader == "18DA10F1",
+           "ibs: direct routes to 18DA40F1, mirror to 18DA10F1")
+} catch {
+    failures += 1
+    print("FAIL: IBS decoding threw \(error)")
+}
+
+expectThrows("ibs: direct requires at least two payload bytes") {
+    _ = try DPFPID.batteryStateOfChargeDirect.decode(bytes: [0x52])
+}
+expectThrows("ibs voltage: embedded 221005 voltage requires bytes J/K") {
+    _ = try BatteryTelemetryPolicy.directEmbeddedVoltage(bytes: [0x00, 0x52])
+}
+expectThrows("ibs voltage: implausible direct battery voltage is rejected") {
+    _ = try DPFPID.batteryVoltageDirect.decode(bytes: [0xFF])
+}
+expectThrows("ibs: mirror requires at least one payload byte") {
+    _ = try DPFPID.batteryStateOfChargeMirror.decode(bytes: [])
+}
+expectThrows("ibs: direct out-of-range value is rejected, never clamped") {
+    _ = try DPFPID.batteryStateOfChargeDirect.decode(bytes: [0x00, 0x65]) // 101
+}
+expectThrows("ibs: mirror out-of-range value is rejected, never clamped") {
+    _ = try DPFPID.batteryStateOfChargeMirror.decode(bytes: [0xFF]) // 255
+}
+expectThrows("ibs: unsupported NO DATA reply stays unavailable") {
+    let bytes = try ELM327.parseMode22Response(
+        "NO DATA\r>",
+        expectedPID: DPFPID.batteryStateOfChargeDirect.rawValue
+    )
+    _ = try DPFPID.batteryStateOfChargeDirect.decode(bytes: bytes)
+}
+expectThrows("ibs: non-numeric payload is rejected") {
+    let bytes = try ELM327.parseMode22Response(
+        "18DAF1400562100501GG",
+        expectedPID: DPFPID.batteryStateOfChargeDirect.rawValue
+    )
+    _ = try DPFPID.batteryStateOfChargeDirect.decode(bytes: bytes)
+}
+
+// Merging and freshness policy: a stale optional IBS sample must not be
+// presented as live, and a fresh sample carries its source and timestamp.
+let ibsAt = Date(timeIntervalSince1970: 1_750_000_100)
+var ibsFresh = DPFState(timestamp: ibsAt)
+ibsFresh.batteryStateOfChargePercent = 82
+ibsFresh.batteryStateOfChargeSource = .ibsDirect
+ibsFresh.batteryStateOfChargeUpdatedAt = ibsAt
+ibsFresh.batterySystemVoltage = 12.8
+ibsFresh.batterySystemVoltageUpdatedAt = ibsAt
+let ibsStaleAt = ibsAt.addingTimeInterval(45)
+var ibsStale = ibsFresh
+ibsStale.timestamp = ibsStaleAt
+ibsStale.batteryStateOfChargeUpdatedAt = ibsStaleAt
+ibsStale.batterySystemVoltageUpdatedAt = ibsStaleAt
+expect(ibsFresh.freshBatteryStateOfChargePercent(at: ibsAt.addingTimeInterval(10)) == 82,
+       "ibs freshness: a recent SOC sample is live")
+expect(ibsFresh.freshBatterySystemVoltage(at: ibsAt.addingTimeInterval(10)) == 12.8,
+       "ibs freshness: a recent battery-ECU voltage sample is live")
+expect(ibsStale.freshBatteryStateOfChargePercent(at: ibsStaleAt.addingTimeInterval(40)) == nil,
+       "ibs freshness: a SOC sample older than the 30-second window is not live")
+expect(ibsStale.freshBatterySystemVoltage(at: ibsStaleAt.addingTimeInterval(40)) == nil,
+       "ibs freshness: a battery voltage older than the 30-second window is not live")
+expect(DPFState().freshBatteryStateOfChargePercent() == nil,
+       "ibs freshness: absent sample stays unavailable")
+var ibsBase = DPFState(timestamp: ibsAt)
+ibsBase.batteryVoltage = 14.1 // ATRV: internal only, never shown in the card.
+ibsBase.batteryVoltageUpdatedAt = ibsAt.addingTimeInterval(-12)
+let ibsMerged = ibsBase.mergingFreshTelemetry(from: ibsFresh)
+expect(ibsMerged.batteryStateOfChargePercent == 82
+       && ibsMerged.batteryStateOfChargeSource == .ibsDirect
+       && ibsMerged.batteryStateOfChargeUpdatedAt == ibsAt
+       && ibsMerged.batterySystemVoltage == 12.8
+       && ibsMerged.batterySystemVoltageUpdatedAt == ibsAt
+       && ibsMerged.batteryVoltage == 14.1
+       && ibsMerged.batteryVoltageUpdatedAt == ibsAt.addingTimeInterval(-12),
+       "ibs merge: SOC and battery voltage propagate independently from ATRV")
+var freshAdapterVoltage = DPFState(timestamp: ibsAt.addingTimeInterval(1))
+freshAdapterVoltage.batteryVoltage = 14.3
+freshAdapterVoltage.batteryVoltageUpdatedAt = freshAdapterVoltage.timestamp
+let adapterMerged = ibsMerged.mergingFreshTelemetry(from: freshAdapterVoltage)
+expect(adapterMerged.batteryVoltage == 14.3
+       && adapterMerged.batteryVoltageUpdatedAt == freshAdapterVoltage.timestamp,
+       "adapter voltage merge: value and freshness timestamp advance atomically")
+let ibsEmpty = DPFState(timestamp: ibsAt.addingTimeInterval(1))
+let ibsNoRefresh = ibsMerged.mergingFreshTelemetry(from: ibsEmpty)
+expect(ibsNoRefresh.batteryStateOfChargePercent == 82,
+       "ibs merge: a poll without a battery reply keeps the last good value")
+expect(ibsFresh.hasTelemetry, "ibs state: a charge value alone is telemetry")
+
+let liveBatteryPresentation = BatteryMetricPresentation.resolve(
+    state: ibsMerged,
+    isLive: true,
+    at: ibsAt.addingTimeInterval(10)
+)
+expect(liveBatteryPresentation == .init(
+    headline: .stateOfChargePercent(82),
+    voltageDetail: 12.8
+), "ibs presentation: live iPhone/CarPlay headline receives SOC with voltage detail")
+for boundary in [0.0, 100.0] {
+    var boundaryState = ibsMerged
+    boundaryState.batteryStateOfChargePercent = boundary
+    expect(BatteryMetricPresentation.resolve(
+        state: boundaryState,
+        isLive: true,
+        at: ibsAt.addingTimeInterval(10)
+    ).headline == .stateOfChargePercent(boundary),
+           "ibs presentation: \(Int(boundary))% boundary reaches iPhone/CarPlay unchanged")
+}
+expect(BatteryMetricPresentation.resolve(
+    state: ibsMerged,
+    isLive: false,
+    at: ibsAt.addingTimeInterval(10)
+) == .init(headline: .voltage(12.8), voltageDetail: nil),
+       "ibs presentation: cached telemetry hides SOC and shows the saved IBS voltage")
+expect(BatteryMetricPresentation.resolve(
+    state: ibsMerged,
+    isLive: true,
+    at: ibsAt.addingTimeInterval(31)
+) == .init(headline: .unavailable, voltageDetail: nil),
+       "ibs presentation: stale live IBS data never falls back to ATRV")
+var ibsInvalidPresentation = ibsMerged
+ibsInvalidPresentation.batteryStateOfChargePercent = .nan
+expect(BatteryMetricPresentation.resolve(
+    state: ibsInvalidPresentation,
+    isLive: true,
+    at: ibsAt.addingTimeInterval(10)
+) == .init(headline: .voltage(12.8), voltageDetail: nil),
+       "ibs presentation: non-finite SOC cannot reach the UI")
+ibsInvalidPresentation.batteryStateOfChargePercent = -0.1
+expect(BatteryMetricPresentation.resolve(
+    state: ibsInvalidPresentation,
+    isLive: true,
+    at: ibsAt.addingTimeInterval(10)
+) == .init(headline: .voltage(12.8), voltageDetail: nil),
+       "ibs presentation: negative SOC cannot reach the UI")
+ibsInvalidPresentation.batteryStateOfChargePercent = 100.1
+expect(BatteryMetricPresentation.resolve(
+    state: ibsInvalidPresentation,
+    isLive: true,
+    at: ibsAt.addingTimeInterval(10)
+) == .init(headline: .voltage(12.8), voltageDetail: nil),
+       "ibs presentation: SOC above 100 cannot reach the UI")
+expect(BatteryMetricPresentation.resolve(
+    state: DPFState(timestamp: ibsAt),
+    isLive: true,
+    at: ibsAt
+) == .init(headline: .unavailable, voltageDetail: nil),
+       "ibs presentation: absent or unsupported telemetry stays unavailable")
+var adapterOnlyBatteryState = DPFState(timestamp: ibsAt)
+adapterOnlyBatteryState.batteryVoltage = 14.4
+adapterOnlyBatteryState.batteryVoltageUpdatedAt = ibsAt
+expect(!adapterOnlyBatteryState.hasTelemetry,
+       "ibs presentation: ATRV alone cannot make an otherwise empty dashboard non-empty")
+expect(BatteryMetricPresentation.resolve(
+    state: adapterOnlyBatteryState,
+    isLive: true,
+    at: ibsAt
+) == .init(headline: .unavailable, voltageDetail: nil),
+       "ibs presentation: ATRV is internal evidence and never appears as battery voltage")
+
+// Old persisted snapshots without the new fields must still decode.
+let legacySuiteName = "AlfaDPF.Tests.Legacy.\(UUID().uuidString)"
+let legacyDefaults = UserDefaults(suiteName: legacySuiteName)!
+legacyDefaults.set(Data("""
+{"cloggingPercent":67,"exhaustTempC":412,"batteryVoltage":14.1,"timestamp":1750000000}
+""".utf8), forKey: "lastRealDPFState.v1")
+let legacyLoaded = DPFStateStore.load(from: legacyDefaults)
+expect(legacyLoaded?.cloggingPercent == 67
+       && legacyLoaded?.batteryVoltage == 14.1
+       && legacyLoaded?.batteryStateOfChargePercent == nil,
+       "ibs legacy: a snapshot written before IBS still decodes")
+legacyDefaults.removePersistentDomain(forName: legacySuiteName)
+
+expectThrows("decode: coolant requires two bytes") {
+    _ = try DPFPID.coolantTemperatureC.decode(bytes: [0x19])
+}
+expectThrows("decode: coolant rejects implausible value") {
+    _ = try DPFPID.coolantTemperatureC.decode(bytes: [0xFF, 0xFF])
+}
+expectThrows("decode: coolant rejects NaN") {
+    _ = try CoolantTelemetryPolicy.validated(.nan)
+}
+let coolantReadAt = Date(timeIntervalSince1970: 2_000)
+var lastGoodCoolant = DPFState(timestamp: coolantReadAt)
+lastGoodCoolant.coolantTemperatureC = 88
+let missingCoolant = DPFState(timestamp: coolantReadAt.addingTimeInterval(10))
+expect(
+    lastGoodCoolant.mergingFreshTelemetry(from: missingCoolant).coolantTemperatureC == 88,
+    "coolant: transient missing sample retains the last valid value"
+)
+expect(
+    !CoolantTelemetryPolicy.isExpired(
+        lastValidSampleAt: coolantReadAt,
+        now: coolantReadAt.addingTimeInterval(29.9)
+    ),
+    "coolant: last valid value survives inside 30-second TTL"
+)
+expect(
+    CoolantTelemetryPolicy.isExpired(
+        lastValidSampleAt: coolantReadAt,
+        now: coolantReadAt.addingTimeInterval(30)
+    ),
+    "coolant: stale live value expires after 30 seconds"
+)
+
+let migratedCoolant = DashboardMetricPreference.load(
+    stored: [DashboardMetric.exhaustTemperature.rawValue],
+    migrated: false,
+    adding: .coolantTemperature
+)
+expect(
+    migratedCoolant.visible.contains(.coolantTemperature) && migratedCoolant.didMigrate,
+    "dashboard: existing users receive coolant card once"
+)
+let optedOutCoolant = DashboardMetricPreference.load(
+    stored: [DashboardMetric.exhaustTemperature.rawValue],
+    migrated: true,
+    adding: .coolantTemperature
+)
+expect(
+    !optedOutCoolant.visible.contains(.coolantTemperature) && !optedOutCoolant.didMigrate,
+    "dashboard: manual coolant opt-out survives later launches"
+)
+
+do {
+    let monitorSource = try String(contentsOfFile: "Sources/DPFMonitor.swift", encoding: .utf8)
+    let appSource = try String(contentsOfFile: "Sources/AlfaDPFApp.swift", encoding: .utf8)
+    let sessionSource = try String(contentsOfFile: "Sources/MonitorSession.swift", encoding: .utf8)
+    let criticalPublish = monitorSource.range(of: "snapshot = DPFMonitorSnapshot(")
+    let coolantRead = monitorSource.range(of: "read(.coolantTemperatureC)")
+    let slots = (0..<12).map { DPFSecondaryPollSlot.resolve(sequence: UInt64($0)) }
+    expect(
+        slots.filter { $0 == .coolantTemperature }.count == 2
+            && slots.filter { $0 == .batteryIBS }.count == 2
+            && slots[5] == .batteryIBS
+            && monitorSource.contains("switch DPFSecondaryPollSlot.resolve(sequence: cadenceSequence)")
+            && monitorSource.contains("readBatteryTelemetry()")
+            && monitorSource.contains("read(.coolantTemperatureC)")
+            && !monitorSource.contains("\"0105\"")
+            && criticalPublish.map { published in
+                coolantRead.map { published.lowerBound < $0.lowerBound } ?? false
+            } == true,
+        "secondary cadence: coolant and IBS each occupy one reachable six-slot branch after critical publication"
+    )
+    expect(
+        appSource.contains("title: \"LIQUIDO MOTORE\"")
+            && appSource.contains("unit: \"°C\"")
+            && appSource.contains("dpf.coolantTemperatureC"),
+        "coolant UI: vehicle-data card uses Celsius and optional fallback"
+    )
+    expect(
+        sessionSource.contains("if self.hasLiveTelemetry,")
+            && sessionSource.contains("!monitorSnapshot.hasRecentCoreTelemetry()"),
+        "telemetry watchdog: initial ECU route discovery does not look like an interruption"
+    )
+} catch {
+    failures += 1
+    print("FAIL: coolant source regression — \(error)")
+}
+
 // MARK: - Last real DPF snapshot
 
 let snapshotSuite = "AlfaDPF.Tests.\(UUID().uuidString)"
@@ -565,6 +1483,7 @@ let savedAt = Date(timeIntervalSince1970: 1_750_000_000)
 let savedSnapshot = DPFState(
     cloggingPercent: 67,
     exhaustTempC: 412,
+    coolantTemperatureC: 88,
     distanceSinceLastRegenKm: 238,
     regenProgressPercent: 0,
     totalRegenCount: 304,
@@ -618,6 +1537,7 @@ var newSignals = DPFState(timestamp: partialAt.addingTimeInterval(20))
 newSignals.regenerationMode = .passive
 newSignals.oilPressureStatusRaw = 2
 newSignals.exhaustTempC = 601
+newSignals.coolantTemperatureC = 92
 newSignals.exhaustTemperaturePID = DPFPID.postDPFTempC.rawValue
 let mergedNewSignals = mergedSnapshot.mergingFreshTelemetry(from: newSignals)
 expect(
@@ -625,6 +1545,7 @@ expect(
         && mergedNewSignals.isRegenerating
         && mergedNewSignals.oilPressureStatusText == "Normale"
         && mergedNewSignals.batteryVoltage == savedSnapshot.batteryVoltage
+        && mergedNewSignals.coolantTemperatureC == 92
         && mergedNewSignals.exhaustTemperaturePID == DPFPID.postDPFTempC.rawValue,
     "snapshot: passive regen, oil state and temperature source merge safely"
 )
@@ -722,8 +1643,9 @@ expect(
 )
 
 // Some FCA ECUs return a permanently-zero regeneration progress PID. In
-// that case a high exhaust temperature plus a sustained soot-load drop must
-// still create stable start/end edges for notifications and CarPlay.
+// that case hot exhaust plus a soot-load drop must still create stable
+// start/end edges — and the start must fire on the FIRST sample that proves
+// the burn, not after several confirming declines.
 let inferredAt = Date(timeIntervalSince1970: 2_000)
 var inferredTracker = RegenActivityTracker()
 expect(
@@ -736,35 +1658,25 @@ expect(
 expect(
     inferredTracker.observe(progressPercent: 0,
                             at: inferredAt.addingTimeInterval(5),
-                            cloggingPercent: 91.6,
-                            exhaustTemperatureC: 580) == nil,
-    "regen fallback: first decline remains a candidate"
+                            cloggingPercent: 91.2,
+                            exhaustTemperatureC: 580)
+        == .started(at: inferredAt, cloggingPercent: 91.2) &&
+    inferredTracker.isActive == true,
+    "regen fallback: the first meaningful load drop emits start immediately"
 )
 expect(
     inferredTracker.observe(progressPercent: nil,
                             at: inferredAt.addingTimeInterval(7),
                             cloggingPercent: nil,
                             exhaustTemperatureC: nil) == nil &&
+    inferredTracker.isActive == true,
+    "regen fallback: a missing sample preserves active state"
+)
+expect(
     inferredTracker.observe(progressPercent: 0,
                             at: inferredAt.addingTimeInterval(10),
-                            cloggingPercent: 91.2,
-                            exhaustTemperatureC: 590) == nil,
-    "regen fallback: missing sample preserves sustained decline"
-)
-expect(
-    inferredTracker.observe(progressPercent: 0,
-                            at: inferredAt.addingTimeInterval(15),
                             cloggingPercent: 90.8,
-                            exhaustTemperatureC: 600)
-        == .started(at: inferredAt, cloggingPercent: 90.8) &&
-    inferredTracker.isActive == true,
-    "regen fallback: hot sustained load drop emits start"
-)
-expect(
-    inferredTracker.observe(progressPercent: 0,
-                            at: inferredAt.addingTimeInterval(20),
-                            cloggingPercent: 90.3,
-                            exhaustTemperatureC: 610) == nil &&
+                            exhaustTemperatureC: 600) == nil &&
     inferredTracker.isActive == true,
     "regen fallback: zero progress PID does not end inferred burn"
 )
@@ -789,6 +1701,31 @@ expect(
     "regen fallback: cool-down emits finish"
 )
 
+var tinyWiggleTracker = RegenActivityTracker()
+expect(
+    tinyWiggleTracker.observe(progressPercent: 0,
+                              at: inferredAt,
+                              cloggingPercent: 92.0,
+                              exhaustTemperatureC: 570) == nil
+        && tinyWiggleTracker.observe(progressPercent: 0,
+                                     at: inferredAt.addingTimeInterval(5),
+                                     cloggingPercent: 91.9,
+                                     exhaustTemperatureC: 575) == nil
+        && tinyWiggleTracker.isActive == false,
+    "regen fallback: a sub-threshold wiggle stays a candidate"
+)
+
+var hotJumpTracker = RegenActivityTracker()
+expect(
+    hotJumpTracker.observe(progressPercent: 0,
+                           at: inferredAt,
+                           cloggingPercent: 86.0,
+                           exhaustTemperatureC: 605)
+        == .started(at: inferredAt, cloggingPercent: 86.0) &&
+    hotJumpTracker.isActive == true,
+    "regen fallback: post-injection heat with a loaded filter warns on the first sample"
+)
+
 var hotButStableTracker = RegenActivityTracker()
 for offset in stride(from: 0.0, through: 30.0, by: 5.0) {
     _ = hotButStableTracker.observe(
@@ -800,7 +1737,7 @@ for offset in stride(from: 0.0, through: 30.0, by: 5.0) {
 }
 expect(
     hotButStableTracker.isActive == false,
-    "regen fallback: high temperature without load drop stays idle"
+    "regen fallback: high temperature without a loaded filter stays idle"
 )
 
 var postRegenTailTracker = RegenActivityTracker()
@@ -815,6 +1752,86 @@ for (offset, load) in [21.1, 20.8, 20.4, 20.0].enumerated() {
 expect(
     postRegenTailTracker.isActive == false,
     "regen fallback: hot post-regeneration tail cannot create a second start"
+)
+
+// MARK: - Delayed regeneration-finish notification
+
+let delayedFinishStartedAt = Date(timeIntervalSince1970: 3_000)
+let delayedFinishEndedAt = delayedFinishStartedAt.addingTimeInterval(11 * 60)
+let delayedStartEvent = RegenEvent.started(
+    at: delayedFinishStartedAt,
+    cloggingPercent: 91
+)
+let delayedFinishEvent = RegenEvent.finished(
+    at: delayedFinishEndedAt,
+    duration: 11 * 60
+)
+
+var delayedFinishGate = RegenFinishNotificationGate()
+expect(
+    delayedFinishGate.observe(delayedStartEvent) == delayedStartEvent,
+    "regen finish gate: start notifications remain immediate"
+)
+expect(
+    delayedFinishGate.observe(
+        delayedFinishEvent,
+        distanceBeforeFinishRaw: 2_300
+    ) == nil
+        && delayedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: falling load stages finish with the pre-reset distance"
+)
+expect(
+    delayedFinishGate.confirm(freshDistanceRaw: 27) == nil
+        && delayedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: nonzero distance cannot release finish"
+)
+expect(
+    delayedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: missing distance keeps finish pending without notifying"
+)
+expect(
+    delayedFinishGate.confirm(freshDistanceRaw: 0x01_00_00_00) == nil
+        && delayedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: invalid UInt24 distance cannot release finish"
+)
+expect(
+    delayedFinishGate.confirm(freshDistanceRaw: 1) == delayedFinishEvent
+        && !delayedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: first plausible post-reset sample releases even when zero was skipped"
+)
+expect(
+    delayedFinishGate.confirm(freshDistanceRaw: 0) == nil
+        && delayedFinishGate.confirm(freshDistanceRaw: 1) == nil,
+    "regen finish gate: later reset-range updates never duplicate the notification"
+)
+
+var reorderedFinishGate = RegenFinishNotificationGate()
+expect(
+    reorderedFinishGate.confirm(freshDistanceRaw: 0) == nil,
+    "regen finish gate: zero received before the finish edge is ignored"
+)
+expect(
+    reorderedFinishGate.observe(
+        delayedFinishEvent,
+        distanceBeforeFinishRaw: 8
+    ) == nil
+        && reorderedFinishGate.confirm(freshDistanceRaw: 8) == nil
+        && reorderedFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: a small value that did not decrease cannot notify prematurely"
+)
+expect(
+    reorderedFinishGate.confirm(freshDistanceRaw: 0) == delayedFinishEvent
+        && reorderedFinishGate.confirm(freshDistanceRaw: 0) == nil,
+    "regen finish gate: a fresh post-edge zero releases exactly once"
+)
+
+var resetFinishGate = RegenFinishNotificationGate()
+_ = resetFinishGate.observe(delayedFinishEvent)
+resetFinishGate.reset()
+expect(
+    resetFinishGate.confirm(freshDistanceRaw: 0) == nil
+        && !resetFinishGate.isWaitingForDistanceReset,
+    "regen finish gate: reset cancels a pending finish"
 )
 
 // MARK: - Test Lab scenarios
@@ -842,7 +1859,9 @@ expect(
 )
 expect(
     DPFSimulationScenario.clean.state().cloggingPercent == 28 &&
-    DPFSimulationScenario.unavailable.state().cloggingPercent == nil,
+    DPFSimulationScenario.clean.state().coolantTemperatureC == 88 &&
+    DPFSimulationScenario.unavailable.state().cloggingPercent == nil &&
+    DPFSimulationScenario.unavailable.state().coolantTemperatureC == nil,
     "simulation: clean and unavailable fixtures"
 )
 
@@ -948,22 +1967,142 @@ expect(!ELMLineEngine.isSuccessfulATResponse("NO DATA"),
 expect(!ELMLineEngine.isSuccessfulATResponse("ERROR\rOK"),
        "header: mixed error and OK is rejected")
 
+expect(ELM327.isECUProvenDiagnosticProbe("18DAF1100562380B0000"),
+       "init: a positive 62 380B reply proves the protocol")
+expect(ELM327.isECUProvenDiagnosticProbe("18DAF118037F2231"),
+       "init: a negative 7F22 reply proves the protocol")
+expect(!ELM327.isECUProvenDiagnosticProbe("NO DATA"),
+       "init: NO DATA does not prove the protocol")
+expect(!ELM327.isECUProvenDiagnosticProbe("SEARCHING...\rNO DATA"),
+       "init: SEARCHING + NO DATA does not prove the protocol")
+expect(!ELM327.isECUProvenDiagnosticProbe("OK"),
+       "init: a bare OK does not prove the protocol")
+expect(!ELM327.isECUProvenDiagnosticProbe("UNABLE TO CONNECT"),
+       "init: UNABLE TO CONNECT does not prove the protocol")
+expect(!ELM327.isECUProvenDiagnosticProbe(""),
+       "init: an empty probe does not prove the protocol")
+
+expect(ELM327.parseProtocol(from: "A7") == 7, "protocol: A7 parses to 7")
+expect(ELM327.parseProtocol(from: "7") == 7, "protocol: bare 7 parses")
+expect(ELM327.parseProtocol(from: "A6\r") == 6, "protocol: A6 with CR parses")
+expect(ELM327.parseProtocol(from: "A0") == nil, "protocol: the auto marker is never cached")
+expect(ELM327.parseProtocol(from: "ATDPN\rA7") == 7, "protocol: echo lines are skipped")
+expect(ELM327.parseProtocol(from: "ISO 15765-4 (CAN 29/500)") == nil,
+       "protocol: descriptive form is rejected")
+
 let validInitialization = InitializationTestTransport(.valid)
 do {
-    try await ELM327(connection: validInitialization).initializeSession()
+    let protocolNumber = try await ELM327(connection: validInitialization).initializeSession()
     let commands = await validInitialization.commands()
-    expect(!commands.contains(where: { $0.command.hasPrefix("01") }),
-           "init: live bootstrap never sends Mode 01")
-    expect(commands.contains(.init(command: "22380B", header: "18DA10F1")),
-           "init: protocol search uses a DPF Mode 22 probe")
+    let atsp0 = commands.firstIndex { $0.command == "ATSP0" }
+    let search = commands.firstIndex { $0.command == "22380B" }
+    let protocolQuery = commands.firstIndex { $0.command == "ATDPN" }
+    expect(atsp0 != nil && search != nil && protocolQuery != nil
+           && atsp0! < search! && search! < protocolQuery!,
+           "init: ATSP0 + physical DPF probe runs before ATDPN")
+    expect(!commands.contains(where: { $0.command == "0100" }),
+           "init: an ECU-proven probe never sends Mode 01")
+    expect(protocolNumber == 7,
+           "init: a proven protocol is returned for caching")
 } catch {
     failures += 1
-    print("FAIL: init: valid DPF-only bootstrap threw \(error)")
+    print("FAIL: init: valid probe bootstrap threw \(error)")
+}
+
+let probeNoDataInitialization = InitializationTestTransport(.probeNoDataThen0100)
+do {
+    let protocolNumber = try await ELM327(connection: probeNoDataInitialization).initializeSession()
+    let commands = await probeNoDataInitialization.commands()
+    let search = commands.firstIndex { $0.command == "22380B" }
+    let mode01 = commands.firstIndex { $0.command == "0100" }
+    expect(search != nil && mode01 != nil && search! < mode01!,
+           "init: NO DATA probe falls back to the 0100 trigger")
+    expect(commands.first(where: { $0.command == "0100" })?.header == "18DB33F1",
+           "init: the 0100 fallback uses the functional broadcast header, not the stale physical ATSH")
+    expect(protocolNumber == nil,
+           "init: an unproven protocol is never returned for caching")
+} catch {
+    failures += 1
+    print("FAIL: init: NO DATA fallback threw \(error)")
+}
+
+let probeUnableInitialization = InitializationTestTransport(.probeUnableThen0100)
+do {
+    _ = try await ELM327(connection: probeUnableInitialization).initializeSession()
+    let commands = await probeUnableInitialization.commands()
+    expect(commands.contains(where: { $0.command == "0100" }),
+           "init: UNABLE TO CONNECT probe falls back to the 0100 trigger")
+} catch {
+    failures += 1
+    print("FAIL: init: UNABLE TO CONNECT fallback threw \(error)")
+}
+
+let probeTimeoutInitialization = InitializationTestTransport(.probeTimeoutThen0100)
+do {
+    _ = try await ELM327(connection: probeTimeoutInitialization).initializeSession()
+    let commands = await probeTimeoutInitialization.commands()
+    expect(commands.contains(where: { $0.command == "0100" }),
+           "init: a timed-out probe falls back to the 0100 trigger and stays non-fatal")
+} catch {
+    failures += 1
+    print("FAIL: init: timed-out probe fallback incorrectly failed initialization: \(error)")
+}
+
+let elevenBitFallbackInitialization = InitializationTestTransport(.probeNoDataThen0100)
+do {
+    _ = try await ELM327(connection: elevenBitFallbackInitialization)
+        .initializeSession(probeHeader: "7E0")
+    let commands = await elevenBitFallbackInitialization.commands()
+    expect(commands.first(where: { $0.command == "0100" })?.header == "7DF",
+           "init: an 11-bit probe header maps the 0100 fallback to the 7DF broadcast")
+} catch {
+    failures += 1
+    print("FAIL: init: 11-bit 0100 functional header mapping threw", error)
+}
+
+let cachedConfirmedInitialization = InitializationTestTransport(.cachedConfirmed)
+do {
+    let protocolNumber = try await ELM327(connection: cachedConfirmedInitialization)
+        .initializeSession(cachedProtocol: 7, probeHeader: "18DA18F1")
+    let commands = await cachedConfirmedInitialization.commands()
+    let sp7 = commands.firstIndex { $0.command == "ATSP7" }
+    let sp0 = commands.firstIndex { $0.command == "ATSP0" }
+    expect(sp7 != nil && sp0 == nil,
+           "init: a confirmed cached protocol skips ATSP0 entirely")
+    expect(commands.filter { $0.command == "22380B" }.count == 1,
+           "init: the cached fast path probes the DPF PID once")
+    expect(commands.contains(where: { $0.command == "22380B" && $0.header == "18DA18F1" }),
+           "init: the remembered header is used for the cached probe")
+    expect(protocolNumber == 7,
+           "init: the cached path returns the proven protocol")
+} catch {
+    failures += 1
+    print("FAIL: init: cached fast path threw \(error)")
+}
+
+let cachedRejectedInitialization = InitializationTestTransport(.cachedRejectedThenAuto)
+do {
+    let protocolNumber = try await ELM327(connection: cachedRejectedInitialization)
+        .initializeSession(cachedProtocol: 7)
+    let commands = await cachedRejectedInitialization.commands()
+    let sp7 = commands.firstIndex { $0.command == "ATSP7" }
+    let sp0 = commands.firstIndex { $0.command == "ATSP0" }
+    expect(sp7 != nil && sp0 != nil && sp7! < sp0!,
+           "init: an unconfirmed cached protocol falls back once to ATSP0")
+    expect(commands.filter { $0.command == "22380B" }.count == 2,
+           "init: the fallback re-probes the DPF PID")
+    expect(!commands.contains(where: { $0.command == "0100" }),
+           "init: a 7F22-proven fallback probe never sends Mode 01")
+    expect(protocolNumber == 7,
+           "init: the fallback probe proving 7F22 returns the protocol")
+} catch {
+    failures += 1
+    print("FAIL: init: cached fallback path threw \(error)")
 }
 
 let rejectingInitialization = InitializationTestTransport(.rejectsEverything)
 do {
-    try await ELM327(connection: rejectingInitialization).initializeSession()
+    _ = try await ELM327(connection: rejectingInitialization).initializeSession()
     failures += 1
     print("FAIL: init: adapter rejecting every command was accepted")
 } catch {
@@ -972,11 +2111,14 @@ do {
 
 let legacyInitialization = InitializationTestTransport(.resetTimeoutThenLegacy)
 do {
-    try await ELM327(connection: legacyInitialization).initializeSession()
+    let protocolNumber = try await ELM327(connection: legacyInitialization).initializeSession()
     let commands = await legacyInitialization.commands()
     expect(commands.contains(where: { $0.command == "ATI" })
-           && commands.contains(where: { $0.command == "22380B" }),
-           "init: timed-out ATZ falls back to ATI and a DPF-only protocol probe")
+           && commands.contains(where: { $0.command == "22380B" })
+           && !commands.contains(where: { $0.command == "0100" }),
+           "init: timed-out ATZ falls back to ATI and proves the DPF-only probe")
+    expect(protocolNumber == 7,
+           "init: the legacy reset path still returns the proven protocol")
 } catch {
     failures += 1
     print("FAIL: init: legacy reset fallback threw \(error)")
@@ -991,6 +2133,67 @@ let chrOther1 = CBUUID(string: "ABC1")
 let chrOther2 = CBUUID(string: "ABC2")
 let svcKonnwei = CBUUID(string: "FFE0")
 let chrKonnweiData = CBUUID(string: "FFE1")
+
+let bleProfileSuite = "AlfaDPFTests.BLEGATTProfile.\(UUID().uuidString)"
+let bleProfileDefaults = UserDefaults(suiteName: bleProfileSuite)!
+let bleProfilePeripheralID = UUID()
+let rememberedGATT = BLEGATTProfile(service: "FFF0", notify: "FFF1", write: "FFF2")
+BLEGATTProfileCache.save(
+    rememberedGATT,
+    peripheralID: bleProfilePeripheralID,
+    to: bleProfileDefaults
+)
+expect(
+    BLEGATTProfileCache.load(
+        peripheralID: bleProfilePeripheralID,
+        from: bleProfileDefaults
+    ) == rememberedGATT,
+    "ble: validated GATT route persists per peripheral"
+)
+expect(
+    BLEGATTProfileCache.load(peripheralID: UUID(), from: bleProfileDefaults) == nil,
+    "ble: GATT route does not leak to another peripheral"
+)
+bleProfileDefaults.removePersistentDomain(forName: bleProfileSuite)
+
+let ecuProfileSuite = "AlfaDPFTests.ECUProfile.\(UUID().uuidString)"
+let ecuProfileDefaults = UserDefaults(suiteName: ecuProfileSuite)!
+let ecuProfileStore = DPFECUProfileStore(
+    identifier: "ble:test-adapter",
+    defaults: ecuProfileDefaults
+)
+let rememberedECU = DPFECUProfile(
+    headersByPID: ["380B": "18DA10F1", "18E4": "18DA18F1"],
+    lastGoodHeader: "18DA10F1",
+    preferredExhaustTemperaturePID: DPFPID.postDPFTempC.rawValue
+)
+ecuProfileStore.save(rememberedECU)
+expect(ecuProfileStore.load() == rememberedECU,
+       "dpf: validated ECU routes persist per adapter")
+let rememberedECUWithIBS = DPFECUProfile(
+    headersByPID: ["380B": "18DA10F1", "1005": "18DA40F1"],
+    lastGoodHeader: "18DA10F1",
+    preferredExhaustTemperaturePID: DPFPID.postDPFTempC.rawValue,
+    preferredBatteryStateOfChargeSource: .ibsDirect
+)
+ecuProfileStore.save(rememberedECUWithIBS)
+expect(ecuProfileStore.load() == rememberedECUWithIBS,
+       "ibs: preferred battery source persists in the ECU profile")
+expect(DPFECUProfileStore(identifier: "ble:other", defaults: ecuProfileDefaults).load() == nil,
+       "dpf: ECU routes do not leak to another adapter")
+expect(DPFECUProfile(
+    headersByPID: ["380B": "18DA10F1", "18E4": "18DA18F1"],
+    lastGoodHeader: "18DA18F1"
+).protocolProbeHeader == "18DA10F1",
+       "dpf: the protocol probe prefers the 380B-specific route over lastGoodHeader")
+expect(DPFECUProfile(
+    headersByPID: ["18E4": "18DA18F1"],
+    lastGoodHeader: "18DA10F1"
+).protocolProbeHeader == "18DA10F1",
+       "dpf: the protocol probe falls back to lastGoodHeader when 380B has no route")
+expect(DPFECUProfile().protocolProbeHeader == nil,
+       "dpf: no remembered route yields no probe header")
+ecuProfileDefaults.removePersistentDomain(forName: ecuProfileSuite)
 
 expect(BLEAdvertisementClassifier.matches(name: "KONNWEI-KW903", advertisedServices: []),
        "ble: Konnwei brand name accepted")
@@ -1013,7 +2216,9 @@ do {
         BLECandidate(service: svcOther, characteristic: chrOther1, canNotify: true, canWrite: true),
         BLECandidate(service: svcKonnwei, characteristic: chrKonnweiData, canNotify: true, canWrite: true),
     ])
-    expect(picked?.notify == chrKonnweiData && picked?.write == chrKonnweiData,
+    expect(picked?.service == svcKonnwei
+           && picked?.notify == chrKonnweiData
+           && picked?.write == chrKonnweiData,
            "ble: Konnwei FFE0/FFE1 duplex layout preferred")
 }
 
@@ -1025,7 +2230,9 @@ do {
         BLECandidate(service: svcVlink, characteristic: chrNotifyVlink, canNotify: true, canWrite: false),
         BLECandidate(service: svcVlink, characteristic: chrWriteVlink, canNotify: false, canWrite: true),
     ])
-    expect(picked?.notify == chrNotifyVlink && picked?.write == chrWriteVlink,
+    expect(picked?.service == svcVlink
+           && picked?.notify == chrNotifyVlink
+           && picked?.write == chrWriteVlink,
            "ble: vlink FFF0/FFF1/FFF2 layout preferred")
 }
 
@@ -1035,7 +2242,9 @@ do {
         BLECandidate(service: svcOther, characteristic: chrOther1, canNotify: true, canWrite: false),
         BLECandidate(service: svcOther, characteristic: chrOther2, canNotify: false, canWrite: true),
     ])
-    expect(picked?.notify == chrOther1 && picked?.write == chrOther2,
+    expect(picked?.service == svcOther
+           && picked?.notify == chrOther1
+           && picked?.write == chrOther2,
            "ble: generic notify+write pair fallback")
 }
 
@@ -1470,6 +2679,22 @@ case .success(let store):
     let samples = store.samples()
     expect(samples.count == 2, "history: expected 2 isolated samples, got \(samples.count)")
 
+    let asyncStoreURL = historyTestDirectory.appendingPathComponent("async.sqlite3")
+    if let asyncStore = try? DPFHistoryStore(databaseURL: asyncStoreURL) {
+        let asyncRecorded = await asyncStore.recordSampleAsync(
+            timestamp: now,
+            cloggingPercent: 42.0,
+            exhaustTempC: 190.0,
+            regenActive: false,
+            distanceSinceLastRegenKm: 12.0
+        )
+        expect(asyncRecorded && asyncStore.samples().count == 1,
+               "history: asynchronous recording preserves sample semantics")
+    } else {
+        failures += 1
+        print("FAIL: history: async store init failed")
+    }
+
     let rollingStoreURL = historyTestDirectory.appendingPathComponent("rolling.sqlite3")
     if let rollingStore = try? DPFHistoryStore(databaseURL: rollingStoreURL) {
         _ = rollingStore.recordSample(
@@ -1535,6 +2760,41 @@ case .success(let store):
     expect(reconciled.first?.status == .unconfirmed
            && reconciled.first?.finishedAt == nil,
            "history: unconfirmed cycle keeps an honest unknown end time")
+
+    let insights = DPFHistoryInsights(cycles: reconciled)
+    expect(insights.completedCycles == 1
+           && insights.interruptedCycles == 1
+           && insights.unconfirmedCycles == 1,
+           "history insights: outcomes are counted without treating unknown as failure")
+    expect(insights.completionRate == 0.5,
+           "history insights: completion rate uses only observed outcomes")
+    expect(insights.averageDuration.map { abs($0 - 870) < 0.001 } == true,
+           "history insights: duration uses completed cycles only")
+    expect(insights.averageLoadReduction == 56,
+           "history insights: load reduction uses completed cycles only")
+
+    let storedInsights = store.insights()
+    expect(storedInsights == insights,
+           "history insights: SQL aggregate matches the complete stored history")
+
+    let manyCyclesURL = historyTestDirectory.appendingPathComponent("many-cycles.sqlite3")
+    if let manyCyclesStore = try? DPFHistoryStore(databaseURL: manyCyclesURL) {
+        for index in 0..<60 {
+            let start = now.addingTimeInterval(Double(index * 1_000))
+            _ = manyCyclesStore.recordRegenStart(at: start, load: 90)
+            _ = manyCyclesStore.recordRegenFinish(
+                at: start.addingTimeInterval(600),
+                endingLoad: 30
+            )
+        }
+        expect(manyCyclesStore.cycles().count == 50,
+               "history: visible cycle list remains bounded")
+        expect(manyCyclesStore.insights().completedCycles == 60,
+               "history insights: aggregate covers cycles beyond the visible list limit")
+    } else {
+        failures += 1
+        print("FAIL: history: many-cycle aggregate store init failed")
+    }
 
     print("PASS: history — all store tests")
 }

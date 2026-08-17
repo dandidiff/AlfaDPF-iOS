@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": 1,
+      "url": "https://developer.apple.com/carplay/documentation/CarPlay-App-Programming-Guide.pdf",
+      "title": "CarPlay Developer Guide (June 2026)",
+      "accessed": "2026-08-14",
+      "quotes": [
+        {
+          "text": "Do not periodically refresh data items in the CarPlay UI more than once every 10 seconds (for example, no real- time engine data).",
+          "added": "2026-08-14"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "url": "https://developer.apple.com/documentation/carplay/cpinformationtemplate/items",
+      "title": "CPInformationTemplate.items (docc)",
+      "accessed": "2026-08-14",
+      "quotes": [
+        {
+          "text": "The template can display 10 items maximum. If the array contains more items, the template uses only the first 10.",
+          "added": "2026-08-14"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "url": "https://developer.apple.com/library/archive/documentation/NetworkingInternetWeb/Conceptual/CoreBluetooth_concepts/CoreBluetoothBackgroundProcessingForIOSApps/PerformingTasksWhileYourAppIsInTheBackground.html",
+      "title": "Core Bluetooth Background Processing for iOS Apps",
+      "accessed": "2026-08-14",
+      "quotes": [
+        {
+          "text": "Even if your app supports one or both of the Core Bluetooth background execution modes, it can’t run forever. At some point, the system may need to terminate your app to free up memory for the current foreground app—causing any active or pending connections to be lost, for instance.",
+          "added": "2026-08-14"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "url": "https://developer.apple.com/library/archive/documentation/Performance/Conceptual/EnergyGuide-iOS/MinimizeTimerUse.html",
+      "title": "Energy Efficiency Guide for iOS Apps — Minimize Timer Use",
+      "accessed": "2026-08-14",
+      "quotes": [
+        {
+          "text": "Waking the system from an idle state incurs an energy cost when the CPU and other systems are awakened from their low-power, idle states. If a timer causes the system to wake, it incurs that cost. Apps often use timers unnecessarily.",
+          "added": "2026-08-14"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "url": "https://developer.apple.com/documentation/carplay/cpgridtemplate/updategridbuttons(_:)",
+      "title": "CPGridTemplate.updateGridButtons(_:) (docc)",
+      "accessed": "2026-08-14",
+      "quotes": [
+        {
+          "text": "func updateGridButtons(_ gridButtons: [CPGridButton])",
+          "added": "2026-08-14"
+        }
+      ]
+    }
+  ]
+}

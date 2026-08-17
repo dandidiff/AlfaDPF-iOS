@@ -6,6 +6,6 @@
 - User Privacy Choices URL: lasciare vuoto; non esistono account o dati remoti da gestire.
 
 Bluetooth, log diagnostici e preferenze vengono usati esclusivamente sul
-dispositivo per comunicare con l’adattatore scelto. L'app (versione 1.2)
+dispositivo per comunicare con l’adattatore scelto. L'app (versione 1.3.1)
 non include SDK pubblicitari, analytics, account, backend o telemetria; le
 notifiche sono locali e generate sul dispositivo.
