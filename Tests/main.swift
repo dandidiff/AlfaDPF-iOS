@@ -108,10 +108,11 @@ do {
 
 actor InitializationTestTransport: OBDTransport {
     enum Behavior {
-        case valid
+        case valid                       // FCA: Mode 22 negotiates, session stays DPF-only
         case rejectsEverything
-        case resetTimeoutThenLegacy
-        case protocolSearchTimeout
+        case resetTimeoutThenLegacy      // ATZ times out -> ATI, Mode 22 negotiates
+        case mode22NegotiationFailure    // Mode 22 -> UNABLE TO CONNECT -> 0100 fallback
+        case mode22Timeout               // Mode 22 -> timeout -> 0100 fallback
     }
 
     struct Sent: Equatable {
@@ -135,7 +136,7 @@ actor InitializationTestTransport: OBDTransport {
         switch behavior {
         case .valid:
             if command == "ATZ" { return "ELM327 v1.5" }
-            if command == "0100" { return "41 00 BE 3F A8 13" }
+            if command == "22380B" { return "NO DATA" }
             if command == "ATDPN" { return "A7" }
             return "OK"
         case .rejectsEverything:
@@ -143,12 +144,19 @@ actor InitializationTestTransport: OBDTransport {
         case .resetTimeoutThenLegacy:
             if command == "ATZ" { throw OBDError.timeout }
             if command == "ATI" { return "ELM327 v1.5" }
-            if command == "0100" { return "NO DATA" }
+            if command == "22380B" { return "NO DATA" }
             if command == "ATDPN" { return "A7" }
             return "?"
-        case .protocolSearchTimeout:
+        case .mode22NegotiationFailure:
             if command == "ATZ" { return "ELM327 v1.5" }
-            if command == "0100" { throw OBDError.timeout }
+            if command == "22380B" { return "UNABLE TO CONNECT" }
+            if command == "0100" { return "41 00 BE 3F A8 13" }
+            if command == "ATDPN" { return "A7" }
+            return "OK"
+        case .mode22Timeout:
+            if command == "ATZ" { return "ELM327 v1.5" }
+            if command == "22380B" { throw OBDError.timeout }
+            if command == "0100" { return "41 00 BE 3F A8 13" }
             if command == "ATDPN" { return "A7" }
             return "OK"
         }
@@ -1918,33 +1926,64 @@ expect(!ELMLineEngine.isSuccessfulATResponse("NO DATA"),
 expect(!ELMLineEngine.isSuccessfulATResponse("ERROR\rOK"),
        "header: mixed error and OK is rejected")
 
+expect(!ELM327.failedToNegotiate("NO DATA"),
+       "trigger: NO DATA means negotiated, no fallback")
+expect(!ELM327.failedToNegotiate("SEARCHING...\rNO DATA"),
+       "trigger: SEARCHING + NO DATA is still negotiated")
+expect(!ELM327.failedToNegotiate("41 00 BE 3F A8 13"),
+       "trigger: a valid response means negotiated")
+expect(ELM327.failedToNegotiate("UNABLE TO CONNECT"),
+       "trigger: UNABLE TO CONNECT means negotiation failed")
+expect(ELM327.failedToNegotiate("SEARCHING...\rUNABLE TO CONNECT"),
+       "trigger: SEARCHING + UNABLE TO CONNECT is a failure")
+expect(ELM327.failedToNegotiate("?"),
+       "trigger: '?' means negotiation failed")
+expect(ELM327.failedToNegotiate("STOPPED"),
+       "trigger: STOPPED means negotiation failed")
+expect(ELM327.failedToNegotiate("CAN ERROR"),
+       "trigger: CAN ERROR means negotiation failed")
+
 let validInitialization = InitializationTestTransport(.valid)
 do {
     try await ELM327(connection: validInitialization).initializeSession()
     let commands = await validInitialization.commands()
     let atsp0 = commands.firstIndex { $0.command == "ATSP0" }
-    let search = commands.firstIndex { $0.command == "0100" }
+    let search = commands.firstIndex { $0.command == "22380B" }
     let protocolQuery = commands.firstIndex { $0.command == "ATDPN" }
     expect(atsp0 != nil && search != nil && protocolQuery != nil
            && atsp0! < search! && search! < protocolQuery!,
-           "init: ATSP0/0100 autodetect runs before ATDPN")
-    expect(!commands.contains(where: { $0.command == "22380B" }),
-           "init: bootstrap never uses the optional 22380B PID as a probe")
+           "init: ATSP0/Mode22 autodetect runs before ATDPN")
+    expect(!commands.contains(where: { $0.command == "0100" }),
+           "init: live bootstrap never sends Mode 01 when Mode 22 negotiates")
 } catch {
     failures += 1
-    print("FAIL: init: valid ATSP0/0100 bootstrap threw \(error)")
+    print("FAIL: init: valid ATSP0/Mode22 bootstrap threw \(error)")
 }
 
-let protocolSearchTimeout = InitializationTestTransport(.protocolSearchTimeout)
+let mode22NegotiationFailure = InitializationTestTransport(.mode22NegotiationFailure)
 do {
-    try await ELM327(connection: protocolSearchTimeout).initializeSession()
-    let commands = await protocolSearchTimeout.commands()
-    expect(commands.contains(where: { $0.command == "0100" })
-           && !commands.contains(where: { $0.command == "22380B" }),
-           "init: a timed-out 0100 search is non-fatal and no Mode 22 probe is required")
+    try await ELM327(connection: mode22NegotiationFailure).initializeSession()
+    let commands = await mode22NegotiationFailure.commands()
+    let mode22 = commands.firstIndex { $0.command == "22380B" }
+    let mode01 = commands.firstIndex { $0.command == "0100" }
+    expect(mode22 != nil && mode01 != nil && mode22! < mode01!,
+           "init: UNABLE TO CONNECT from Mode 22 falls back to Mode 01")
 } catch {
     failures += 1
-    print("FAIL: init: timed-out 0100 search incorrectly failed initialization: \(error)")
+    print("FAIL: init: Mode 22 UNABLE TO CONNECT fallback threw \(error)")
+}
+
+let mode22Timeout = InitializationTestTransport(.mode22Timeout)
+do {
+    try await ELM327(connection: mode22Timeout).initializeSession()
+    let commands = await mode22Timeout.commands()
+    let mode22 = commands.firstIndex { $0.command == "22380B" }
+    let mode01 = commands.firstIndex { $0.command == "0100" }
+    expect(mode22 != nil && mode01 != nil && mode22! < mode01!,
+           "init: timed-out Mode 22 trigger falls back to Mode 01 and stays non-fatal")
+} catch {
+    failures += 1
+    print("FAIL: init: Mode 22 timeout fallback incorrectly failed initialization: \(error)")
 }
 
 let rejectingInitialization = InitializationTestTransport(.rejectsEverything)
@@ -1961,9 +2000,9 @@ do {
     try await ELM327(connection: legacyInitialization).initializeSession()
     let commands = await legacyInitialization.commands()
     expect(commands.contains(where: { $0.command == "ATI" })
-           && commands.contains(where: { $0.command == "0100" })
-           && !commands.contains(where: { $0.command == "22380B" }),
-           "init: timed-out ATZ falls back to ATI and keeps Mode 22 optional")
+           && commands.contains(where: { $0.command == "22380B" })
+           && !commands.contains(where: { $0.command == "0100" }),
+           "init: timed-out ATZ falls back to ATI and triggers Mode 22 DPF-only")
 } catch {
     failures += 1
     print("FAIL: init: legacy reset fallback threw \(error)")

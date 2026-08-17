@@ -13,10 +13,12 @@ struct ELM327 {
     /// Boots the adapter into a known state and negotiates the diagnostic
     /// protocol. Called once after (re)connect.
     ///
-    /// Protocol search is deliberately triggered with the generic `0100`
-    /// request before any FCA Mode 22 request. Some ELM327 clones cannot start
-    /// protocol negotiation from a physically addressed `22380B` request even
-    /// though their AT command channel and later DPF PIDs work correctly.
+    /// Protocol search is triggered with a functional (non-addressed) Mode 22
+    /// request so the live session stays DPF-only: generic Mode 01 traffic can
+    /// disturb the physical Mode 22 header context on real FCA vehicles. Some
+    /// ELM327 clones cannot start negotiation from a *physically addressed*
+    /// `22380B` request, so the trigger is sent functionally and falls back to
+    /// the generic `0100` trigger only when Mode 22 cannot negotiate at all.
     func initializeSession() async throws {
         let initStartedAt = Date()
         var channelAcknowledged = false
@@ -59,10 +61,10 @@ struct ELM327 {
             }
         }
 
-        // Trigger protocol negotiation before Mode 22. This request is only an
-        // autodetect trigger: a timeout, NO DATA or an adapter-specific error
-        // must not invalidate the session, because the DPF PIDs are optional
-        // and are probed independently by DPFMonitor afterwards.
+        // Trigger protocol negotiation. This request is only an autodetect
+        // trigger: a timeout, NO DATA or an adapter-specific error must not
+        // invalidate the session, because the DPF PIDs are optional and are
+        // probed independently by DPFMonitor afterwards.
         await logOptionalProtocolSearch()
 
         guard channelAcknowledged else {
@@ -71,7 +73,7 @@ struct ELM327 {
 
         OBDLog.log(String(
             format: "init: protocol path %@ after %.2f s",
-            "ATSP0/0100",
+            "ATSP0/Mode22",
             Date().timeIntervalSince(initStartedAt)
         ))
 
@@ -93,18 +95,62 @@ struct ELM327 {
         return Self.isAcceptedATResponse(wake)
     }
 
-    /// Sends the generic Mode 01 protocol trigger with a generous timeout.
-    /// Failure is diagnostic only; it must never make a usable AT channel fail
-    /// merely because a clone cannot answer this particular request.
+    /// Triggers the ELM327's automatic protocol search (the "SEARCHING..."
+    /// autodetect) with a functional Mode 22 request so the live session stays
+    /// DPF-only: generic Mode 01 traffic can disturb the physical Mode 22
+    /// header context on real FCA vehicles. `NO DATA` is an acceptable outcome
+    /// — it proves the ELM settled on a protocol even though no ECU answered
+    /// the broadcast.
+    ///
+    /// Only a failure to *negotiate* (`UNABLE TO CONNECT`, `?`, `ERROR`,
+    /// `STOPPED`, or a timeout) falls back to the generic `0100` trigger. That
+    /// reproduces the previous behavior for clones that only complete autodetect
+    /// from Mode 01, so those adapters cannot regress. Failure of either trigger
+    /// is diagnostic only and never invalidates the session.
     private func logOptionalProtocolSearch() async {
-        do {
-            let response = try await connection.send("0100", timeout: 12.0)
-            if !Self.isAcceptedATResponse(response) {
-                OBDLog.log("init: optional 0100 protocol search returned: \(response)")
-            }
-        } catch {
-            OBDLog.log("init: optional 0100 protocol search unavailable: \(error)")
+        if await triggerProtocolSearch("22380B") {
+            return
         }
+        OBDLog.log("init: Mode 22 trigger did not negotiate; falling back to Mode 01")
+        _ = await triggerProtocolSearch("0100")
+    }
+
+    /// Runs one protocol-search trigger and returns whether the ELM negotiated
+    /// a protocol (even with `NO DATA`). Returns false only when the request
+    /// could not negotiate at all — the signal to try the Mode 01 fallback.
+    private func triggerProtocolSearch(_ command: String) async -> Bool {
+        do {
+            let response = try await connection.send(command, timeout: 12.0)
+            if Self.failedToNegotiate(response) {
+                OBDLog.log("init: optional \(command) did not negotiate: \(response)")
+                return false
+            }
+            if !Self.isAcceptedATResponse(response) {
+                // NO DATA (or another non-ack) still means the ELM executed the
+                // request; acceptable for a protocol trigger.
+                OBDLog.log("init: optional \(command) protocol search returned: \(response)")
+            }
+            return true
+        } catch {
+            OBDLog.log("init: optional \(command) protocol search unavailable: \(error)")
+            return false
+        }
+    }
+
+    /// True when the ELM327 could not even complete protocol negotiation for
+    /// the request — the signal for the Mode 01 fallback. `NO DATA` and a bare
+    /// `SEARCHING...` preamble are NOT negotiation failures: they mean the ELM
+    /// settled on a protocol but no ECU answered.
+    static func failedToNegotiate(_ response: String) -> Bool {
+        let lines = response
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+        return lines.contains(where: {
+            $0 == "?"
+                || $0 == "STOPPED"
+                || $0.contains("ERROR")
+                || $0.contains("UNABLE TO CONNECT")
+        })
     }
 
     static func isAcceptedATResponse(_ response: String) -> Bool {
