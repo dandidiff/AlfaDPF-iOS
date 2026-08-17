@@ -2017,6 +2017,8 @@ do {
     let mode01 = commands.firstIndex { $0.command == "0100" }
     expect(search != nil && mode01 != nil && search! < mode01!,
            "init: NO DATA probe falls back to the 0100 trigger")
+    expect(commands.first(where: { $0.command == "0100" })?.header == "18DB33F1",
+           "init: the 0100 fallback uses the functional broadcast header, not the stale physical ATSH")
     expect(protocolNumber == nil,
            "init: an unproven protocol is never returned for caching")
 } catch {
@@ -2044,6 +2046,18 @@ do {
 } catch {
     failures += 1
     print("FAIL: init: timed-out probe fallback incorrectly failed initialization: \(error)")
+}
+
+let elevenBitFallbackInitialization = InitializationTestTransport(.probeNoDataThen0100)
+do {
+    _ = try await ELM327(connection: elevenBitFallbackInitialization)
+        .initializeSession(probeHeader: "7E0")
+    let commands = await elevenBitFallbackInitialization.commands()
+    expect(commands.first(where: { $0.command == "0100" })?.header == "7DF",
+           "init: an 11-bit probe header maps the 0100 fallback to the 7DF broadcast")
+} catch {
+    failures += 1
+    print("FAIL: init: 11-bit 0100 functional header mapping threw", error)
 }
 
 let cachedConfirmedInitialization = InitializationTestTransport(.cachedConfirmed)
@@ -2167,6 +2181,18 @@ expect(ecuProfileStore.load() == rememberedECUWithIBS,
        "ibs: preferred battery source persists in the ECU profile")
 expect(DPFECUProfileStore(identifier: "ble:other", defaults: ecuProfileDefaults).load() == nil,
        "dpf: ECU routes do not leak to another adapter")
+expect(DPFECUProfile(
+    headersByPID: ["380B": "18DA10F1", "18E4": "18DA18F1"],
+    lastGoodHeader: "18DA18F1"
+).protocolProbeHeader == "18DA10F1",
+       "dpf: the protocol probe prefers the 380B-specific route over lastGoodHeader")
+expect(DPFECUProfile(
+    headersByPID: ["18E4": "18DA18F1"],
+    lastGoodHeader: "18DA10F1"
+).protocolProbeHeader == "18DA10F1",
+       "dpf: the protocol probe falls back to lastGoodHeader when 380B has no route")
+expect(DPFECUProfile().protocolProbeHeader == nil,
+       "dpf: no remembered route yields no probe header")
 ecuProfileDefaults.removePersistentDomain(forName: ecuProfileSuite)
 
 expect(BLEAdvertisementClassifier.matches(name: "KONNWEI-KW903", advertisedServices: []),

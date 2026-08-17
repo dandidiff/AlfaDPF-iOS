@@ -549,12 +549,15 @@ final class MonitorSession {
         let elm = ELM327(connection: obd)
         do {
             let initStartedAt = Date()
+            // Prefer the route validated for the exact DPF-load PID (22380B)
+            // over lastGoodHeader, which belongs to whichever ECU answered last
+            // and can be a different one — a wrong header fails the cached-
+            // protocol confirmation and re-triggers the 0100 search on every
+            // reconnect.
+            let probeHeader = profileStore?.load()?.protocolProbeHeader
             let negotiatedProtocol = try await elm.initializeSession(
                 cachedProtocol: protocolCache?.load(),
-                // Probe the last header that answered on this adapter, so the
-                // cached-protocol probe can be confirmed even on vehicles where
-                // the DPF PID lives on a non-default ECU.
-                probeHeader: profileStore?.load()?.lastGoodHeader
+                probeHeader: probeHeader
             )
             // Persist the negotiated protocol only after the ECU-proven probe
             // accepted it — a plain ATSPx OK or a NO DATA is never promoted to

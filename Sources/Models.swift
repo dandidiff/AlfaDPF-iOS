@@ -1992,6 +1992,16 @@ struct DPFECUProfile: Codable, Equatable, Sendable {
     var lastGoodHeader: String?
     var preferredExhaustTemperaturePID: UInt16?
     var preferredBatteryStateOfChargeSource: BatteryStateOfChargeSource?
+
+    /// Header to use for the physical Mode 22 protocol probe (PID 380B): the
+    /// route validated for that exact PID when present, else the last header
+    /// that answered anything. `lastGoodHeader` alone is unsafe — it tracks the
+    /// last ECU that replied to *any* PID, which may not own the DPF-load PID
+    /// the probe addresses.
+    var protocolProbeHeader: String? {
+        headersByPID[String(format: "%04X", DPFPID.regenProgressPercent.rawValue)]
+            ?? lastGoodHeader
+    }
 }
 
 final class DPFECUProfileStore: @unchecked Sendable {

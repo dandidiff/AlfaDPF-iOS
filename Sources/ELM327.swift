@@ -119,7 +119,16 @@ struct ELM327 {
         if !Self.isECUProvenDiagnosticProbe(probe ?? "") {
             OBDLog.log("init: probe did not prove the protocol; trying the 0100 trigger")
             do {
-                let trigger = try await connection.send("0100", timeout: 12.0)
+                // The physical probe above left the adapter on ATSH<header>;
+                // `header: nil` would keep that physical address, so the generic
+                // Mode 01 autodetect never fires on the clones this fallback
+                // exists for. Switch back to the functional broadcast header.
+                let functional = Mode01Reader.functionalRequestHeader(
+                    forPhysicalHeader: header
+                ) ?? "7DF"
+                let trigger = try await connection.send(
+                    "0100", header: functional, timeout: 12.0
+                )
                 if !Self.isAcceptedATResponse(trigger) {
                     OBDLog.log("init: optional 0100 protocol search returned: \(trigger)")
                 }
