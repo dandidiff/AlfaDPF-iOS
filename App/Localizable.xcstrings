@@ -450,34 +450,6 @@
         }
       }
     },
-    "Altri" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Other"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Otros"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Autres"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Altri"
-          }
-        }
-      }
-    },
     "ANDAMENTO CARICO" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -871,92 +843,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Attivi"
-          }
-        }
-      }
-    },
-    "Avanz." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prog."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Progr."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Progr."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avanz."
-          }
-        }
-      }
-    },
-    "Avanzamento" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Progress"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Progreso"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Progression"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avanzamento"
-          }
-        }
-      }
-    },
-    "AVANZAMENTO" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PROGRESS"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PROGRESO"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PROGRESSION"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AVANZAMENTO"
           }
         }
       }
@@ -2490,6 +2376,7 @@
       }
     },
     "DATI VEICOLO" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4382,6 +4269,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Le notifiche di sistema Driving Task richiedono iOS 18.4. Usa il test alert CarPlay."
+          }
+        }
+      }
+    },
+    "Le prime due tile su CarPlay sono fisse: Carico DPF e Rigenerazione. Usa le frecce per ordinare le altre." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The first two CarPlay tiles are fixed: DPF load and Regeneration. Use the arrows to reorder the rest."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las dos primeras fichas de CarPlay son fijas: Carga DPF y Regeneración. Usa las flechas para reordenar las demás."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les deux premières tuiles CarPlay sont fixes : Charge DPF et Régénération. Utilisez les flèches pour réordonner les autres."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le prime due tile su CarPlay sono fisse: Carico DPF e Rigenerazione. Usa le frecce per ordinare le altre."
           }
         }
       }

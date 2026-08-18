@@ -707,29 +707,36 @@ expect(CarPlayDashboardIconPolicy.tone(
 expect(CarPlayDashboardPolicy.maximumTileCount == 8,
        "carplay dashboard: Apple's CPGridTemplate limit remains eight buttons")
 let allPhoneMetrics = Set(DashboardMetric.allCases)
+let defaultMetricOrder = DashboardMetricOrderPreference.defaultOrder()
 let carPlaySelectedMetrics = CarPlayDashboardLayout.selectedMetrics(
-    visibleDashboardMetrics: allPhoneMetrics
+    visibleDashboardMetrics: allPhoneMetrics,
+    order: defaultMetricOrder
 )
-let carPlayPrimaryMetrics = CarPlayDashboardLayout.primaryMetrics(
-    visibleDashboardMetrics: allPhoneMetrics
-)
-let carPlayOverflowMetrics = CarPlayDashboardLayout.overflowMetrics(
-    visibleDashboardMetrics: allPhoneMetrics
-)
-expect(carPlaySelectedMetrics.count == 9
-       && carPlayPrimaryMetrics.count == 7
-       && carPlayOverflowMetrics.count == 2
-       && carPlayPrimaryMetrics.count + 1 == CarPlayDashboardPolicy.maximumTileCount
-       && carPlayPrimaryMetrics + carPlayOverflowMetrics == carPlaySelectedMetrics,
-       "carplay dashboard: all nine selected telemetry metrics remain reachable within Apple's eight-button grid limit")
+expect(carPlaySelectedMetrics.count == 8
+       && carPlaySelectedMetrics.first == .dpf
+       && carPlaySelectedMetrics.dropFirst().first == .regeneration
+       && carPlaySelectedMetrics.count <= CarPlayDashboardPolicy.maximumTileCount,
+       "carplay dashboard: two fixed tiles lead and the full set fits the eight-button grid")
 let coolantOnlyCarPlayMetrics = CarPlayDashboardLayout.selectedMetrics(
-    visibleDashboardMetrics: [.coolantTemperature]
+    visibleDashboardMetrics: [.coolantTemperature],
+    order: defaultMetricOrder
 )
-expect(coolantOnlyCarPlayMetrics == [.dpf, .regeneration, .coolant]
-       && CarPlayDashboardLayout.overflowMetrics(
-            visibleDashboardMetrics: [.coolantTemperature]
-       ).isEmpty,
+expect(coolantOnlyCarPlayMetrics == [.dpf, .regeneration, .coolant],
        "carplay dashboard: phone visibility choices drive the CarPlay metric set")
+let reorderedCarPlayMetrics = CarPlayDashboardLayout.selectedMetrics(
+    visibleDashboardMetrics: allPhoneMetrics,
+    order: [.batteryVoltage, .oilPressure, .exhaustTemperature, .coolantTemperature,
+            .totalRegenerations, .distanceSinceRegeneration]
+)
+expect(reorderedCarPlayMetrics == [.dpf, .regeneration, .battery, .oil, .exhaust,
+                                   .coolant, .totalRegenerations, .distance],
+       "carplay dashboard: secondary tiles follow the driver's chosen order with DPF and regeneration pinned")
+let hiddenInOrder = CarPlayDashboardLayout.selectedMetrics(
+    visibleDashboardMetrics: [.distanceSinceRegeneration, .batteryVoltage],
+    order: [.oilPressure, .distanceSinceRegeneration, .batteryVoltage, .exhaustTemperature]
+)
+expect(hiddenInOrder == [.dpf, .regeneration, .distance, .battery],
+       "carplay dashboard: hidden metrics are skipped without disturbing the order of visible ones")
 expect(CarPlayDashboardPolicy.maximumInformationItemCount == 4,
        "carplay dashboard: detail surfaces stay compact")
 let compactTemperatureTitles = CarPlayGridTitlePolicy.variants(
@@ -872,8 +879,8 @@ do {
         contentsOfFile: "App/Localizable.xcstrings",
         encoding: .utf8
     )
-    expect(localization.contains("\"Avanzamento\" : {"),
-           "carplay localization: compact progress tile key is present")
+    expect(localization.contains("\"Avanzamento rigenerazione\" : {"),
+           "carplay localization: regeneration progress detail key is present")
 } catch {
     failures += 1
     print("FAIL: carplay localization: could not read catalog — \(error)")
@@ -903,11 +910,9 @@ do {
     let catalog = try JSONSerialization.jsonObject(with: catalogData) as? [String: Any]
     let strings = catalog?["strings"] as? [String: Any]
     let requiredValues: [String: [String: String]] = [
-        "Altri": ["it": "Altri", "en": "Other", "fr": "Autres", "es": "Otros"],
         "Ult. regen": ["it": "Ult. regen", "en": "Last reg.", "fr": "Dern. régén.", "es": "Últ. regen."],
         "Gas": ["it": "Gas", "en": "Gas", "fr": "Gaz", "es": "Gas"],
         "Temp. motore": ["it": "Temp. motore", "en": "Coolant", "fr": "Temp. moteur", "es": "Temp. motor"],
-        "Avanz.": ["it": "Avanz.", "en": "Prog.", "fr": "Progr.", "es": "Progr."],
         "N. regen": ["it": "N. regen", "en": "No. regens", "fr": "Nb régén.", "es": "N.º regen."],
         "Batt.": ["it": "Batt.", "en": "Batt.", "fr": "Batt.", "es": "Bater."],
     ]
@@ -924,11 +929,11 @@ do {
     }
     let carPlaySource = try String(contentsOfFile: "Sources/CarPlaySceneDelegate.swift", encoding: .utf8)
     let sourceUsesCompactKeys = [
-        "Ult. regen", "Gas", "Temp. motore", "Avanz.", "N. regen", "Batt.", "Altri",
+        "Ult. regen", "Gas", "Temp. motore", "N. regen", "Batt.",
     ].allSatisfy { carPlaySource.contains("AppLocalization.string(\"\($0)\")") }
     expect(
         catalogIsComplete && sourceUsesCompactKeys,
-        "carplay localization: compact labels and translated overflow title are complete"
+        "carplay localization: compact labels are complete"
     )
 } catch {
     failures += 1
@@ -1437,6 +1442,38 @@ let optedOutCoolant = DashboardMetricPreference.load(
 expect(
     !optedOutCoolant.visible.contains(.coolantTemperature) && !optedOutCoolant.didMigrate,
     "dashboard: manual coolant opt-out survives later launches"
+)
+
+let orderDefaults = UserDefaults(suiteName: "AlfaDPFOrderTest.\(UUID().uuidString)")!
+orderDefaults.removePersistentDomain(forName: "AlfaDPFOrderTest.\(UUID().uuidString)")
+expect(
+    DashboardMetricOrderPreference.load(from: orderDefaults)
+        == DashboardMetricOrderPreference.defaultOrder(),
+    "dashboard order: a fresh install starts from the canonical metric order"
+)
+let orderStored = UserDefaults(suiteName: "AlfaDPFOrderStoredTest.\(UUID().uuidString)")!
+orderStored.removePersistentDomain(forName: "AlfaDPFOrderStoredTest.\(UUID().uuidString)")
+DashboardMetricOrderPreference.save(
+    [.batteryVoltage, .oilPressure, .totalRegenerations],
+    to: orderStored
+)
+expect(
+    DashboardMetricOrderPreference.load(from: orderStored)
+        == [.batteryVoltage, .oilPressure, .totalRegenerations,
+            .distanceSinceRegeneration, .exhaustTemperature, .coolantTemperature],
+    "dashboard order: a saved order is restored and any metric omitted from it is appended"
+)
+let orderLegacy = UserDefaults(suiteName: "AlfaDPFOrderLegacyTest.\(UUID().uuidString)")!
+orderLegacy.removePersistentDomain(forName: "AlfaDPFOrderLegacyTest.\(UUID().uuidString)")
+orderLegacy.set(
+    ["regenerationProgress", "batteryVoltage", "oilPressure"],
+    forKey: DashboardMetricOrderPreference.defaultsKey
+)
+expect(
+    !DashboardMetricOrderPreference.load(from: orderLegacy).contains { $0.rawValue == "regenerationProgress" }
+        && DashboardMetricOrderPreference.load(from: orderLegacy).count
+            == DashboardMetric.allCases.count,
+    "dashboard order: removed metric identifiers are dropped while every current metric is retained"
 )
 
 do {

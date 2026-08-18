@@ -60,6 +60,19 @@ final class MonitorSession {
         }
     }
 
+    /// User-chosen order of the secondary dashboard metrics. DPF load and
+    /// regeneration are fixed on CarPlay, so only the vehicle metrics are
+    /// reorderable. Persisted independently of visibility, so a hidden metric
+    /// keeps its slot for when it is shown again.
+    var dashboardMetricsOrder: [DashboardMetric] {
+        didSet {
+            DashboardMetricOrderPreference.save(dashboardMetricsOrder, to: defaults)
+            if oldValue != dashboardMetricsOrder {
+                publishCarPlayRefresh(.interaction)
+            }
+        }
+    }
+
     var appAccent: StelvioAccent {
         didSet {
             defaults.set(appAccent.rawValue, forKey: Self.appAccentDefaultsKey)
@@ -174,6 +187,7 @@ final class MonitorSession {
             .flatMap(StelvioAccent.init(rawValue:)) ?? .rossoAlfa
         let initialAppLanguage = AppLanguage.load(from: defaults)
         let initialTransportKind = OBDTransportKind.load(from: defaults)
+        let initialDashboardMetricsOrder = DashboardMetricOrderPreference.load(from: defaults)
         let initialWiFiHost = defaults.string(forKey: Self.wifiHostDefaultsKey)
             ?? WiFiAdapterEndpoint.commonDefault.host
         let initialWiFiPort = defaults.string(forKey: Self.wifiPortDefaultsKey)
@@ -191,6 +205,7 @@ final class MonitorSession {
         }()
         self.autoConnectEnabled = initialAutoConnectEnabled
         self.visibleDashboardMetrics = initialVisibleDashboardMetrics
+        self.dashboardMetricsOrder = initialDashboardMetricsOrder
         self.appAccent = initialAppAccent
         self.appLanguage = initialAppLanguage
         self.transportKind = initialTransportKind
@@ -272,6 +287,16 @@ final class MonitorSession {
         } else {
             visibleDashboardMetrics.remove(metric)
         }
+    }
+
+    func moveDashboardMetric(_ metric: DashboardMetric, toOffset target: Int) {
+        guard let current = dashboardMetricsOrder.firstIndex(of: metric) else { return }
+        let bounded = min(max(target, 0), dashboardMetricsOrder.count - 1)
+        guard bounded != current else { return }
+        var reordered = dashboardMetricsOrder
+        reordered.remove(at: current)
+        reordered.insert(metric, at: bounded)
+        dashboardMetricsOrder = reordered
     }
 
     func start() {

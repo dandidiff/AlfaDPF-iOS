@@ -192,7 +192,8 @@ struct PhoneRootView: View {
                         DPFDetailGrid(
                             dpf: session.dpf,
                             isCached: session.isShowingCachedTelemetry,
-                            visibleMetrics: session.visibleDashboardMetrics
+                            visibleMetrics: session.visibleDashboardMetrics,
+                            metricOrder: session.dashboardMetricsOrder
                         )
                     } else if !session.isAwaitingTelemetry {
                         DashboardEmptyCard(
@@ -1115,6 +1116,7 @@ private struct DPFDetailGrid: View {
     let dpf: DPFState
     let isCached: Bool
     let visibleMetrics: Set<DashboardMetric>
+    let metricOrder: [DashboardMetric]
     @Environment(\.appAccent) private var appAccent
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -1130,7 +1132,7 @@ private struct DPFDetailGrid: View {
             VStack(alignment: .leading, spacing: 11) {
                 SectionLabel(text: "DATI VEICOLO", icon: "car.side.fill")
                 LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(DashboardMetric.allCases.filter(visibleMetrics.contains)) { metric in
+                    ForEach(metricOrder.filter(visibleMetrics.contains)) { metric in
                         card(for: metric)
                     }
                 }
@@ -1164,14 +1166,6 @@ private struct DPFDetailGrid: View {
                 value: dpf.coolantTemperatureC.map { String(format: "%.0f", $0) },
                 unit: "°C",
                 accent: isCached || dpf.coolantTemperatureC == nil ? .gray : .cyan
-            )
-        case .regenerationProgress:
-            MetricCard(
-                icon: "arrow.triangle.2.circlepath",
-                title: "AVANZAMENTO",
-                value: dpf.regenProgressPercent.map { String(format: "%.1f", $0) },
-                unit: "%",
-                accent: isCached ? .gray : (dpf.effectiveRegenerationMode == .active ? .orange : .gray)
             )
         case .totalRegenerations:
             MetricCard(
@@ -1742,26 +1736,72 @@ private struct SettingsView: View {
 
                     settingsSection(title: "PAGINA PRINCIPALE", icon: "rectangle.grid.2x2") {
                         VStack(spacing: 0) {
-                            ForEach(DashboardMetric.allCases) { metric in
-                                Toggle(
-                                    metric.title,
-                                    isOn: Binding(
-                                        get: {
-                                            session.visibleDashboardMetrics.contains(metric)
-                                        },
-                                        set: {
-                                            session.setDashboardMetric(metric, isVisible: $0)
-                                        }
+                            ForEach(
+                                Array(session.dashboardMetricsOrder.enumerated()),
+                                id: \.element
+                            ) { index, metric in
+                                HStack(spacing: 10) {
+                                    Toggle(
+                                        metric.title,
+                                        isOn: Binding(
+                                            get: {
+                                                session.visibleDashboardMetrics.contains(metric)
+                                            },
+                                            set: {
+                                                session.setDashboardMetric(metric, isVisible: $0)
+                                            }
+                                        )
                                     )
-                                )
-                                .font(.system(size: 14, weight: .medium, design: .rounded))
-                                .tint(appAccent)
-                                .padding(.vertical, 8)
+                                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                                    .tint(appAccent)
 
-                                if metric != DashboardMetric.allCases.last {
+                                    Spacer(minLength: 8)
+
+                                    VStack(spacing: 4) {
+                                        Button {
+                                            session.moveDashboardMetric(
+                                                metric,
+                                                toOffset: index - 1
+                                            )
+                                        } label: {
+                                            Image(systemName: "chevron.up")
+                                                .font(.system(size: 11, weight: .semibold))
+                                                .frame(width: 30, height: 22)
+                                                .contentShape(Rectangle())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .disabled(index == 0)
+
+                                        Button {
+                                            session.moveDashboardMetric(
+                                                metric,
+                                                toOffset: index + 1
+                                            )
+                                        } label: {
+                                            Image(systemName: "chevron.down")
+                                                .font(.system(size: 11, weight: .semibold))
+                                                .frame(width: 30, height: 22)
+                                                .contentShape(Rectangle())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .disabled(
+                                            index == session.dashboardMetricsOrder.count - 1
+                                        )
+                                    }
+                                    .foregroundStyle(Brand.textDim)
+                                }
+                                .padding(.vertical, 6)
+
+                                if index != session.dashboardMetricsOrder.count - 1 {
                                     Divider().overlay(Brand.hairline)
                                 }
                             }
+
+                            Text(AppLocalization.string(key: "Le prime due tile su CarPlay sono fisse: Carico DPF e Rigenerazione. Usa le frecce per ordinare le altre."))
+                                .font(.system(size: 11, design: .rounded))
+                                .foregroundStyle(Brand.textDim)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.top, 12)
                         }
                     }
 

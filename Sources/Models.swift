@@ -569,7 +569,6 @@ enum CarPlayDashboardMetric: CaseIterable, Equatable, Sendable {
     case distance
     case exhaust
     case coolant
-    case progress
     case totalRegenerations
     case oil
     case battery
@@ -580,7 +579,6 @@ enum CarPlayDashboardMetric: CaseIterable, Equatable, Sendable {
         case .distance: return .distanceSinceRegeneration
         case .exhaust: return .exhaustTemperature
         case .coolant: return .coolantTemperature
-        case .progress: return .regenerationProgress
         case .totalRegenerations: return .totalRegenerations
         case .oil: return .oilPressure
         case .battery: return .batteryVoltage
@@ -614,36 +612,29 @@ enum CarPlayGridTitlePolicy {
     }
 }
 
-/// Mirrors the driver's iPhone dashboard choices in a deterministic order.
-/// DPF load and regeneration remain the fixed driving-critical tiles. When
-/// more than six chosen secondary metrics remain, the eighth tile opens the
-/// compact overflow details rather than silently dropping a selection.
+/// Mirrors the driver's iPhone dashboard choices in their chosen order. DPF
+/// load and regeneration remain the fixed driving-critical tiles; the remaining
+/// tiles follow the persisted order, keeping only the metrics the driver left
+/// visible. The set always fits the eight-button `CPGridTemplate` ceiling:
+/// two fixed tiles plus at most six secondary metrics.
 enum CarPlayDashboardLayout {
+    static let fixedMetrics: [CarPlayDashboardMetric] = [.dpf, .regeneration]
+
+    /// The CarPlay tile for a phone metric, skipping the fixed tiles.
+    static func carPlayMetric(for metric: DashboardMetric) -> CarPlayDashboardMetric? {
+        CarPlayDashboardMetric.allCases.first { $0.dashboardMetric == metric }
+    }
+
     static func selectedMetrics(
-        visibleDashboardMetrics: Set<DashboardMetric>
+        visibleDashboardMetrics: Set<DashboardMetric>,
+        order: [DashboardMetric]
     ) -> [CarPlayDashboardMetric] {
-        CarPlayDashboardMetric.allCases.filter { metric in
-            metric.dashboardMetric.map(visibleDashboardMetrics.contains) ?? true
+        let secondary = order.compactMap { metric in
+            visibleDashboardMetrics.contains(metric)
+                ? carPlayMetric(for: metric)
+                : nil
         }
-    }
-
-    static func primaryMetrics(
-        visibleDashboardMetrics: Set<DashboardMetric>
-    ) -> [CarPlayDashboardMetric] {
-        let selected = selectedMetrics(visibleDashboardMetrics: visibleDashboardMetrics)
-        let capacity = selected.count > CarPlayDashboardPolicy.maximumTileCount
-            ? CarPlayDashboardPolicy.maximumTileCount - 1
-            : CarPlayDashboardPolicy.maximumTileCount
-        return Array(selected.prefix(capacity))
-    }
-
-    static func overflowMetrics(
-        visibleDashboardMetrics: Set<DashboardMetric>
-    ) -> [CarPlayDashboardMetric] {
-        let selected = selectedMetrics(visibleDashboardMetrics: visibleDashboardMetrics)
-        return Array(selected.dropFirst(primaryMetrics(
-            visibleDashboardMetrics: visibleDashboardMetrics
-        ).count))
+        return fixedMetrics + secondary
     }
 }
 
@@ -677,7 +668,7 @@ enum CarPlayDashboardIconPolicy {
             case .passive, .active:
                 return .regenerationSemantic(state.effectiveRegenerationMode)
             }
-        case .distance, .exhaust, .coolant, .progress, .totalRegenerations, .oil, .battery:
+        case .distance, .exhaust, .coolant, .totalRegenerations, .oil, .battery:
             return .accent
         }
     }
@@ -869,7 +860,6 @@ enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
     case distanceSinceRegeneration
     case exhaustTemperature
     case coolantTemperature
-    case regenerationProgress
     case totalRegenerations
     case oilPressure
     case batteryVoltage
@@ -881,11 +871,36 @@ enum DashboardMetric: String, CaseIterable, Codable, Identifiable, Sendable {
         case .distanceSinceRegeneration: return AppLocalization.string("Distanza dall’ultima rigenerazione")
         case .exhaustTemperature: return AppLocalization.string("Temperatura gas di scarico")
         case .coolantTemperature: return AppLocalization.string("Temperatura liquido motore")
-        case .regenerationProgress: return AppLocalization.string("Avanzamento rigenerazione")
         case .totalRegenerations: return AppLocalization.string("Rigenerazioni totali")
         case .oilPressure: return AppLocalization.string("Stato pressione olio")
         case .batteryVoltage: return AppLocalization.string("Batteria")
         }
+    }
+}
+
+/// Persisted order of the selectable secondary dashboard metrics. CarPlay keeps
+/// DPF load and regeneration fixed, so this list orders only the vehicle
+/// metrics that can follow them. A raw value that no longer maps to a case is
+/// dropped on load, and any case introduced later is appended so a stored list
+/// never silently truncates.
+enum DashboardMetricOrderPreference {
+    static let defaultsKey = "dashboardMetricsOrder.v1"
+
+    static func defaultOrder() -> [DashboardMetric] {
+        DashboardMetric.allCases
+    }
+
+    static func load(from defaults: UserDefaults) -> [DashboardMetric] {
+        guard let stored = defaults.stringArray(forKey: defaultsKey) else {
+            return defaultOrder()
+        }
+        let parsed = stored.compactMap(DashboardMetric.init(rawValue:))
+        let missing = defaultOrder().filter { !parsed.contains($0) }
+        return parsed + missing
+    }
+
+    static func save(_ order: [DashboardMetric], to defaults: UserDefaults) {
+        defaults.set(order.map(\.rawValue), forKey: defaultsKey)
     }
 }
 
