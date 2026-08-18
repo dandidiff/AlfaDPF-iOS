@@ -1,6 +1,7 @@
 import Foundation
 import Network
 import CoreBluetooth
+import SQLite3
 
 // Standalone test runner for the pure protocol logic + OBDConnection.
 // Runs on macOS without Xcode:
@@ -2689,6 +2690,7 @@ case .success(let store):
     let now = Date()
     let recorded1 = store.recordSample(
         timestamp: now,
+        drivingTime: 0,
         cloggingPercent: 30.0,
         exhaustTempC: 180.0,
         regenActive: false,
@@ -2698,6 +2700,7 @@ case .success(let store):
 
     let recorded2 = store.recordSample(
         timestamp: now.addingTimeInterval(10),
+        drivingTime: 10,
         cloggingPercent: 30.2,
         exhaustTempC: 182.0,
         regenActive: false,
@@ -2707,6 +2710,7 @@ case .success(let store):
 
     let recorded3 = store.recordSample(
         timestamp: now.addingTimeInterval(20),
+        drivingTime: 20,
         cloggingPercent: 31.5,
         exhaustTempC: 185.0,
         regenActive: false,
@@ -2715,11 +2719,14 @@ case .success(let store):
     expect(recorded3, "history: sample recorded when delta ≥ 1%")
     let samples = store.samples()
     expect(samples.count == 2, "history: expected 2 isolated samples, got \(samples.count)")
+    expect(samples.first?.drivingTime == 0 && samples.last?.drivingTime == 20,
+           "history: samples carry their driving-time coordinate and stay ordered")
 
     let asyncStoreURL = historyTestDirectory.appendingPathComponent("async.sqlite3")
     if let asyncStore = try? DPFHistoryStore(databaseURL: asyncStoreURL) {
         let asyncRecorded = await asyncStore.recordSampleAsync(
             timestamp: now,
+            drivingTime: 30,
             cloggingPercent: 42.0,
             exhaustTempC: 190.0,
             regenActive: false,
@@ -2734,27 +2741,81 @@ case .success(let store):
 
     let rollingStoreURL = historyTestDirectory.appendingPathComponent("rolling.sqlite3")
     if let rollingStore = try? DPFHistoryStore(databaseURL: rollingStoreURL) {
+        // A sample 201 driving hours in the past falls outside the 200-hour
+        // window. It must be pruned before the delta check, so a near-identical
+        // current load cannot be suppressed by it.
+        let windowHours: TimeInterval = 201 * 60 * 60
         _ = rollingStore.recordSample(
-            timestamp: now.addingTimeInterval(-(25 * 60 * 60)),
+            timestamp: now,
+            drivingTime: 0,
             cloggingPercent: 40.0,
             exhaustTempC: nil,
             regenActive: false,
             distanceSinceLastRegenKm: nil
         )
-        let firstCurrentSample = rollingStore.recordSample(
-            timestamp: now,
+        let currentSample = rollingStore.recordSample(
+            timestamp: now.addingTimeInterval(10),
+            drivingTime: windowHours,
             cloggingPercent: 40.2,
             exhaustTempC: nil,
             regenActive: false,
             distanceSinceLastRegenKm: nil
         )
-        expect(firstCurrentSample,
+        expect(currentSample,
                "history: expired sample cannot suppress the first current-window sample")
-        expect(rollingStore.samples(since: now.addingTimeInterval(-(24 * 60 * 60))).count == 1,
-               "history: expired samples are pruned before the delta decision")
+        let rollingSamples = rollingStore.samples()
+        expect(rollingSamples.count == 1 && rollingSamples.first?.drivingTime == windowHours,
+               "history: samples older than 200 driving hours are pruned before the delta decision")
     } else {
         failures += 1
         print("FAIL: history: rolling-window store init failed")
+    }
+
+    let seedStoreURL = historyTestDirectory.appendingPathComponent("seed.sqlite3")
+    if let seedStore = try? DPFHistoryStore(databaseURL: seedStoreURL) {
+        _ = seedStore.recordSample(
+            timestamp: now, drivingTime: 1000, cloggingPercent: 20.0,
+            exhaustTempC: nil, regenActive: false, distanceSinceLastRegenKm: nil
+        )
+        _ = seedStore.recordSample(
+            timestamp: now.addingTimeInterval(1), drivingTime: 3600, cloggingPercent: 22.0,
+            exhaustTempC: nil, regenActive: false, distanceSinceLastRegenKm: nil
+        )
+        expect(seedStore.latestDrivingTime() == 3600,
+               "history: latest driving time seeds the accumulator from the newest sample")
+    } else {
+        failures += 1
+        print("FAIL: history: seed store init failed")
+    }
+
+    // Migration: a pre-driving-time samples table is discarded on upgrade.
+    let legacyURL = historyTestDirectory.appendingPathComponent("legacy.sqlite3")
+    var legacyDB: OpaquePointer?
+    if sqlite3_open(legacyURL.path, &legacyDB) == SQLITE_OK {
+        let legacySQL = """
+            CREATE TABLE dpf_samples (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp REAL NOT NULL,
+                clogging_pct REAL NOT NULL,
+                exhaust_temp_c REAL,
+                regen_active INTEGER NOT NULL DEFAULT 0,
+                distance_km REAL,
+                UNIQUE(timestamp)
+            );
+            INSERT INTO dpf_samples (timestamp, clogging_pct) VALUES (1.0, 42.0);
+            """
+        sqlite3_exec(legacyDB, legacySQL, nil, nil, nil)
+        sqlite3_close(legacyDB)
+        if let migrated = try? DPFHistoryStore(databaseURL: legacyURL) {
+            expect(migrated.samples().isEmpty,
+                   "history: pre-driving-time samples are discarded on upgrade")
+        } else {
+            failures += 1
+            print("FAIL: history: legacy-store migration init failed")
+        }
+    } else {
+        failures += 1
+        print("FAIL: history: could not create legacy database")
     }
 
     expect(store.recordRegenStart(at: now.addingTimeInterval(30), load: 88.0),

@@ -1468,6 +1468,34 @@
         }
       }
     },
+    "Circa %d h di guida fa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About %d h of driving ago"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hace aprox. %d h de conducción"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il y a environ %d h de conduite"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Circa %d h di guida fa"
+          }
+        }
+      }
+    },
     "Circa %d min rimanenti" : {
       "localizations" : {
         "en" : {
@@ -4472,6 +4500,34 @@
         }
       }
     },
+    "Meno di un’ora di guida fa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Less than an hour of driving ago"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hace menos de una hora de conducción"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il y a moins d’une heure de conduite"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meno di un’ora di guida fa"
+          }
+        }
+      }
+    },
     "Modello veicolo non identificato automaticamente" : {
       "localizations" : {
         "en" : {
@@ -5203,30 +5259,30 @@
         }
       }
     },
-    "Ora" : {
+    "Ore di guida" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Time"
+            "value" : "Driving hours"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hora"
+            "value" : "Horas de conducción"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Heure"
+            "value" : "Heures de conduite"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ora"
+            "value" : "Ore di guida"
           }
         }
       }
