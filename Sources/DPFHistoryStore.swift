@@ -6,6 +6,10 @@ import SQLite3
 /// A single DPF sample recorded to the time-series store.
 struct DPFHistorySample: Equatable, Sendable {
     let timestamp: Date
+    /// Cumulative driving time (seconds while the engine is running with the
+    /// app connected) at the moment this sample was recorded. The chart plots
+    /// against this axis so idle engine-off gaps are compressed away.
+    let drivingTime: TimeInterval
     let cloggingPercent: Double
     let exhaustTempC: Double?
     let regenActive: Bool
@@ -96,7 +100,8 @@ struct DPFHistoryInsights: Equatable, Sendable {
 
 /// On-device SQLite store for DPF time-series samples and regeneration cycles.
 /// Samples are recorded on a delta basis (≥1% load change) and pruned to a
-/// rolling 24-hour window. Everything stays local — zero network, zero account.
+/// rolling 200-driving-hours window — wall-clock idle time between drives is
+/// not counted. Everything stays local — zero network, zero account.
 ///
 /// @unchecked Sendable: the OpaquePointer (SQLite handle) is not Sendable,
 /// but all access is serialized through the internal DispatchQueue.
@@ -104,7 +109,9 @@ final class DPFHistoryStore: @unchecked Sendable {
     private let db: OpaquePointer
     private let queue = DispatchQueue(label: "dpf.history.store")
 
-    private static let sampleWindow: TimeInterval = 24 * 60 * 60
+    /// Retention window expressed in driving hours. A regeneration lands every
+    /// ~12–18 driving hours, so 200 hours spans roughly ten cycles.
+    private static let drivingWindow: TimeInterval = 200 * 60 * 60
     private static let minLoadDelta = 1.0
 
     // MARK: - Init
@@ -136,10 +143,17 @@ final class DPFHistoryStore: @unchecked Sendable {
     // MARK: - Schema
 
     private func createSchema() throws {
+        // The pre-driving-time schema stored wall-clock samples only. Those
+        // rows carry no driving-time coordinate, so they are discarded on
+        // upgrade rather than given an invented value.
+        if samplesTableMissingDrivingTime() {
+            try execute("DROP TABLE dpf_samples")
+        }
         try execute("""
             CREATE TABLE IF NOT EXISTS dpf_samples (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp REAL NOT NULL,
+                driving_time REAL NOT NULL,
                 clogging_pct REAL NOT NULL,
                 exhaust_temp_c REAL,
                 regen_active INTEGER NOT NULL DEFAULT 0,
@@ -148,8 +162,8 @@ final class DPFHistoryStore: @unchecked Sendable {
             )
             """)
         try execute("""
-            CREATE INDEX IF NOT EXISTS idx_samples_timestamp
-            ON dpf_samples(timestamp)
+            CREATE INDEX IF NOT EXISTS idx_samples_driving_time
+            ON dpf_samples(driving_time)
             """)
         try execute("""
             CREATE TABLE IF NOT EXISTS regen_cycles (
@@ -167,6 +181,28 @@ final class DPFHistoryStore: @unchecked Sendable {
             """)
     }
 
+    /// True when `dpf_samples` already exists but predates the driving-time
+    /// column. A brand-new database (no table) returns false.
+    private func samplesTableMissingDrivingTime() -> Bool {
+        let sql = "PRAGMA table_info(dpf_samples)"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            sqlite3_finalize(stmt)
+            return false
+        }
+        defer { sqlite3_finalize(stmt) }
+        var hasColumns = false
+        var hasDrivingTime = false
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            hasColumns = true
+            if let name = sqlite3_column_text(stmt, 1),
+               String(cString: name) == "driving_time" {
+                hasDrivingTime = true
+            }
+        }
+        return hasColumns && !hasDrivingTime
+    }
+
     // MARK: - Sample recording
 
     /// Records a sample if the load changed by at least 1% from the last
@@ -174,6 +210,7 @@ final class DPFHistoryStore: @unchecked Sendable {
     @discardableResult
     func recordSample(
         timestamp: Date,
+        drivingTime: TimeInterval,
         cloggingPercent: Double,
         exhaustTempC: Double?,
         regenActive: Bool,
@@ -182,6 +219,7 @@ final class DPFHistoryStore: @unchecked Sendable {
         queue.sync {
             _recordSample(
                 timestamp: timestamp,
+                drivingTime: drivingTime,
                 cloggingPercent: cloggingPercent,
                 exhaustTempC: exhaustTempC,
                 regenActive: regenActive,
@@ -194,6 +232,7 @@ final class DPFHistoryStore: @unchecked Sendable {
     /// isolated, so its regular telemetry path must never wait for SQLite.
     func recordSampleAsync(
         timestamp: Date,
+        drivingTime: TimeInterval,
         cloggingPercent: Double,
         exhaustTempC: Double?,
         regenActive: Bool,
@@ -203,6 +242,7 @@ final class DPFHistoryStore: @unchecked Sendable {
             queue.async { [self] in
                 continuation.resume(returning: _recordSample(
                     timestamp: timestamp,
+                    drivingTime: drivingTime,
                     cloggingPercent: cloggingPercent,
                     exhaustTempC: exhaustTempC,
                     regenActive: regenActive,
@@ -214,19 +254,19 @@ final class DPFHistoryStore: @unchecked Sendable {
 
     private func _recordSample(
         timestamp: Date,
+        drivingTime: TimeInterval,
         cloggingPercent: Double,
         exhaustTempC: Double?,
         regenActive: Bool,
         distanceSinceLastRegenKm: Double?
     ) -> Bool {
         // Prune before the delta check. Otherwise an expired row with almost
-        // the same value can suppress the first valid sample of a new 24-hour
-        // window forever.
-        let cutoff = timestamp.addingTimeInterval(-Self.sampleWindow)
-        _pruneOldSamples(before: cutoff)
+        // the same value can suppress the first valid sample of a new window
+        // forever.
+        _pruneOldSamples(beforeDrivingTime: drivingTime - Self.drivingWindow)
 
-        // Check delta against the last sample.
-        let lastSQL = "SELECT clogging_pct FROM dpf_samples ORDER BY timestamp DESC LIMIT 1"
+        // Check delta against the most recent sample by driving time.
+        let lastSQL = "SELECT clogging_pct FROM dpf_samples ORDER BY driving_time DESC LIMIT 1"
         var stmt: OpaquePointer?
         var shouldInsert = true
         if sqlite3_prepare_v2(db, lastSQL, -1, &stmt, nil) == SQLITE_OK {
@@ -242,22 +282,23 @@ final class DPFHistoryStore: @unchecked Sendable {
         guard shouldInsert else { return false }
 
         let insertSQL = """
-            INSERT INTO dpf_samples (timestamp, clogging_pct, exhaust_temp_c, regen_active, distance_km)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO dpf_samples (timestamp, driving_time, clogging_pct, exhaust_temp_c, regen_active, distance_km)
+            VALUES (?, ?, ?, ?, ?, ?)
             """
         if sqlite3_prepare_v2(db, insertSQL, -1, &stmt, nil) == SQLITE_OK {
             sqlite3_bind_double(stmt, 1, timestamp.timeIntervalSince1970)
-            sqlite3_bind_double(stmt, 2, cloggingPercent)
+            sqlite3_bind_double(stmt, 2, drivingTime)
+            sqlite3_bind_double(stmt, 3, cloggingPercent)
             if let temp = exhaustTempC {
-                sqlite3_bind_double(stmt, 3, temp)
+                sqlite3_bind_double(stmt, 4, temp)
             } else {
-                sqlite3_bind_null(stmt, 3)
+                sqlite3_bind_null(stmt, 4)
             }
-            sqlite3_bind_int(stmt, 4, regenActive ? 1 : 0)
+            sqlite3_bind_int(stmt, 5, regenActive ? 1 : 0)
             if let dist = distanceSinceLastRegenKm {
-                sqlite3_bind_double(stmt, 5, dist)
+                sqlite3_bind_double(stmt, 6, dist)
             } else {
-                sqlite3_bind_null(stmt, 5)
+                sqlite3_bind_null(stmt, 6)
             }
             let rc = sqlite3_step(stmt)
             sqlite3_finalize(stmt)
@@ -353,40 +394,58 @@ final class DPFHistoryStore: @unchecked Sendable {
 
     // MARK: - Queries
 
-    /// Returns samples from the last 24 hours, ordered by timestamp ascending.
-    func samples(since: Date? = nil, limit: Int = 2000) -> [DPFHistorySample] {
+    /// Returns every retained sample, ordered by driving time ascending. The
+    /// store already prunes to the driving-time window, so no further filter
+    /// is applied here.
+    func samples(limit: Int = 2000) -> [DPFHistorySample] {
         queue.sync {
-            _samples(since: since ?? Date().addingTimeInterval(-Self.sampleWindow), limit: limit)
+            _samples(limit: limit)
         }
     }
 
-    private func _samples(since: Date, limit: Int) -> [DPFHistorySample] {
+    private func _samples(limit: Int) -> [DPFHistorySample] {
         let sql = """
-            SELECT timestamp, clogging_pct, exhaust_temp_c, regen_active, distance_km
+            SELECT timestamp, driving_time, clogging_pct, exhaust_temp_c, regen_active, distance_km
             FROM dpf_samples
-            WHERE timestamp >= ?
-            ORDER BY timestamp ASC
+            ORDER BY driving_time ASC
             LIMIT ?
             """
         var result: [DPFHistorySample] = []
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-            sqlite3_bind_double(stmt, 1, since.timeIntervalSince1970)
-            sqlite3_bind_int(stmt, 2, Int32(min(limit, 2000)))
+            sqlite3_bind_int(stmt, 1, Int32(min(limit, 2000)))
             while sqlite3_step(stmt) == SQLITE_ROW {
                 result.append(DPFHistorySample(
                     timestamp: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 0)),
-                    cloggingPercent: sqlite3_column_double(stmt, 1),
-                    exhaustTempC: sqlite3_column_type(stmt, 2) == SQLITE_NULL
-                        ? nil : sqlite3_column_double(stmt, 2),
-                    regenActive: sqlite3_column_int(stmt, 3) != 0,
-                    distanceSinceLastRegenKm: sqlite3_column_type(stmt, 4) == SQLITE_NULL
-                        ? nil : sqlite3_column_double(stmt, 4)
+                    drivingTime: sqlite3_column_double(stmt, 1),
+                    cloggingPercent: sqlite3_column_double(stmt, 2),
+                    exhaustTempC: sqlite3_column_type(stmt, 3) == SQLITE_NULL
+                        ? nil : sqlite3_column_double(stmt, 3),
+                    regenActive: sqlite3_column_int(stmt, 4) != 0,
+                    distanceSinceLastRegenKm: sqlite3_column_type(stmt, 5) == SQLITE_NULL
+                        ? nil : sqlite3_column_double(stmt, 5)
                 ))
             }
         }
         sqlite3_finalize(stmt)
         return result
+    }
+
+    /// Most recent cumulative driving time, used to seed the session's
+    /// accumulator across app restarts. Zero when the store is empty.
+    func latestDrivingTime() -> TimeInterval {
+        queue.sync {
+            let sql = "SELECT MAX(driving_time) FROM dpf_samples"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                sqlite3_finalize(stmt)
+                return 0
+            }
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
+            if sqlite3_column_type(stmt, 0) == SQLITE_NULL { return 0 }
+            return sqlite3_column_double(stmt, 0)
+        }
     }
 
     /// Returns the most recent regeneration cycles, newest first.
@@ -481,11 +540,11 @@ final class DPFHistoryStore: @unchecked Sendable {
 
     // MARK: - Maintenance
 
-    private func _pruneOldSamples(before cutoff: Date) {
-        let sql = "DELETE FROM dpf_samples WHERE timestamp < ?"
+    private func _pruneOldSamples(beforeDrivingTime cutoff: TimeInterval) {
+        let sql = "DELETE FROM dpf_samples WHERE driving_time < ?"
         var stmt: OpaquePointer?
         if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
-            sqlite3_bind_double(stmt, 1, cutoff.timeIntervalSince1970)
+            sqlite3_bind_double(stmt, 1, cutoff)
             sqlite3_step(stmt)
         }
         sqlite3_finalize(stmt)

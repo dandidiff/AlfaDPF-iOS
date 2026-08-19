@@ -103,6 +103,11 @@ final class MonitorSession {
     private var historyStartGate = RegenHistoryStartGate()
     private var engineOffDetector = RegenEngineOffDetector()
     private var regenTimeEstimator = RegenTimeEstimator()
+    /// Cumulative driving seconds while live telemetry is flowing. Seeded from
+    /// the history store so it survives app restarts, and only advances while
+    /// consecutive live samples keep arriving (engine-off gaps are ignored).
+    private var drivingTimeSeconds: TimeInterval = 0
+    private var lastLiveTickAt: Date?
     private var carPlayRefreshSubscribers: [
         UUID: AsyncStream<CarPlayRefreshEvent>.Continuation
     ] = [:]
@@ -216,6 +221,9 @@ final class MonitorSession {
             DrivingFocusGuidancePreference.needsPresentation(from: defaults)
         self.dpf = saved ?? DPFState()
         self.lastPersistedState = saved
+        // Seed the driving-time accumulator from the store so the counter
+        // continues across app restarts instead of resetting to zero.
+        self.drivingTimeSeconds = self.historyStore?.latestDrivingTime() ?? 0
         if historyStore?.recordActiveRegenUnconfirmed() == true {
             OBDLog.log("history: active regen from previous app lifecycle marked unconfirmed")
         }
@@ -348,6 +356,7 @@ final class MonitorSession {
         activeScenario = nil
         status = .idle
         hasLiveTelemetry = false
+        lastLiveTickAt = nil
         regenTimeEstimator.reset()
         estimatedRegenerationTimeRemaining = nil
 
@@ -673,7 +682,22 @@ final class MonitorSession {
         }
     }
 
+    /// Accumulates driving time while live telemetry keeps flowing. Only small
+    /// wall-clock deltas between consecutive live samples count, so an
+    /// engine-off, disconnect, or background suspension gap is never added.
+    private func advanceDrivingTime() {
+        let now = Date()
+        if let last = lastLiveTickAt {
+            let delta = now.timeIntervalSince(last)
+            if delta >= 0 && delta <= 60 {
+                drivingTimeSeconds += delta
+            }
+        }
+        lastLiveTickAt = now
+    }
+
     private func acceptLive(_ snapshot: DPFState) {
+        advanceDrivingTime()
         _ = engineOffDetector.observe(
             voltage: snapshot.batteryVoltage,
             at: snapshot.batteryVoltageUpdatedAt,
@@ -707,9 +731,11 @@ final class MonitorSession {
             let delta = lastRecordedCloggingPercent.map { abs(load - $0) } ?? .infinity
             if delta >= 1.0 {
                 let generation = workGeneration
+                let sampleDrivingTime = drivingTimeSeconds
                 Task { [weak self] in
                     let recorded = await store.recordSampleAsync(
                         timestamp: snapshot.timestamp,
+                        drivingTime: sampleDrivingTime,
                         cloggingPercent: load,
                         exhaustTempC: snapshot.exhaustTempC,
                         regenActive: historyTransition.nextKnownState == true,
@@ -786,6 +812,7 @@ final class MonitorSession {
         guard !reportedTelemetryInterruption else { return }
         persistCurrentState()
         hasLiveTelemetry = false
+        lastLiveTickAt = nil
         regenTimeEstimator.reset()
         estimatedRegenerationTimeRemaining = nil
         reportedTelemetryInterruption = true

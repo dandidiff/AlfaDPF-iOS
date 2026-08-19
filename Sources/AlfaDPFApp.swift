@@ -2325,24 +2325,39 @@ private struct HistoryNavigationRow: View {
     }
 }
 
+/// Shared driving-time math for the history chart. The X axis is cumulative
+/// driving time, and every label is expressed as "driving hours ago" relative
+/// to the newest sample so the scale stays meaningful regardless of how long
+/// the app has been installed.
+private enum DPFHistoryDrivingTime {
+    static func hoursAgo(_ sample: DPFHistorySample, latest: TimeInterval) -> Double {
+        max(0, (latest - sample.drivingTime) / 3600)
+    }
+
+    static func hoursAgoText(_ hoursAgo: Double) -> String {
+        let rounded = Int(hoursAgo.rounded())
+        if rounded < 1 {
+            return AppLocalization.string("Meno di un’ora di guida fa")
+        }
+        return String(format: AppLocalization.string("Circa %d h di guida fa"), rounded)
+    }
+}
+
 private struct DPFHistoryChartAccessibility: AXChartDescriptorRepresentable {
     let samples: [DPFHistorySample]
 
     func makeChartDescriptor() -> AXChartDescriptor {
-        let timestamps = samples.map { $0.timestamp.timeIntervalSince1970 }
-        let lowerBound = timestamps.min() ?? 0
-        let upperBound = max(timestamps.max() ?? lowerBound, lowerBound + 1)
-        let timeFormatter = DateFormatter()
-        timeFormatter.locale = AppLocalization.language.locale
-        timeFormatter.dateStyle = .none
-        timeFormatter.timeStyle = .short
+        let latest = samples.last?.drivingTime ?? 0
+        let drivingTimes = samples.map { $0.drivingTime }
+        let lowerBound = drivingTimes.min() ?? 0
+        let upperBound = max(drivingTimes.max() ?? lowerBound, lowerBound + 1)
 
         let xAxis = AXNumericDataAxisDescriptor(
-            title: AppLocalization.string("Ora"),
+            title: AppLocalization.string("Ore di guida"),
             range: lowerBound...upperBound,
             gridlinePositions: [lowerBound, upperBound]
         ) { value in
-            timeFormatter.string(from: Date(timeIntervalSince1970: value))
+            DPFHistoryDrivingTime.hoursAgoText((latest - value) / 3600)
         }
         let yAxis = AXNumericDataAxisDescriptor(
             title: AppLocalization.string("Carico"),
@@ -2353,7 +2368,7 @@ private struct DPFHistoryChartAccessibility: AXChartDescriptorRepresentable {
         }
         let points = samples.map { sample in
             AXDataPoint(
-                x: sample.timestamp.timeIntervalSince1970,
+                x: sample.drivingTime,
                 y: sample.cloggingPercent,
                 label: sample.regenActive
                     ? AppLocalization.string("Rigenerazione attiva")
@@ -2382,7 +2397,7 @@ private struct DPFHistoryView: View {
     @State private var samples: [DPFHistorySample] = []
     @State private var cycles: [DPFRegenCycle] = []
     @State private var insights = DPFHistoryInsights(cycles: [])
-    @State private var selectedTime: Date?
+    @State private var selectedDrivingTime: Double?
 
     var body: some View {
         NavigationStack {
@@ -2418,12 +2433,23 @@ private struct DPFHistoryView: View {
         .preferredColorScheme(.dark)
     }
 
+    private var latestDrivingTime: TimeInterval {
+        samples.last?.drivingTime ?? 0
+    }
+
     private var selectedSample: DPFHistorySample? {
-        guard let selectedTime else { return nil }
+        guard let selectedDrivingTime else { return nil }
         return samples.min { lhs, rhs in
-            abs(lhs.timestamp.timeIntervalSince(selectedTime))
-                < abs(rhs.timestamp.timeIntervalSince(selectedTime))
+            abs(lhs.drivingTime - selectedDrivingTime)
+                < abs(rhs.drivingTime - selectedDrivingTime)
         }
+    }
+
+    /// Compact horizontal-axis label: driving hours ago, relative to the
+    /// newest sample. "0h" is the current moment.
+    private func hoursAgoAxisLabel(_ drivingSeconds: Double) -> String {
+        let hoursAgo = max(0, (latestDrivingTime - drivingSeconds) / 3600)
+        return "\(Int(hoursAgo.rounded()))h"
     }
 
     private var insightsSection: some View {
@@ -2517,14 +2543,14 @@ private struct DPFHistoryView: View {
                     Chart {
                         ForEach(samples, id: \.timestamp) { sample in
                             LineMark(
-                                x: .value("Ora", sample.timestamp),
+                                x: .value("Guida", sample.drivingTime),
                                 y: .value("Carico", sample.cloggingPercent)
                             )
                             .foregroundStyle(.cyan)
                             .lineStyle(StrokeStyle(lineWidth: 2.5))
 
                             AreaMark(
-                                x: .value("Ora", sample.timestamp),
+                                x: .value("Guida", sample.drivingTime),
                                 y: .value("Carico", sample.cloggingPercent)
                             )
                             .foregroundStyle(
@@ -2540,7 +2566,7 @@ private struct DPFHistoryView: View {
 
                             if sample.regenActive {
                                 PointMark(
-                                    x: .value("Ora", sample.timestamp),
+                                    x: .value("Guida", sample.drivingTime),
                                     y: .value("Carico", sample.cloggingPercent)
                                 )
                                 .foregroundStyle(.orange)
@@ -2557,10 +2583,10 @@ private struct DPFHistoryView: View {
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
 
                         if let selectedSample {
-                            RuleMark(x: .value("Selezione", selectedSample.timestamp))
+                            RuleMark(x: .value("Selezione", selectedSample.drivingTime))
                                 .foregroundStyle(Color.white.opacity(0.45))
                             PointMark(
-                                x: .value("Selezione", selectedSample.timestamp),
+                                x: .value("Selezione", selectedSample.drivingTime),
                                 y: .value("Carico", selectedSample.cloggingPercent)
                             )
                             .foregroundStyle(.white)
@@ -2569,9 +2595,13 @@ private struct DPFHistoryView: View {
                     }
                     .chartYScale(domain: 0...100)
                     .chartXAxis {
-                        AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                            AxisValueLabel(format: .dateTime.hour().minute())
-                                .foregroundStyle(Brand.textDim)
+                        AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                            AxisValueLabel {
+                                if let seconds = value.as(Double.self) {
+                                    Text(hoursAgoAxisLabel(seconds))
+                                        .foregroundStyle(Brand.textDim)
+                                }
+                            }
                             AxisTick()
                                 .foregroundStyle(Brand.hairline)
                             AxisGridLine()
@@ -2591,7 +2621,7 @@ private struct DPFHistoryView: View {
                         }
                     }
                     .frame(height: 220)
-                    .chartXSelection(value: $selectedTime)
+                    .chartXSelection(value: $selectedDrivingTime)
                     .accessibilityChartDescriptor(
                         DPFHistoryChartAccessibility(samples: samples)
                     )
@@ -2658,9 +2688,16 @@ private struct DPFHistoryView: View {
 
     private func historySampleDetail(_ sample: DPFHistorySample) -> some View {
         HStack(spacing: 12) {
-            Text(sample.timestamp.formatted(date: .omitted, time: .shortened))
-                .font(.caption.weight(.semibold).monospacedDigit())
-                .foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(sample.timestamp.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.white)
+                Text(DPFHistoryDrivingTime.hoursAgoText(
+                    DPFHistoryDrivingTime.hoursAgo(sample, latest: latestDrivingTime)
+                ))
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(Brand.textDim)
+            }
 
             Divider().frame(height: 24).overlay(Brand.hairline)
 
